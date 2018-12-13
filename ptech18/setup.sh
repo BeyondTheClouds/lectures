@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
-# Setup the lab
+sudo apt update
+sudo apt install -y curl tcpdump
 sudo snap install microstack --classic --edge
 sudo snap install openstackclients --classic --edge

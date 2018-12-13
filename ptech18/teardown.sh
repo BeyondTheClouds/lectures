@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Teardown the lab
 for vm in $(openstack server list -c Name -f value); do\
   echo "Deleting ${vm}...";\
   openstack server delete "${vm}";\

@@ -6,6 +6,7 @@
 #+STARTUP: entitiespretty
 #+OPTIONS: ^:{} ':t email:t toc:nil
 #+LINK: base-url https://rcherrueau.github.io/teaching/ptech18/%s
+#+LINK: horizon-url  http://localhost:8080/%s
 
 #+EXCLUDE_TAGS: solution
 
@@ -31,6 +32,7 @@ Find the slides of the lecture [[http://enos.irisa.fr/tp-polytech/openstack-slid
   - [[#environment][Environment]]
   - [[#setup-openstack][Setup OpenStack]]
 - [[#play-with-openstack][Play with OpenStack]]
+  - [[#openstack-horizon-dashboard][OpenStack Horizon Dashboard]]
   - [[#unleash-the-operator-in-you][Unleash the Operator in You]]
   - [[#in-encryption-we-trust][In Encryption We Trust]]
   - [[#the-art-of-provisioning-a-vm][The Art of Provisioning a VM]]
@@ -54,6 +56,22 @@ Find the slides of the lecture [[http://enos.irisa.fr/tp-polytech/openstack-slid
   - [[#installs-mariadb-on-debian-9][Installs MariaDB on Debian 9]]
   - [[#installs-wordpress-on-debian-9][Installs Wordpress on Debian 9]]
 
+* COMMENT Notes
+** Problem with Virtualbox
+See https://github.com/CanonicalLtd/microstack/issues/41
+
+Change ~/var/snap/microstack/common/etc/nova/nova.conf.d/hypervisor.conf~
+
+#+BEGIN_SRC conf
+[libvirt]
+virt_type = qemu
+cpu_mode = host-model
+#+END_SRC
+
+And restart ~nova-compute~
+
+: sudo systemctl restart snap.microstack.nova-compute.service
+
 * Requirements and Setup
 ** Resources of the Lab
 Get the resources of the lab at [[base-url:tp.tar.gz]].
@@ -72,9 +90,9 @@ The archive contains:
 
 ** Environment
 To follow the lab you'll need a Linux (prefer Ubuntu 18.04) with 6 Go
-of RAM.
+of RAM and a few Go of disk.
 
-The lab makes use of [[https://github.com/CanonicalLtd/microstack][Snap microstack]], OpenStack in a Snap that you can
+The lab makes use of [[https://github.com/CanonicalLtd/microstack][Snap microstack]]: OpenStack in a Snap that you can
 run locally on a single machine. Snap is the Canonical's App delivery
 mechanism. It enables developers to bundle all dependencies into a
 single app package. And so does Snap microstack for an all-in-one
@@ -96,7 +114,6 @@ OpenStack (instead of 30 minutes for other options).
 
 ** Setup OpenStack
 Install OpenStack directly from the snap store.
-
 : sudo snap install microstack --classic --edge
 
 Then, ensure OpenStack services are running on your machine.
@@ -121,8 +138,11 @@ there status? What is the purpose of each service?
 #+END_COMMENT
 
 And finally, execute the ~setup.sh~ file (require sudo).
+: ./setup.sh
 
 #+BEGIN_SRC bash :tangle ./setup.sh    :shebang #!/usr/bin/env bash :exports none
+sudo apt update
+sudo apt install -y curl tcpdump
 sudo snap install microstack --classic --edge
 sudo snap install openstackclients --classic --edge
 #+END_SRC
@@ -146,10 +166,10 @@ sudo snap remove microstack
 :PROPERTIES:
 :CUSTOM_ID: sec:play-with-os
 :END:
-The last service deployed is the OpenStack dashboard (Horizon). Once
-the deployment process is finished, Horizon is reachable from the web
-browser of your host machine http://192.168.142.127 with the following
-credentials:
+** OpenStack Horizon Dashboard
+One service deployed is the OpenStack dashboard (Horizon). On your
+machine horizon is reachable from the web browser at [[horizon-url]] with
+the following credentials:
 - login: ~admin~
 - password: ~keystone~
 
@@ -173,41 +193,40 @@ access the VM:
 - login: ~cirros~
 - password: ~cubswin:)~
 
-Unfortunately this feature is disabled with Snap microstack but as
-every devops, you will prefer to access to your vm by the command line
-interface as desribed in the next section.
+Unfortunately this feature is disabled with Snap microstack. But as a
+real DevOps, you will prefer to access to your vm by the command line
+interface ...
 
 ** Unleash the Operator in You
-
 While Horizon is helpful to discover OpenStack features, this is not
-how a true operator administrates OpenStack. A true operator prefers
-command line interface 😄.
-You are luck, OpenStack provides such a command line interface. 
+the tool of choice for a true operator. A true operator prefers
+command line interface 😄. You are lucky, OpenStack provides such a
+command line interface.
 
 To use it, you need in most deployments to set your environment with
 the OpenStack credentials, so that the command line won't bother you
 by requiring credentials each time. you can retrieve this information
-through the horizon interface by clicking on the top right corner on
-the admin dropdown list and get the RC V3 file.
+through the Horizon interface by clicking on the top right corner of
+the admin dropdown list and get the RC V3 file (or by clicking on that
+[[horizon-url:project/api_access/openrc/][link]]).
 
 To setup your environment please source this file.
-: vagrant@openstack:~$ source ~/Downloads/admin-openrc
+: source ./admin-openrc.sh
 
-
-You can then check that your environment is correctly set by:
+You can then check that your environment is correctly set.
 #+BEGIN_EXAMPLE
-vagrant@openstack:~$ env|grep OS_
-OS_PROJECT_DOMAIN_ID=default
-OS_REGION_NAME=RegionOne
-OS_USER_DOMAIN_NAME=default
-OS_USER_DOMAIN_ID=default
-OS_PROJECT_NAME=admin
+$ env|fgrep OS_|sort
+
+OS_AUTH_URL=http://localhost:5000/v3/
 OS_IDENTITY_API_VERSION=3
-OS_PASSWORD=demo
-OS_AUTH_URL=http://192.168.142.103:35357/v3
+OS_INTERFACE=public
+OS_PASSWORD=keystone
+OS_PROJECT_DOMAIN_ID=default
+OS_PROJECT_ID=76c02713292e4d3cba0625c9995a96aa
+OS_PROJECT_NAME=admin
+OS_REGION_NAME=microstack
+OS_USER_DOMAIN_NAME=Default
 OS_USERNAME=admin
-OS_TENANT_NAME=admin
-OS_PROJECT_DOMAIN_NAME=default
 #+END_EXAMPLE
 
 All operations to manage OpenStack are done through one single command
@@ -226,19 +245,19 @@ gives you a selection of the most often used commands to operate your Cloud:
 
 Using all these commands, you can use the CLI to start a new tiny
 cirros VM called ~cli-vm~:
-#+BEGIN_EXAMPLE
-vagrant@openstack:~$ openstack server create\
+#+BEGIN_SRC bash
+openstack server create\
   --image cirros\
   --flavor m1.tiny\
   --network test\
   cli-vm
-#+END_EXAMPLE
+#+END_SRC
 
 Then, display the information about your VM with the following command:
-: vagrant@openstack:~$ openstack server show cli-vm
+: openstack server show cli-vm
 
-Note in particular the status of your VM. This status will go from
-~BUILD~: OpenStack is looking for the best place to boot the VM, to
+Note in particular the ~status~ of your VM. This status will go from
+~BUILD~: OpenStack is looking for the best place to boot the VM; to
 ~ACTIVE~: your VM is running. The status could also be ~ERROR~ if you
 are experiencing hard times with your infrastructure.
 
@@ -246,50 +265,11 @@ With the previous ~openstack server create~ command, the VM boots with
 a private IP. When the state is ~ACTIVE~, wait one minute or two, the
 time for the VM to boot. You can ask for the status of your VM and its
 IPs with:
-: vagrant@openstack:~$ openstack server show cli-vm -c status -c addresses
-Once you got its private IP, you can ping and SSH on it:
-: vagrant@openstack:~$ ping <private-ip>
-: vagrant@openstack:~$ ssh -l cirros <private-ip>
+: openstack server show cli-vm -c status -c addresses
 
-
-Private IPs are used for communication between VMs, meaning you cannot
-ping your VM from an external network ({{{eg}}} the host machine). You
-have to manually affect a floating IP to your machine if you want it
-to be pingable from the host.
-#+BEGIN_EXAMPLE
-vagrant@openstack:~$ openstack server add floating ip\
-  cli-vm\
-  $(openstack floating ip create external -c floating_ip_address -f value)
-#+END_EXAMPLE
-
-Then, ask for the status of your VM and its IPs with:
-: vagrant@openstack:~$ openstack server show cli-vm -c status -c addresses
-
-When the state is ~ACTIVE~, wait one minute or two, the time for the VM
-to boot. 
-#+BEGIN_do
-Ping it on its floating IP
-: vagrant@openstack:~$ ping <floating-ip> # floating-ip is 192.168.143.*
-Does it work? Why?  OpenStack is using different security rules, find
-which rules should be set in order to allow icmp packets as well as
-ssh connections to the VM.
-#+END_do
-
-#+BEGIN_COMMENT
-#+BEGIN_SRC bash
-SECGROUP_ID=`microstack.openstack security group list --project admin -f value -c ID`
-openstack security group rule create $SECGROUP_ID --proto tcp --remote-ip 0.0.0.0/0 --dst-port 22
-openstack security group rule create $SECGROUP_ID --proto icmp --remote-ip 0.0.0.0/0
-#+END_SRC
-#+END_COMMENT
-
-Once you succeed to ping the vm, you should be able to ssh on it
-: vagrant@openstack:~$ ssh -l cirros <floating-ip>
-
-#+BEGIN_NOTE
-You can check that the VM finished to boot by looking at its logs with
-~openstack console log show cli-vm~. The VM finished to boot when last
-lines are:
+You can also check that the VM finished to boot by looking at its logs
+with ~openstack console log show cli-vm~. The VM finished to boot when
+last lines are:
 #+BEGIN_EXAMPLE
 === cirros: current=0.3.4 uptime=16.56 ===
   ____               ____  ____
@@ -302,73 +282,173 @@ lines are:
 login as 'cirros' user. default password: 'cubswin:)'. use 'sudo' for root.
 cli-vm login:
 #+END_EXAMPLE
-#+END_NOTE
 
-Go on and play with the
-~openstack~ cli. For instance, list all features offered
-by Nova with ~openstack server --help~ and try to figure out how to : 
+Private IPs are used for communication between VMs, meaning you cannot
+ping your VM from an external network (e.g., the host machine). You
+have to manually affect a floating IP of the ~external~ network to
+your machine if you want it to be pingable from the host.
+#+BEGIN_SRC bash
+ALLOCATED_FIP=$(openstack floating ip create\
+  -c floating_ip_address -f value external)
+openstack server add floating ip cli-vm "$ALLOCATED_FIP"
+#+END_SRC
+
+Then, ask again for the status of your VM and its IPs.
+: openstack server show cli-vm -c status -c addresses
+
+#+BEGIN_do
+Note the new IP address. From which network this IP comes? Ping
+~cli-vm~ on its floating IP.
+: echo "$ALLOCATED_FIP"
+: openstack subnet show external-subnet -c cidr -c allocation_pools
+: ping "$ALLOCATED_FIP"
+
+Does it work? Why? Hint: [[https://docs.openstack.org/neutron/latest/feature_classification/general_feature_support_matrix.html#operation_Security_Groups][OpenStack sets security groups by default]].
+
+#+BEGIN_COMMENT
+The IP comes from the network 10.20.20.0/24 serves on the host machine
+by ~br-ex~. Actually, Snap microstack [[https://github.com/CanonicalLtd/microstack/blob/130ff892b77b7a37268add7126216b31d3b5fd09/snap-overlay/bin/setup-br-ex][creates]] a new virtual interface
+named ~br-ex~ to manage the external network.
+
+: openstack subnet show external-subnet -c cidr -c allocation_pools
+: ip a |fgrep -B 2 10.20.20
+
+Regarding security rules, OpenStack is very conservative by default
+and prevents ingress and egress traffic. The following rules allow
+icmp packets and SSH connection on the VM.
+
+#+BEGIN_SRC bash
+SECGROUP_ID=`openstack security group list --project admin -f value -c ID`
+openstack security group rule create $SECGROUP_ID --proto tcp --remote-ip 0.0.0.0/0 --dst-port 22
+openstack security group rule create $SECGROUP_ID --proto icmp --remote-ip 0.0.0.0/0
+#+END_SRC
+
+# The enos way
+# #+BEGIN_SRC bash
+# ADMIN_PROJECT_ID=$(openstack project list --user admin -c ID -f value)
+# ADMIN_SEC_GROUP=$(openstack security group list --project ${ADMIN_PROJECT_ID} -c ID -f value)
+# for i in $(openstack security group rule list -c ID -f value)
+# do
+#     openstack security group rule delete $i
+# done
+#
+# openstack security group rule create ${ADMIN_SEC_GROUP} --protocol icmp --dst-port 1:65535 --remote-ip 0.0.0.0/0 --ingress
+# openstack security group rule create ${ADMIN_SEC_GROUP} --protocol icmp --dst-port 1:65535 --remote-ip 0.0.0.0/0 --egress
+# openstack security group rule create ${ADMIN_SEC_GROUP} --protocol tcp --dst-port 1:65535 --remote-ip 0.0.0.0/0 --ingress
+# openstack security group rule create ${ADMIN_SEC_GROUP} --protocol tcp --dst-port 1:65535 --remote-ip 0.0.0.0/0 --egress
+# openstack security group rule create ${ADMIN_SEC_GROUP} --protocol udp --dst-port 1:65535 --remote-ip 0.0.0.0/0 --ingress
+# openstack security group rule create ${ADMIN_SEC_GROUP} --protocol udp --dst-port 1:65535 --remote-ip 0.0.0.0/0 --egress
+# #+END_SRC
+#+END_COMMENT
+#+END_do
+
+Once you succeed to ping the vm, you should be able to SSH on it
+: ssh -l cirros "$ALLOCATED_FIP"
+
+#+BEGIN_do
+From the cirros, ping the outside world.
+: ping 8.8.8.8
+
+Does it work? Why? Hint: do a ~tcpdump -nni br-ex icmp~ to understand
+how the packets flow. Idem on the NIC of your default route.
+
+#+BEGIN_COMMENT
+The network traffic on ~br-ex~ is not supposed to go out, and you have
+to use the NIC of your default route (i.e., ~ip r|fgrep default~,
+e.g., ~eth0~ ) as a gateway (see,
+https://www.systutorials.com/1372/setting-up-gateway-using-iptables-and-route-on-linux/).
+
+You have to change the source IP of out packet (~10.20.20.*~) to
+gateway's IP (e.g., ~10.0.2.15~ on my machine). The ~iptables~ will
+then automatically change the replied packet's destination IP
+(~10.0.2.15~) to the original source IP (~10.20.20.*~). This process
+is called a SNAT and you can implement it with ~iptables~.
+
+First, enable Linux IP forwarding.
+: sudo sysctl -w net.ipv4.ip_forward=1
+
+Then, set up the SNAT with ~iptables~.
+: sudo iptables -t nat -A POSTROUTING ! -d 10.20.20.0/24 -o eth0 -j SNAT --to-source 10.0.2.15
+#+END_COMMENT
+#+END_do
+
+Go on, and play with the ~openstack~ cli. For instance, list all
+features offered by Nova with ~openstack server --help~ and try to
+figure out how to:
 1. SSH on ~cli-vm~ using its name rather than its IP;
-2. Suspend and resume it; 
-3. Create a snapshot of ~cli-vm~ (for this question, you should play directly wit the nova CLI)
+2. Suspend and resume it;
+3. Create a snapshot of ~cli-vm~ (Hint: use the ~nova~ CLI directly)
 4. Boot a new machine ~cli-vm-clone~ from the snapshot.
 5. Delete ~cli-vm-clone~;
 
 #+BEGIN_COMMENT
 #+BEGIN_SRC bash
-sudo snap install openstackclients --edge --classic
+# 1.
 openstack server ssh cli-vm -l cirros
-openstack server suspend cli-vm
-nova image-create cli-vm cli-vm-img
-openstack image list
-openstack server create --flavor m1.tiny --network test --image cli-vm-img cli-vm-clone
+# 2.
+openstack server suspend cli-vm; openstack server show cli-vm -c status
+openstack server resume cli-vm; openstack server show cli-vm -c status
+# 3.
+nova image-create cli-vm cli-vm-img; openstack image list
+# 4.
+openstack server create --wait --flavor m1.tiny\
+  --network test --image cli-vm-img\
+  cli-vm-clone
 #+END_SRC
 #+END_COMMENT
 
 ** In Encryption We Trust
-Any cirros VMs share the same credentials ({{{ie}}} ~cirros~,
-~cubswin~) which is a security problem. As an IaaS DevOps, you want
-that only some clients can SSH on some VMs. Fortunately, OpenStack
-helps with the management of SSH keys. OpenStack can generate a SSH
-key and push the public counterpart on the VM. Therefore, doing a
-~ssh~ on the VM will use the SSH key instead of asking the client to
-fill the credentials.
+Any cirros VMs share the same credentials (i.e., ~cirros~, ~cubswin~)
+which is a security problem. As an IaaS DevOps, you want that only
+some clients can SSH on the VMs. Fortunately, OpenStack helps with the
+management of SSH keys. OpenStack can generate a SSH key and push the
+public counterpart on the VM. Therefore, doing a ~ssh~ on the VM will
+use the SSH key instead of asking the client to fill the credentials.
 
 Make an SSH key and store the private counterpart in =~/admin.pem=.
 Then, give that file the correct permission access.
-: vagrant@openstack:~$ openstack keypair create --private-key ~/admin.pem admin
-: vagrant@openstack:~$ chmod 600 admin.pem
+: openstack keypair create --private-key ~/admin.pem admin
+: chmod 600 admin.pem
 
-Then, start a new VM and ask OpenStack to copy the public counterpart
-of your SSH key in the =~/.ssh/authorized_keys= of the VM ({{{ie}}}
-note the ~--key-name admin~).
+Start a new VM and ask OpenStack to copy the public counterpart of
+your SSH key in the =~/.ssh/authorized_keys= of the VM (i.e., note the
+~--key-name admin~).
 #+BEGIN_SRC bash
-vagrant@openstack:~$ openstack server create --wait --image cirros\
-                               --flavor m1.tiny --network test\
-                               --key-name admin cli-vm-adminkey
+openstack server create --wait --image cirros\
+  --flavor m1.tiny --network test\
+  --key-name admin cli-vm-adminkey
+#+END_SRC
+
+Attach it a floating IP.
+#+BEGIN_SRC bash
+openstack server add floating ip\
+  cli-vm-adminkey\
+  $(openstack floating ip create -c floating_ip_address -f value external)
 #+END_SRC
 
 Now you can access your VM using SSH without filling credentials.
 #+BEGIN_SRC bash
-vagrant@openstack:~$ openstack server ssh cli-vm-adminkey \
-                                --private\
-                                --login cirros\
-                                --identity ~/admin.pem
+openstack server ssh cli-vm-adminkey \
+  --login cirros\
+  --identity ~/admin.pem
 #+END_SRC
 
 Or directly with the ~ssh~ command
-: vagrant@openstack:~$ ssh -i ~/admin.pem cirros@$(openstack server show cli-vm-adminkey -c addresses -f value | sed  -Er 's/private=(10\.0\.0\.[0-9]+).*/\1/g')
+: ssh -i ~/admin.pem cirros@$(openstack server show cli-vm-adminkey -c addresses -f value | sed  -Er 's/test=.+ (10\.20\.20\.[0-9]+).*/\1/g')
 
 #+BEGIN_NOTE
-A regular ~ssh~ command looks like ~ssh -i <identity-file> <name>@<server-ip>~. The following OpenStack command followed by the ~sed~ returns the private IP of ~cli-vm-adminkey~.
-: vagrant@openstack:~$ openstack server show cli-vm-adminkey -c addresses -f value | sed  -Er 's/private=(10\.0\.0\.[0-9]+).*/\1/g'
+A regular ~ssh~ command looks like ~ssh -i <identity-file>
+<name>@<server-ip>~. The following OpenStack command followed by the
+~sed~ returns the floating IP of ~cli-vm-adminkey~. You may have to
+adapt it a bit according to your network cidr.
+: openstack server show cli-vm-adminkey -c addresses -f value | sed  -Er 's/test=.+ (10\.20\.20\.[0-9]+).*/\1/g'
 #+END_NOTE
 
 ** The Art of Provisioning a VM
 Provisioning is the process that automatically installs software,
 alters configurations, and more on the machine as part of the boot
-process. On OpenStack, provisioning is achieved thanks to
-Cloudinit[fn:cloudinit]. It is a program that runs at the boot time to
-customize the VM.
+process. On OpenStack, provisioning is achieved thanks to [[https://cloud-init.io/][Cloudinit]].
+It is a program that runs at the boot time to customize the VM.
 
 You have already used Cloudinit without even knowing it! The previous
 command ~openstack server create~ with the ~--identity~ parameter
@@ -378,9 +458,9 @@ is (among other tasks) in charge of fetching this public SSH key from
 OpenStack, and copy it to =~/.ssh/authorized_keys=. Beyond that,
 Cloudinit is in charge of many aspects of the VM customization like
 mounting volume, resizing file systems or setting an hostname (the
-list of Cloudinit modules can be found here:[fn:cloudinit_modules]).
-Furthermore, Cloudinit is able to run a bash script that will be
-executed on the VM as ~root~ during the boot process.
+list of Cloudinit modules can be found [[http://cloudinit.readthedocs.io/en/latest/topics/modules.html][here]]). Furthermore, Cloudinit
+is able to run a bash script that will be executed on the VM as ~root~
+during the boot process.
 
 To tell OpenStack to make this script reachable from our VM, we use a
 mechanism called ~user-data~. For instance, the following starts a Debian and
