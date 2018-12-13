@@ -27,13 +27,9 @@ Find the slides of the lecture [[http://enos.irisa.fr/tp-polytech/openstack-slid
 
 * Table of Contents                                          :TOC_3_gh:
 - [[#requirements-and-setup][Requirements and Setup]]
-  - [[#source-of-the-lab][Source of the Lab]]
-  - [[#environment-and-setup][Environment and Setup]]
-  - [[#setup-the-lab-vm][Setup the lab vm]]
-    - [[#get-the-base-box][Get the base box]]
-    - [[#prepare-the-lab-vm][Prepare the lab VM]]
-    - [[#start-the-lab-vm][Start the lab VM]]
-  - [[#validate-the-setup][Validate the setup]]
+  - [[#resources-of-the-lab][Resources of the Lab]]
+  - [[#environment][Environment]]
+  - [[#setup-openstack][Setup OpenStack]]
 - [[#play-with-openstack][Play with OpenStack]]
   - [[#unleash-the-operator-in-you][Unleash the Operator in You]]
   - [[#in-encryption-we-trust][In Encryption We Trust]]
@@ -57,249 +53,95 @@ Find the slides of the lecture [[http://enos.irisa.fr/tp-polytech/openstack-slid
 - [[#appendix][Appendix]]
   - [[#installs-mariadb-on-debian-9][Installs MariaDB on Debian 9]]
   - [[#installs-wordpress-on-debian-9][Installs Wordpress on Debian 9]]
-- [[#footnotes][Footnotes]]
 
-* TODO Requirements and Setup
-** Source of the Lab
-Get the source of lab at [[base-url:tp.tar.gz]].
+* Requirements and Setup
+** Resources of the Lab
+Get the resources of the lab at [[base-url:tp.tar.gz]].
 
-#+BEGIN_SRC sh
+#+BEGIN_SRC bash
 curl -O https://rcherrueau.github.io/teaching/ptech18/tp.tar.gz
 tar xf tp
 cd tp
 #+END_SRC
 
-** Environment and Setup
-To follow the lab you'll need a Linux (prefer Ubuntu 18.04) with 6 Go
-of RAM and TODO Go of Disk. The lab makes use of [[https://github.com/CanonicalLtd/microstack][Snap microstack]],
-OpenStack in a Snap that you can run locally on a single machine.
-
-Snap is the Canonical's App delivery mechanism. It enables developers
-to bundle all dependencies into a single app package. And so do Snap
-microstack for OpenStack. The benefits comes at deployment times. It
-takes only 5 minutes to deploy OpenStack rather than 30 minutes in a
-normal Devstack or kolla-ansible deployment. But, note that running a
-all-in-one OpenStack with Snap microstack is good for pedogical reason
-only.
-
-The lab makes use of a pre-installed virtual machine (called
-openstack) where EnOS[fn:enos-paper][fn:enos-code] is installed. EnOS
-is a holistic framework leveraging containers to conduct easy and
-reproducible evaluations of different OpenStack configurations. In
-particular, EnOS helps you in deploying a real OpenStack infrastructure,
-stressing it and getting feedbacks. In the following, we gonna use EnOS
-to easily deploy OpenStack inside the virtual machine.
-
-The following depicts the status of the different components in play
-during the lab.
-
-#+BEGIN_EXAMPLE
-+---------------------------------------+
-|        host machine (your laptop)     |
-|                                       |
-|                                       |
-|   +---------------------------+       |
-|   |openstack machine (vagrant)|       |
-|   |     ~/rsc <- - - - - -  - - - - - - - - - -  EnOS sources & configuration files
-|   |                           |       |
-|   |  * docker container 1 +   |       |
-|   |  * docker container 2 +   |       |
-|   |  * ...                +- - - - - - - - - - - Docker container launched by
-|   |  * docker container n +   |       |          EnOS (Openstack services/third-party
-|   |                           |       |          services)
-|   +---------------------------+       |
-+---------------------------------------+
-#+END_EXAMPLE
-
-#+BEGIN_NOTE
-In a normal use EnOS would be installed on your local machine directly.
-EnOS would also probably deploy OpenStack on a dedicated infrastructure
-(instead of a single VM).
-#+END_NOTE
-
-** Setup the lab vm
-*** Get the base box
-Download the lab archive in your working directory.
-: host:~$ curl -O http://enos.irisa.fr/tp-imt/omh-co.tar.gz
-: host:~$ tar xf omh-co.tar.gz
-: host:~$ cd omh-co
-
 The archive contains:
-- enos            :: The EnOS tool to ease the deployment of OpenStack.
-- omh.box         :: The Vagrant box with all resources needed by EnOS
-     to run OpenStack. The result is a relatively huge (~3GB) box,
-     but it contains everything you need to run EnOS almost offline.
-- Vagrantfile :: The configuration file for the OpenStack lab machine.
-- lib :: A directory with some bash scripts useful for the lab.
+- index.org :: The current subject in text format.
+- setup.sh :: Script that sets up the lab.
+- teardown.sh :: Script that uninstalls the lab.
+- rsc :: Resource directory with bash scripts useful for the lab.
 
-*** Prepare the lab VM
-Check the ~Vagrantfile~ looks like the following (substitute <editor>
-with your favorite editor):
-: host:~/omh-co$ <editor> Vagrantfile
+** Environment
+To follow the lab you'll need a Linux (prefer Ubuntu 18.04) with 6 Go
+of RAM.
 
-#+BEGIN_SRC ruby
-# omh-co/Vagrantfile content
-Vagrant.configure("2") do |config|
-  # Location of the VM image
-  config.vm.box = "file://./omh.box"
+The lab makes use of [[https://github.com/CanonicalLtd/microstack][Snap microstack]], OpenStack in a Snap that you can
+run locally on a single machine. Snap is the Canonical's App delivery
+mechanism. It enables developers to bundle all dependencies into a
+single app package. And so does Snap microstack for an all-in-one
+OpenStack on your machine.
 
-  # Network configuration
-  config.vm.hostname = "openstack"
-  # the lab vm is started with 2 extra network interfaces with
-  # the specified ip addresses
-  config.vm.network :private_network, ip: "192.168.142.127"
-  config.vm.network :private_network, ip: "192.168.143.127"
+An all-in-one OpenStack means that your machine will contain both
+services to /operate/ and /host/ virtualized resources. For instance,
+the ~nova-conductor~ to operate the boot of a VM, and ~nova-compute~
+to host the VM. Which is a good setup for a lab. There are several
+other options such as [[https://docs.openstack.org/devstack/latest/index.html][DevStack]], [[https://docs.openstack.org/puppet-openstack-guide/latest/][Puppet-OpenStack]] or [[https://docs.openstack.org/developer/kolla-ansible/][Kolla-ansible]] and
+all matters. But, Snap microstack takes only 2 minutes to deploy
+OpenStack (instead of 30 minutes for other options).
 
-  # Synchronised `host:~/omh-co` with `openstack:~/rsc`
-  config.vm.synced_folder "./", "/home/vagrant/rsc",
-     owner: "vagrant",
-     group: "vagrant"
+#+BEGIN_note
+- Devstack is good for OpenStack developers.
+- Puppet-OpenStack or Kolla-ansible are good for production
+  deployments.
+#+END_note
 
-  # Resource configuration
-  config.vm.provider "virtualbox" do |vb|
-    vb.cpus = 4
-    vb.memory = 6144
-    vb.customize ["modifyvm", :id, "--nicpromisc3", "allow-all"]
-  end
-end
+** Setup OpenStack
+Install OpenStack directly from the snap store.
+
+: sudo snap install microstack --classic --edge
+
+Then, ensure OpenStack services are running on your machine.
+
+#+BEGIN_do
+Find the snap command that lists microstack OpenStack services and
+there status? What is the purpose of each service?
+#+END_do
+
+#+BEGIN_COMMENT
+: snap services microstack
+
+- glance-* :: Glance to manage VM images.
+- horizon-* :: OpenStack Web dashboard
+- keystone-* :: Keystone to manage authentication and authorization
+                on OpenStack.
+- memcached :: Cache used by all OpenStack services
+- mysqld :: Database used by all OpenStack services
+- neutron-* :: Neutron to manage networks
+- nova-* :: Nova to manage VM
+- rabbitmq-server :: Communication bus used by all OpenStack services
+#+END_COMMENT
+
+And finally, execute the ~setup.sh~ file (require sudo).
+
+#+BEGIN_SRC bash :tangle ./setup.sh    :shebang #!/usr/bin/env bash :exports none
+sudo snap install microstack --classic --edge
+sudo snap install openstackclients --classic --edge
 #+END_SRC
 
-#+BEGIN_NOTE
-To get more information about that ~Vagranfile~ and its syntax, you
-can refer to the official documentation[fn:vagrantfile].
-#+END_NOTE
+#+BEGIN_SRC bash :tangle ./teardown.sh :shebang #!/usr/bin/env bash :exports none
+for vm in $(openstack server list -c Name -f value); do\
+  echo "Deleting ${vm}...";\
+  openstack server delete "${vm}";\
+done
 
-*** Start the lab VM
-Start the lab VM :
-: host:~/omh-co$ vagrant up --provision
+for ip in $(openstack floating ip list -c "Floating IP Address" -f value); do\
+  echo "Delete ${ip}...";\
+  openstack floating ip delete "${ip}";\
+done
 
-SSH into the lab VM :
-: host:~/omh-co$ vagrant ssh
+sudo snap remove openstackclients
+sudo snap remove microstack
+#+END_SRC
 
-** Validate the setup
-The EnOS tool is already installed in =~/rsc/enos=. To be sure that
-everything is setup correctly, display the help message.
-#+BEGIN_EXAMPLE
-vagrant@openstack:~$ enos --help
-EnOS: Monitor and test your OpenStack.
-
-usage: enos <command> [<args> ...] [-e ENV|--env=ENV]
-            [-h|--help] [-v|--version] [-s|--silent|--vv]
-
-...
-
-Commands:
-  up             Get resources and install the docker registry.
-  os             Run kolla and install OpenStack.
-  init           Initialise OpenStack with the bare necessities.
-  bench          Run rally on this OpenStack.
-  backup         Backup the environment
-  ssh-tunnel     Print configuration for port forwarding with horizon.
-  tc             Enforce network constraints
-  info           Show information of the actual deployment.
-  destroy        Destroy the deployment and optionally the related resources.
-  deploy         Shortcut for enos up, then enos os and enos config.
-
-See 'enos <command> --help' for more information on a specific
-command.
-#+END_EXAMPLE
-
-You can also check that all the docker images we gonna use in this lab
-are present.
-#+BEGIN_EXAMPLE
-vagrant@openstack:~$ sudo docker images
-CONTAINER ID        IMAGE                                                           PORTS               NAMES
-a1c57ff4b25d        beyondtheclouds/centos-source-horizon:5.0.1                                         horizon
-e3303dad621b        beyondtheclouds/centos-source-neutron-metadata-agent:5.0.1                          neutron_metadata_agent
-15ec2a6702c0        beyondtheclouds/centos-source-neutron-l3-agent:5.0.1                                neutron_l3_agent
-f6b7e6ff171a        beyondtheclouds/centos-source-neutron-dhcp-agent:5.0.1                              neutron_dhcp_agent
-08a3cf6af038        beyondtheclouds/centos-source-neutron-openvswitch-agent:5.0.1                       neutron_openvswitch_agent
-1308668a3cd8        beyondtheclouds/centos-source-neutron-server:5.0.1                                  neutron_server
-f56c6f9d6b11        beyondtheclouds/centos-source-openvswitch-vswitchd:5.0.1                            openvswitch_vswitchd
-849fa9831bb7        beyondtheclouds/centos-source-openvswitch-db-server:5.0.1                           openvswitch_db
-0e237ebdc082        beyondtheclouds/centos-source-nova-compute:5.0.1                                    nova_compute
-fa89210d7048        beyondtheclouds/centos-source-nova-novncproxy:5.0.1                                 nova_novncproxy
-40fb744efdc6        beyondtheclouds/centos-source-nova-consoleauth:5.0.1                                nova_consoleauth
-d6d72e0b13ee        beyondtheclouds/centos-source-nova-conductor:5.0.1                                  nova_conductor
-ce63bc0ead78        beyondtheclouds/centos-source-nova-scheduler:5.0.1                                  nova_scheduler
-569c4ecbdba9        beyondtheclouds/centos-source-nova-api:5.0.1                                        nova_api
-c372962e57e4        beyondtheclouds/centos-source-nova-placement-api:5.0.1                              placement_api
-8965058db41f        beyondtheclouds/centos-source-nova-libvirt:5.0.1                                    nova_libvirt
-317be498959c        beyondtheclouds/centos-source-nova-ssh:5.0.1                                        nova_ssh
-de2504b8bff6        beyondtheclouds/centos-source-glance-registry:5.0.1                                 glance_registry
-b9dc92d42818        beyondtheclouds/centos-source-glance-api:5.0.1                                      glance_api
-ed519ff54ed7        beyondtheclouds/centos-source-keystone:5.0.1                                        keystone
-cee8cb849b40        beyondtheclouds/centos-source-rabbitmq:5.0.1                                        rabbitmq
-21aa98c5c207        beyondtheclouds/centos-source-mariadb:5.0.1                                         mariadb
-5d89dcb7a09b        beyondtheclouds/centos-source-memcached:5.0.1                                       memcached
-ba8ae03137cc        beyondtheclouds/centos-source-keepalived:5.0.1                                      keepalived
-048cf826c02d        beyondtheclouds/centos-source-haproxy:5.0.1                                         haproxy
-e5b1de64de58        beyondtheclouds/centos-source-cron:5.0.1                                            cron
-9636fc8ed550        beyondtheclouds/centos-source-kolla-toolbox:5.0.1                                   kolla_toolbox
-273206908a13        beyondtheclouds/centos-source-fluentd:5.0.1                                         fluentd
-#+END_EXAMPLE
-
-The EnOS tool is already installed in =~/rsc/enos=. To be sure that
-everything is setup correctly, display the help message.
-#+BEGIN_EXAMPLE
-vagrant@openstack:~$ enos --help
-EnOS: Monitor and test your OpenStack.
-
-usage: enos <command> [<args> ...] [-e ENV|--env=ENV]
-            [-h|--help] [-v|--version] [-s|--silent|--vv]
-
-...
-
-Commands:
-  up             Get resources and install the docker registry.
-  os             Run kolla and install OpenStack.
-  init           Initialise OpenStack with the bare necessities.
-  bench          Run rally on this OpenStack.
-  backup         Backup the environment
-  ssh-tunnel     Print configuration for port forwarding with horizon.
-  tc             Enforce network constraints
-  info           Show information of the actual deployment.
-  destroy        Destroy the deployment and optionally the related resources.
-  deploy         Shortcut for enos up, then enos os and enos config.
-
-See 'enos <command> --help' for more information on a specific
-command.
-#+END_EXAMPLE
-
-You can also check that all the docker images we gonna use in this lab
-are present.
-#+BEGIN_EXAMPLE
-vagrant@openstack:~$ sudo docker images
-CONTAINER ID        IMAGE                                                           PORTS               NAMES
-a1c57ff4b25d        beyondtheclouds/centos-source-horizon:5.0.1                                         horizon
-e3303dad621b        beyondtheclouds/centos-source-neutron-metadata-agent:5.0.1                          neutron_metadata_agent
-15ec2a6702c0        beyondtheclouds/centos-source-neutron-l3-agent:5.0.1                                neutron_l3_agent
-f6b7e6ff171a        beyondtheclouds/centos-source-neutron-dhcp-agent:5.0.1                              neutron_dhcp_agent
-08a3cf6af038        beyondtheclouds/centos-source-neutron-openvswitch-agent:5.0.1                       neutron_openvswitch_agent
-1308668a3cd8        beyondtheclouds/centos-source-neutron-server:5.0.1                                  neutron_server
-f56c6f9d6b11        beyondtheclouds/centos-source-openvswitch-vswitchd:5.0.1                            openvswitch_vswitchd
-849fa9831bb7        beyondtheclouds/centos-source-openvswitch-db-server:5.0.1                           openvswitch_db
-0e237ebdc082        beyondtheclouds/centos-source-nova-compute:5.0.1                                    nova_compute
-fa89210d7048        beyondtheclouds/centos-source-nova-novncproxy:5.0.1                                 nova_novncproxy
-40fb744efdc6        beyondtheclouds/centos-source-nova-consoleauth:5.0.1                                nova_consoleauth
-d6d72e0b13ee        beyondtheclouds/centos-source-nova-conductor:5.0.1                                  nova_conductor
-ce63bc0ead78        beyondtheclouds/centos-source-nova-scheduler:5.0.1                                  nova_scheduler
-569c4ecbdba9        beyondtheclouds/centos-source-nova-api:5.0.1                                        nova_api
-c372962e57e4        beyondtheclouds/centos-source-nova-placement-api:5.0.1                              placement_api
-8965058db41f        beyondtheclouds/centos-source-nova-libvirt:5.0.1                                    nova_libvirt
-317be498959c        beyondtheclouds/centos-source-nova-ssh:5.0.1                                        nova_ssh
-de2504b8bff6        beyondtheclouds/centos-source-glance-registry:5.0.1                                 glance_registry
-b9dc92d42818        beyondtheclouds/centos-source-glance-api:5.0.1                                      glance_api
-ed519ff54ed7        beyondtheclouds/centos-source-keystone:5.0.1                                        keystone
-cee8cb849b40        beyondtheclouds/centos-source-rabbitmq:5.0.1                                        rabbitmq
-21aa98c5c207        beyondtheclouds/centos-source-mariadb:5.0.1                                         mariadb
-5d89dcb7a09b        beyondtheclouds/centos-source-memcached:5.0.1                                       memcached
-ba8ae03137cc        beyondtheclouds/centos-source-keepalived:5.0.1                                      keepalived
-048cf826c02d        beyondtheclouds/centos-source-haproxy:5.0.1                                         haproxy
-e5b1de64de58        beyondtheclouds/centos-source-cron:5.0.1                                            cron
-9636fc8ed550        beyondtheclouds/centos-source-kolla-toolbox:5.0.1                                   kolla_toolbox
-273206908a13        beyondtheclouds/centos-source-fluentd:5.0.1                                         fluentd
-#+END_EXAMPLE
 * Play with OpenStack
 :PROPERTIES:
 :CUSTOM_ID: sec:play-with-os
@@ -570,22 +412,26 @@ vagrant@openstack:~$ openstack server ssh cli-vm-provision \
 debian@cli-vm-provision:~$ figlet "The Art of Provisionning a VM" | lolcat
 #+END_SRC
 * Deploys a Wordpress as a Service
-Wordpress[fn:wordpress] is the most popular content management system
-(CMS) in use on the Web. People use it to create websites, blogs or
-applications. It is open-source, and based on PHP and MySQL under the
-hood.
+[[https://wordpress.org/][Wordpress]] is the most popular content management system (CMS) in use
+on the Web. People use it to create websites, blogs or applications.
+It is open-source, and based on PHP and MySQL under the hood.
 
 A common Wordpress deployment consists in two machines:
 - ~wordpress-db~   :: A machine that contains the MySQL database for
      Wordpress.
-- ~wordpress-app~  :: A machine that contains a web server that serves
+- ~wordpress-app~  :: A machine that contains a web server and serves
      the Wordpress CMS.
 
-The directory ~rsc/lib~ provides bash scripts to deploy the MySQL
-database and the web server. As the DevOps of OMH -- Online Mines
-Hosting -- your job is to automatize the deployment of a Wordpress on
-your OpenStack. See the bash scripts in [[*Appendix][appendix]] for more information.
+The directory ~rsc~ provides bash scripts to deploy the MySQL database
+and the web server. As the DevOps of OPH -- Online Polytech Hosting --
+your job is to automatize the deployment of a Wordpress on your
+OpenStack. See the bash scripts in [[*Appendix][appendix]] for more information.
 Also, [[*Clean the environment][clean your environment]] before going further.
+
+#+BEGIN_do
+Make a bash script that automatically starts the ~wordpress-db~ and
+~wordpress-app~ VM.
+#+END_do
 
 ** Clean the environment
 When it comes the time to deal with real applications, we cannot use
@@ -599,25 +445,25 @@ have to release all your resources before going further.
 
 Delete currently running VMs.
 #+BEGIN_SRC bash
-debian@os-control:~$ for vm in $(openstack server list -c Name -f value); do\
-  echo "Delete ${vm}...";\
+for vm in $(openstack server list -c Name -f value); do\
+  echo "Deleting ${vm}...";\
   openstack server delete "${vm}";\
 done
 #+END_SRC
 
-# In the same manner, delete floating IPs.
-# #+BEGIN_SRC bash
-# debian@os-control:~$ for ip in $(openstack floating ip list -c "Floating IP Address" -f value); do\
-#   echo "Delete ${ip}...";\
-#   openstack floating ip delete "${ip}";\
-# done
-# #+END_SRC
+In the same manner, delete floating IPs.
+#+BEGIN_SRC bash
+for ip in $(openstack floating ip list -c "Floating IP Address" -f value); do\
+  echo "Delete ${ip}...";\
+  openstack floating ip delete "${ip}";\
+done
+#+END_SRC
 
 ** Wordpress MySQL Database                                        :solution:
 Start a VM with ~wordpress-db~ name, ~debian-9~ image, ~m1.small~
 flavor, ~private~ network and ~admin~ key-pair. Also, provision your
 VM with the next script thanks to the ~--user-data
-~/rsc/lib/install-mariadb.sh~ option.
+~/rsc/install-mariadb.sh~ option.
 
 #+BEGIN_SRC bash
 openstack server create --wait --image debian-9\
@@ -631,8 +477,8 @@ openstack server create --wait --image debian-9\
 Start a VM with ~wordpress-app~ name, ~debian-9~ image, ~m1.small~
 flavor, ~private~ network and ~admin~ key-pair. Also, provision your
 VM with the next script thanks to the ~--user-data
-~/rsc/lib/install-wp.sh~ option. Note that you need to provide the IP address
-of the MySQL server to this script before running it.
+~/rsc/install-wp.sh~ option. Note that you need to provide the IP
+address of the MySQL server to this script before running it.
 
 #+BEGIN_SRC bash
 openstack server create --wait --image debian-9\
@@ -650,9 +496,6 @@ debian@os-control:~$ openstack server add floating ip\
 #+END_SRC
 
 Finally, you can reach WordPress.
-#+BEGIN_SRC bash
-debian@os-control:~$ lynx <floating_ip>/wp
-#+END_SRC
 
 * Automatize the deployment with Heat
 ** Heat introduction
@@ -907,39 +750,10 @@ $ lynx <web_server_ip_address>/wp
 
 * Appendix
 ** Installs MariaDB on Debian 9
-#+INCLUDE: "lib/install-mariadb.sh" src bash
+#+INCLUDE: "rsc/install-mariadb.sh" src bash
 
 ** Installs Wordpress on Debian 9
-#+INCLUDE: "lib/install-wp.sh" src bash
-
-* Footnotes
-
-[fn:ovh] https://www.ovh.com/fr/cloud/
-[fn:ovh-vrack] https://www.ovh.com/manager/cloud/index.html#/vrack
-[fn:ovh-vrack-doc] https://docs.ovh.com/fr/public-cloud/utiliser-le-vrack-et-les-reseaux-prives-avec-les-instances-public-cloud/https://docs.ovh.com/fr/public-cloud/utiliser-le-vrack-et-les-reseaux-prives-avec-les-instances-public-cloud/
-[fn:cloudinit] https://cloud-init.io/
-[fn:cloudinit_modules] http://cloudinit.readthedocs.io/en/latest/topics/modules.html
-[fn:wordpress] https://wordpress.org/
-[fn:devstack] https://docs.openstack.org/devstack/latest/
-[fn:puppet] https://docs.openstack.org/puppet-openstack-guide/latest/
-[fn:kolla-ansible] https://docs.openstack.org/developer/kolla-ansible/
-[fn:enos-paper] https://hal.inria.fr/hal-01415522v2
-[fn:enos-code] https://github.com/BeyondTheClouds/enos
-[fn:virtualbox-downloads] https://www.virtualbox.org/wiki/Downloads
-[fn:vagrant-downloads] https://www.vagrantup.com/downloads.html
-[fn:enos-box] http://enos.irisa.fr/vagrant-box/polytech.box
-[fn:enos-provider] https://enos.readthedocs.io/en/latest/provider.html
-[fn:enos-g5k-provider] https://enos.readthedocs.io/en/latest/provider/grid5000.html
-[fn:enos-vagrant-provider] https://enos.readthedocs.io/en/latest/provider/vagrant.html
-[fn:vagrantfile] https://www.vagrantup.com/docs/vagrantfile/index.html
-[fn:cadvisor] https://github.com/google/cadvisor
-[fn:collectd] https://collectd.org/
-[fn:grafana] https://grafana.com/
-[fn:rally] https://rally.readthedocs.io/en/latest/
-[fn:shaker] https://pyshaker.readthedocs.io/en/latest/
-[fn:rally-scenarios] https://github.com/openstack/rally/tree/master/rally/plugins/openstack/scenarios
-[fn:shaker-scenarios] https://github.com/openstack/shaker/tree/master/shaker/scenarios/openstack
-[fn:dvr] https://wiki.openstack.org/wiki/Neutron/DVR
+#+INCLUDE: "rsc/install-wp.sh" src bash
 
 * COMMENT Local Variables
 # Local Variables:
