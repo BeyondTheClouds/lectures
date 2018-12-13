@@ -1,0 +1,931 @@
+#+TITLE: Operate Resources in Public and Private Clouds
+#+TITLE: Thanks to OpenStack
+#+AUTHOR: Ronan-Alexandre Cherrueau, Adrien Lebre, Didier Iscovery
+#+EMAIL: {firstname.lastname}@inria.fr
+#+DATE: <2018-12-13 Thu>
+#+STARTUP: entitiespretty
+#+OPTIONS: ^:{} ':t email:t toc:nil
+#+LINK: base-url https://rcherrueau.github.io/teaching/ptech18/%s
+
+#+EXCLUDE_TAGS: solution
+
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="timeline.css" />
+
+#+BEGIN_abstract
+OpenStack has become the de-facto solution to operate compute, network
+and storage resources in public and private clouds. In this lab, we
+are going to:
+- Deploy an all-in-one OpenStack with [[https://github.com/CanonicalLtd/microstack][Snap microstack]].
+- Operate this OpenStack to manage IaaS resources (e.g., boot VMs,
+  setup a private Network).
+- Deploys a Wordpress as a Service.
+- Automatize all the stuff with the Heat template engine (i.e., manage
+  your cloud from your sofa!).
+
+Find the slides of the lecture [[http://enos.irisa.fr/tp-polytech/openstack-slides.pdf][there]].
+#+END_abstract
+
+* Table of Contents                                          :TOC_3_gh:
+- [[#requirements-and-setup][Requirements and Setup]]
+  - [[#source-of-the-lab][Source of the Lab]]
+  - [[#environment-and-setup][Environment and Setup]]
+  - [[#setup-the-lab-vm][Setup the lab vm]]
+    - [[#get-the-base-box][Get the base box]]
+    - [[#prepare-the-lab-vm][Prepare the lab VM]]
+    - [[#start-the-lab-vm][Start the lab VM]]
+  - [[#validate-the-setup][Validate the setup]]
+- [[#play-with-openstack][Play with OpenStack]]
+  - [[#unleash-the-operator-in-you][Unleash the Operator in You]]
+  - [[#in-encryption-we-trust][In Encryption We Trust]]
+  - [[#the-art-of-provisioning-a-vm][The Art of Provisioning a VM]]
+- [[#deploys-a-wordpress-as-a-service][Deploys a Wordpress as a Service]]
+  - [[#clean-the-environment][Clean the environment]]
+  - [[#wordpress-mysql-database][Wordpress MySQL Database]]
+  - [[#wordpress-application][Wordpress Application]]
+- [[#automatize-the-deployment-with-heat][Automatize the deployment with Heat]]
+  - [[#heat-introduction][Heat introduction]]
+    - [[#introduction][Introduction]]
+    - [[#boot-a-vm][Boot a VM]]
+    - [[#need-more-flexibility-lets-add-parameters][Need more flexibility: let's add parameters!]]
+    - [[#need-our-deployment-to-return-values-lets-use-outputs][Need our deployment to return values: let's use outputs!]]
+    - [[#integrate-cloud-init-in-heat][Integrate ~cloud-init~ in Heat]]
+    - [[#dynamic-configuration-with-cloud-init-and-parameters][Dynamic configuration with ~cloud-init~ and parameters]]
+    - [[#data-dependency-between-resources][Data dependency between resources]]
+    - [[#nested-templates][Nested templates]]
+  - [[#nested-templates-with-data-dependency][Nested templates with data dependency]]
+  - [[#automatic-deployment-of-wordpress-with-heat][Automatic deployment of WordPress with Heat]]
+- [[#appendix][Appendix]]
+  - [[#installs-mariadb-on-debian-9][Installs MariaDB on Debian 9]]
+  - [[#installs-wordpress-on-debian-9][Installs Wordpress on Debian 9]]
+- [[#footnotes][Footnotes]]
+
+* TODO Requirements and Setup
+** Source of the Lab
+Get the source of lab at [[base-url:tp.tar.gz]].
+
+#+BEGIN_SRC sh
+curl -O https://rcherrueau.github.io/teaching/ptech18/tp.tar.gz
+tar xf tp
+cd tp
+#+END_SRC
+
+** Environment and Setup
+To follow the lab you'll need a Linux (prefer Ubuntu 18.04) with 6 Go
+of RAM and TODO Go of Disk. The lab makes use of [[https://github.com/CanonicalLtd/microstack][Snap microstack]],
+OpenStack in a Snap that you can run locally on a single machine.
+
+Snap is the Canonical's App delivery mechanism. It enables developers
+to bundle all dependencies into a single app package. And so do Snap
+microstack for OpenStack. The benefits comes at deployment times. It
+takes only 5 minutes to deploy OpenStack rather than 30 minutes in a
+normal Devstack or kolla-ansible deployment. But, note that running a
+all-in-one OpenStack with Snap microstack is good for pedogical reason
+only.
+
+The lab makes use of a pre-installed virtual machine (called
+openstack) where EnOS[fn:enos-paper][fn:enos-code] is installed. EnOS
+is a holistic framework leveraging containers to conduct easy and
+reproducible evaluations of different OpenStack configurations. In
+particular, EnOS helps you in deploying a real OpenStack infrastructure,
+stressing it and getting feedbacks. In the following, we gonna use EnOS
+to easily deploy OpenStack inside the virtual machine.
+
+The following depicts the status of the different components in play
+during the lab.
+
+#+BEGIN_EXAMPLE
++---------------------------------------+
+|        host machine (your laptop)     |
+|                                       |
+|                                       |
+|   +---------------------------+       |
+|   |openstack machine (vagrant)|       |
+|   |     ~/rsc <- - - - - -  - - - - - - - - - -  EnOS sources & configuration files
+|   |                           |       |
+|   |  * docker container 1 +   |       |
+|   |  * docker container 2 +   |       |
+|   |  * ...                +- - - - - - - - - - - Docker container launched by
+|   |  * docker container n +   |       |          EnOS (Openstack services/third-party
+|   |                           |       |          services)
+|   +---------------------------+       |
++---------------------------------------+
+#+END_EXAMPLE
+
+#+BEGIN_NOTE
+In a normal use EnOS would be installed on your local machine directly.
+EnOS would also probably deploy OpenStack on a dedicated infrastructure
+(instead of a single VM).
+#+END_NOTE
+
+** Setup the lab vm
+*** Get the base box
+Download the lab archive in your working directory.
+: host:~$ curl -O http://enos.irisa.fr/tp-imt/omh-co.tar.gz
+: host:~$ tar xf omh-co.tar.gz
+: host:~$ cd omh-co
+
+The archive contains:
+- enos            :: The EnOS tool to ease the deployment of OpenStack.
+- omh.box         :: The Vagrant box with all resources needed by EnOS
+     to run OpenStack. The result is a relatively huge (~3GB) box,
+     but it contains everything you need to run EnOS almost offline.
+- Vagrantfile :: The configuration file for the OpenStack lab machine.
+- lib :: A directory with some bash scripts useful for the lab.
+
+*** Prepare the lab VM
+Check the ~Vagrantfile~ looks like the following (substitute <editor>
+with your favorite editor):
+: host:~/omh-co$ <editor> Vagrantfile
+
+#+BEGIN_SRC ruby
+# omh-co/Vagrantfile content
+Vagrant.configure("2") do |config|
+  # Location of the VM image
+  config.vm.box = "file://./omh.box"
+
+  # Network configuration
+  config.vm.hostname = "openstack"
+  # the lab vm is started with 2 extra network interfaces with
+  # the specified ip addresses
+  config.vm.network :private_network, ip: "192.168.142.127"
+  config.vm.network :private_network, ip: "192.168.143.127"
+
+  # Synchronised `host:~/omh-co` with `openstack:~/rsc`
+  config.vm.synced_folder "./", "/home/vagrant/rsc",
+     owner: "vagrant",
+     group: "vagrant"
+
+  # Resource configuration
+  config.vm.provider "virtualbox" do |vb|
+    vb.cpus = 4
+    vb.memory = 6144
+    vb.customize ["modifyvm", :id, "--nicpromisc3", "allow-all"]
+  end
+end
+#+END_SRC
+
+#+BEGIN_NOTE
+To get more information about that ~Vagranfile~ and its syntax, you
+can refer to the official documentation[fn:vagrantfile].
+#+END_NOTE
+
+*** Start the lab VM
+Start the lab VM :
+: host:~/omh-co$ vagrant up --provision
+
+SSH into the lab VM :
+: host:~/omh-co$ vagrant ssh
+
+** Validate the setup
+The EnOS tool is already installed in =~/rsc/enos=. To be sure that
+everything is setup correctly, display the help message.
+#+BEGIN_EXAMPLE
+vagrant@openstack:~$ enos --help
+EnOS: Monitor and test your OpenStack.
+
+usage: enos <command> [<args> ...] [-e ENV|--env=ENV]
+            [-h|--help] [-v|--version] [-s|--silent|--vv]
+
+...
+
+Commands:
+  up             Get resources and install the docker registry.
+  os             Run kolla and install OpenStack.
+  init           Initialise OpenStack with the bare necessities.
+  bench          Run rally on this OpenStack.
+  backup         Backup the environment
+  ssh-tunnel     Print configuration for port forwarding with horizon.
+  tc             Enforce network constraints
+  info           Show information of the actual deployment.
+  destroy        Destroy the deployment and optionally the related resources.
+  deploy         Shortcut for enos up, then enos os and enos config.
+
+See 'enos <command> --help' for more information on a specific
+command.
+#+END_EXAMPLE
+
+You can also check that all the docker images we gonna use in this lab
+are present.
+#+BEGIN_EXAMPLE
+vagrant@openstack:~$ sudo docker images
+CONTAINER ID        IMAGE                                                           PORTS               NAMES
+a1c57ff4b25d        beyondtheclouds/centos-source-horizon:5.0.1                                         horizon
+e3303dad621b        beyondtheclouds/centos-source-neutron-metadata-agent:5.0.1                          neutron_metadata_agent
+15ec2a6702c0        beyondtheclouds/centos-source-neutron-l3-agent:5.0.1                                neutron_l3_agent
+f6b7e6ff171a        beyondtheclouds/centos-source-neutron-dhcp-agent:5.0.1                              neutron_dhcp_agent
+08a3cf6af038        beyondtheclouds/centos-source-neutron-openvswitch-agent:5.0.1                       neutron_openvswitch_agent
+1308668a3cd8        beyondtheclouds/centos-source-neutron-server:5.0.1                                  neutron_server
+f56c6f9d6b11        beyondtheclouds/centos-source-openvswitch-vswitchd:5.0.1                            openvswitch_vswitchd
+849fa9831bb7        beyondtheclouds/centos-source-openvswitch-db-server:5.0.1                           openvswitch_db
+0e237ebdc082        beyondtheclouds/centos-source-nova-compute:5.0.1                                    nova_compute
+fa89210d7048        beyondtheclouds/centos-source-nova-novncproxy:5.0.1                                 nova_novncproxy
+40fb744efdc6        beyondtheclouds/centos-source-nova-consoleauth:5.0.1                                nova_consoleauth
+d6d72e0b13ee        beyondtheclouds/centos-source-nova-conductor:5.0.1                                  nova_conductor
+ce63bc0ead78        beyondtheclouds/centos-source-nova-scheduler:5.0.1                                  nova_scheduler
+569c4ecbdba9        beyondtheclouds/centos-source-nova-api:5.0.1                                        nova_api
+c372962e57e4        beyondtheclouds/centos-source-nova-placement-api:5.0.1                              placement_api
+8965058db41f        beyondtheclouds/centos-source-nova-libvirt:5.0.1                                    nova_libvirt
+317be498959c        beyondtheclouds/centos-source-nova-ssh:5.0.1                                        nova_ssh
+de2504b8bff6        beyondtheclouds/centos-source-glance-registry:5.0.1                                 glance_registry
+b9dc92d42818        beyondtheclouds/centos-source-glance-api:5.0.1                                      glance_api
+ed519ff54ed7        beyondtheclouds/centos-source-keystone:5.0.1                                        keystone
+cee8cb849b40        beyondtheclouds/centos-source-rabbitmq:5.0.1                                        rabbitmq
+21aa98c5c207        beyondtheclouds/centos-source-mariadb:5.0.1                                         mariadb
+5d89dcb7a09b        beyondtheclouds/centos-source-memcached:5.0.1                                       memcached
+ba8ae03137cc        beyondtheclouds/centos-source-keepalived:5.0.1                                      keepalived
+048cf826c02d        beyondtheclouds/centos-source-haproxy:5.0.1                                         haproxy
+e5b1de64de58        beyondtheclouds/centos-source-cron:5.0.1                                            cron
+9636fc8ed550        beyondtheclouds/centos-source-kolla-toolbox:5.0.1                                   kolla_toolbox
+273206908a13        beyondtheclouds/centos-source-fluentd:5.0.1                                         fluentd
+#+END_EXAMPLE
+
+The EnOS tool is already installed in =~/rsc/enos=. To be sure that
+everything is setup correctly, display the help message.
+#+BEGIN_EXAMPLE
+vagrant@openstack:~$ enos --help
+EnOS: Monitor and test your OpenStack.
+
+usage: enos <command> [<args> ...] [-e ENV|--env=ENV]
+            [-h|--help] [-v|--version] [-s|--silent|--vv]
+
+...
+
+Commands:
+  up             Get resources and install the docker registry.
+  os             Run kolla and install OpenStack.
+  init           Initialise OpenStack with the bare necessities.
+  bench          Run rally on this OpenStack.
+  backup         Backup the environment
+  ssh-tunnel     Print configuration for port forwarding with horizon.
+  tc             Enforce network constraints
+  info           Show information of the actual deployment.
+  destroy        Destroy the deployment and optionally the related resources.
+  deploy         Shortcut for enos up, then enos os and enos config.
+
+See 'enos <command> --help' for more information on a specific
+command.
+#+END_EXAMPLE
+
+You can also check that all the docker images we gonna use in this lab
+are present.
+#+BEGIN_EXAMPLE
+vagrant@openstack:~$ sudo docker images
+CONTAINER ID        IMAGE                                                           PORTS               NAMES
+a1c57ff4b25d        beyondtheclouds/centos-source-horizon:5.0.1                                         horizon
+e3303dad621b        beyondtheclouds/centos-source-neutron-metadata-agent:5.0.1                          neutron_metadata_agent
+15ec2a6702c0        beyondtheclouds/centos-source-neutron-l3-agent:5.0.1                                neutron_l3_agent
+f6b7e6ff171a        beyondtheclouds/centos-source-neutron-dhcp-agent:5.0.1                              neutron_dhcp_agent
+08a3cf6af038        beyondtheclouds/centos-source-neutron-openvswitch-agent:5.0.1                       neutron_openvswitch_agent
+1308668a3cd8        beyondtheclouds/centos-source-neutron-server:5.0.1                                  neutron_server
+f56c6f9d6b11        beyondtheclouds/centos-source-openvswitch-vswitchd:5.0.1                            openvswitch_vswitchd
+849fa9831bb7        beyondtheclouds/centos-source-openvswitch-db-server:5.0.1                           openvswitch_db
+0e237ebdc082        beyondtheclouds/centos-source-nova-compute:5.0.1                                    nova_compute
+fa89210d7048        beyondtheclouds/centos-source-nova-novncproxy:5.0.1                                 nova_novncproxy
+40fb744efdc6        beyondtheclouds/centos-source-nova-consoleauth:5.0.1                                nova_consoleauth
+d6d72e0b13ee        beyondtheclouds/centos-source-nova-conductor:5.0.1                                  nova_conductor
+ce63bc0ead78        beyondtheclouds/centos-source-nova-scheduler:5.0.1                                  nova_scheduler
+569c4ecbdba9        beyondtheclouds/centos-source-nova-api:5.0.1                                        nova_api
+c372962e57e4        beyondtheclouds/centos-source-nova-placement-api:5.0.1                              placement_api
+8965058db41f        beyondtheclouds/centos-source-nova-libvirt:5.0.1                                    nova_libvirt
+317be498959c        beyondtheclouds/centos-source-nova-ssh:5.0.1                                        nova_ssh
+de2504b8bff6        beyondtheclouds/centos-source-glance-registry:5.0.1                                 glance_registry
+b9dc92d42818        beyondtheclouds/centos-source-glance-api:5.0.1                                      glance_api
+ed519ff54ed7        beyondtheclouds/centos-source-keystone:5.0.1                                        keystone
+cee8cb849b40        beyondtheclouds/centos-source-rabbitmq:5.0.1                                        rabbitmq
+21aa98c5c207        beyondtheclouds/centos-source-mariadb:5.0.1                                         mariadb
+5d89dcb7a09b        beyondtheclouds/centos-source-memcached:5.0.1                                       memcached
+ba8ae03137cc        beyondtheclouds/centos-source-keepalived:5.0.1                                      keepalived
+048cf826c02d        beyondtheclouds/centos-source-haproxy:5.0.1                                         haproxy
+e5b1de64de58        beyondtheclouds/centos-source-cron:5.0.1                                            cron
+9636fc8ed550        beyondtheclouds/centos-source-kolla-toolbox:5.0.1                                   kolla_toolbox
+273206908a13        beyondtheclouds/centos-source-fluentd:5.0.1                                         fluentd
+#+END_EXAMPLE
+* Play with OpenStack
+:PROPERTIES:
+:CUSTOM_ID: sec:play-with-os
+:END:
+The last service deployed is the OpenStack dashboard (Horizon). Once
+the deployment process is finished, Horizon is reachable from the web
+browser of your host machine http://192.168.142.127 with the following
+credentials:
+- login: ~admin~
+- password: ~demo~
+
+From here, you can reach ~Project > Compute > Instances > Launch
+Instance~ and boot a virtual machine given the following information:
+- a name (e.g., ~horizon-vm~)
+- an image (e.g., ~cirros~)
+- a flavor to limit the resources of your instance (I recommend
+  ~tiny~)
+- and a network setting (must be ~private~)
+
+You should select options by clicking on the arrow on the right of
+each possibility. When the configuration is OK, the ~Launch Instance~
+button should be enabled. After clicking on it, you should see the
+instance in the ~Active~ state in less than a minute.
+
+Now, you have several options to connect to your freshly deployed VM.
+For instance, by clicking on its name, Horizon provides a virtual
+console under the tab ~Console~. Use the following credentials to
+access the VM:
+- login: ~cirros~
+- password: ~cubswin:)~
+
+While Horizon is helpful to discover OpenStack features, this is not
+how a true operator administrates OpenStack. A true operator prefers
+command line interface 😄.
+
+** Unleash the Operator in You
+OpenStack provides a command line interface to operate your Cloud. But
+before using it, you need to set your environment with the OpenStack
+credentials, so that the command line won't bother you by requiring
+credentials each time.
+
+Load the OpenStack credentials:
+: vagrant@openstack:~$ source ~/current/admin-openrc
+
+You can then check that your environment is correctly set by:
+#+BEGIN_EXAMPLE
+vagrant@openstack:~$ env|grep OS_
+OS_PROJECT_DOMAIN_ID=default
+OS_REGION_NAME=RegionOne
+OS_USER_DOMAIN_NAME=default
+OS_USER_DOMAIN_ID=default
+OS_PROJECT_NAME=admin
+OS_IDENTITY_API_VERSION=3
+OS_PASSWORD=demo
+OS_AUTH_URL=http://192.168.142.103:35357/v3
+OS_USERNAME=admin
+OS_TENANT_NAME=admin
+OS_PROJECT_DOMAIN_NAME=default
+#+END_EXAMPLE
+
+All operations to manage OpenStack are done through one single command
+line, called ~openstack~. Doing an ~openstack --help~ displays the
+really long list of possibilities provided by this command. The following
+gives you a selection of the most often used commands to operate your Cloud:
+- List OpenStack running services :: ~openstack endpoint list~
+- List images :: ~openstack image list~
+- List flavors :: ~openstack flavor list~
+- List networks :: ~openstack network list~
+- List computes :: ~openstack hypervisor list~
+- List VMs (running or not) :: ~openstack server list~
+- Get details on a specific VM :: ~openstack server show <vm-name>~
+- Start a new VM :: ~openstack server create --image <image-name> --flavor <flavor-name> --nic net-id=<net-id> <vm-name>~
+- View VMs logs :: ~openstack console log show <vm-name>~
+
+Using all these commands, you can use the CLI to start a new tiny
+cirros VM called ~cli-vm~:
+#+BEGIN_EXAMPLE
+vagrant@openstack:~$ openstack server create\
+  --image cirros\
+  --flavor m1.tiny\
+  --network private\
+  cli-vm
+#+END_EXAMPLE
+
+Then, display the information about your VM with the following command:
+: vagrant@openstack:~$ openstack server show cli-vm
+
+Note in particular the status of your VM. This status will go from
+~BUILD~: OpenStack is looking for the best place to boot the VM, to
+~ACTIVE~: your VM is running. The status could also be ~ERROR~ if you
+are experiencing hard times with your infrastructure.
+
+With the previous ~openstack server create~ command, the VM boots with
+a private IP. When the state is ~ACTIVE~, wait one minute or two, the
+time for the VM to boot. You can ask for the status of your VM and its
+IPs with:
+: vagrant@openstack:~$ openstack server show cli-vm -c status -c addresses
+Once you got its private IP, you can ping and SSH on it:
+: vagrant@openstack:~$ ping <private-ip>
+: vagrant@openstack:~$ ssh -l cirros <private-ip>
+
+
+Private IPs are used for communication between VMs, meaning you cannot
+ping your VM from an external network ({{{eg}}} the host machine). You
+have to manually affect a floating IP to your machine if you want it
+to be pingable from the host.
+#+BEGIN_EXAMPLE
+vagrant@openstack:~$ openstack server add floating ip\
+  cli-vm\
+  $(openstack floating ip create public -c floating_ip_address -f value)
+#+END_EXAMPLE
+
+Then, ask for the status of your VM and its IPs with:
+: vagrant@openstack:~$ openstack server show cli-vm -c status -c addresses
+
+When the state is ~ACTIVE~, wait one minute or two, the time for the VM
+to boot. Then you can ping it on its floating IP and SSH on it:
+: vagrant@openstack:~$ ping <floating-ip> # floating-ip is 192.168.143.*
+: vagrant@openstack:~$ ssh -l cirros <floating-ip>
+
+#+BEGIN_NOTE
+You can check that the VM finished to boot by looking at its logs with
+~openstack console log show cli-vm~. The VM finished to boot when last
+lines are:
+#+BEGIN_EXAMPLE
+=== cirros: current=0.3.4 uptime=16.56 ===
+  ____               ____  ____
+ / __/ __ ____ ____ / __ \/ __/
+/ /__ / // __// __// /_/ /\ \
+\___//_//_/  /_/   \____/___/
+   http://cirros-cloud.net
+
+
+login as 'cirros' user. default password: 'cubswin:)'. use 'sudo' for root.
+cli-vm login:
+#+END_EXAMPLE
+#+END_NOTE
+
+Before going to the next section, feel free to play around with the
+~openstack~ cli and Horizon. For instance, list all features offered
+by Nova with ~openstack server --help~ and try to figure out how to
+SSH on ~cli-vm~ using its name rather than its floating IP.
+
+
+Before going to the next section, play around with the ~openstack~ CLI
+and Horizon. For instance, list all the features offered by Nova with
+~openstack server --help~. Here are some exercises for you, find the
+CLI commands for the following actions:
+1. SSH on ~cli-vm~ using its name rather than its private IP;
+2. Attach ~cli-vm~ to the public network rather than attaching it a
+   floating ip (check afterwards on the machine the network
+   interfaces);
+3. What is the advantage of floating IP
+4. Create a snapshot of ~cli-vm~;
+5. Delete ~cli-vm~;
+6. Boot a new machine ~cli-vm-clone~ from the snapshot.
+
+# : openstack server ssh cli-vm --address-type private --login cirros
+
+** In Encryption We Trust
+Any cirros VMs share the same credentials ({{{ie}}} ~cirros~,
+~cubswin~) which is a security problem. As an IaaS DevOps, you want
+that only some clients can SSH on some VMs. Fortunately, OpenStack
+helps with the management of SSH keys. OpenStack can generate a SSH
+key and push the public counterpart on the VM. Therefore, doing a
+~ssh~ on the VM will use the SSH key instead of asking the client to
+fill the credentials.
+
+Make an SSH key and store the private counterpart in =~/admin.pem=.
+Then, give that file the correct permission access.
+: vagrant@openstack:~$ openstack keypair create --private-key ~/admin.pem admin
+: vagrant@openstack:~$ chmod 600 admin.pem
+
+Then, start a new VM and ask OpenStack to copy the public counterpart
+of your SSH key in the =~/.ssh/authorized_keys= of the VM ({{{ie}}}
+note the ~--key-name admin~).
+#+BEGIN_SRC bash
+vagrant@openstack:~$ openstack server create --wait --image cirros\
+                               --flavor m1.tiny --network private\
+                               --key-name admin cli-vm-adminkey
+#+END_SRC
+
+Now you can access your VM using SSH without filling credentials.
+#+BEGIN_SRC bash
+vagrant@openstack:~$ openstack server ssh cli-vm-adminkey \
+                                --private\
+                                --login cirros\
+                                --identity ~/admin.pem
+#+END_SRC
+
+Or directly with the ~ssh~ command
+: vagrant@openstack:~$ ssh -i ~/admin.pem cirros@$(openstack server show cli-vm-adminkey -c addresses -f value | sed  -Er 's/private=(10\.0\.0\.[0-9]+).*/\1/g')
+
+#+BEGIN_NOTE
+A regular ~ssh~ command looks like ~ssh -i <identity-file> <name>@<server-ip>~. The following OpenStack command followed by the ~sed~ returns the private IP of ~cli-vm-adminkey~.
+: vagrant@openstack:~$ openstack server show cli-vm-adminkey -c addresses -f value | sed  -Er 's/private=(10\.0\.0\.[0-9]+).*/\1/g'
+#+END_NOTE
+
+** The Art of Provisioning a VM
+Provisioning is the process that automatically installs software,
+alters configurations, and more on the machine as part of the boot
+process. On OpenStack, provisioning is achieved thanks to
+Cloudinit[fn:cloudinit]. It is a program that runs at the boot time to
+customize the VM.
+
+You have already used Cloudinit without even knowing it! The previous
+command ~openstack server create~ with the ~--identity~ parameter
+tells OpenStack to make the public counterpart of the SSH key
+available to the VM. When the VM boots for the first time, Cloudinit
+is (among other tasks) in charge of fetching this public SSH key from
+OpenStack, and copy it to =~/.ssh/authorized_keys=. Beyond that,
+Cloudinit is in charge of many aspects of the VM customization like
+mounting volume, resizing file systems or setting an hostname (the
+list of Cloudinit modules can be found here:[fn:cloudinit_modules]).
+Furthermore, Cloudinit is able to run a bash script that will be
+executed on the VM as ~root~ during the boot process.
+
+To tell OpenStack to make this script reachable from our VM, we use a
+mechanism called ~user-data~. For instance, the following starts a Debian and
+installs ~figlet~ and ~lolcat~ software on the VM:
+#+BEGIN_SRC bash
+vagrant@openstack:~$ PROVISION_FILE='/tmp/provision.sh'
+vagrant@openstack:~$ cat > "$PROVISION_FILE" << EOF
+#!/bin/bash
+apt update
+apt install -y figlet lolcat
+EOF
+vagrant@openstack:~$ openstack server create --wait --image debian-9\
+  --flavor m1.small --network private\
+  --key-name admin\
+  --user-data "$PROVISION_FILE"\
+  cli-vm-provision
+#+END_SRC
+
+You can follow the correct installation of software with:
+: watch openstack console log show --lines=5 cli-vm-provision
+
+Then, you can jump on the VM and call the ~figlet~ and ~lolcat~
+software.
+#+BEGIN_SRC bash
+vagrant@openstack:~$ openstack server ssh cli-vm-provision \
+  --private\
+  --login debian\
+  --identity ~/admin.pem
+debian@cli-vm-provision:~$ figlet "The Art of Provisionning a VM" | lolcat
+#+END_SRC
+* Deploys a Wordpress as a Service
+Wordpress[fn:wordpress] is the most popular content management system
+(CMS) in use on the Web. People use it to create websites, blogs or
+applications. It is open-source, and based on PHP and MySQL under the
+hood.
+
+A common Wordpress deployment consists in two machines:
+- ~wordpress-db~   :: A machine that contains the MySQL database for
+     Wordpress.
+- ~wordpress-app~  :: A machine that contains a web server that serves
+     the Wordpress CMS.
+
+The directory ~rsc/lib~ provides bash scripts to deploy the MySQL
+database and the web server. As the DevOps of OMH -- Online Mines
+Hosting -- your job is to automatize the deployment of a Wordpress on
+your OpenStack. See the bash scripts in [[*Appendix][appendix]] for more information.
+Also, [[*Clean the environment][clean your environment]] before going further.
+
+** Clean the environment
+When it comes the time to deal with real applications, we cannot use
+cirros VMs anymore. A Cirros VM is good for testing because it starts
+fast and has a small memory footprint. However, do not expect to
+launch MySQL on a cirros.
+
+We are going to run several Debian9 VMs in this section. But, a
+Debian9 takes a lot more of resources to run. For this reason, you
+have to release all your resources before going further.
+
+Delete currently running VMs.
+#+BEGIN_SRC bash
+debian@os-control:~$ for vm in $(openstack server list -c Name -f value); do\
+  echo "Delete ${vm}...";\
+  openstack server delete "${vm}";\
+done
+#+END_SRC
+
+# In the same manner, delete floating IPs.
+# #+BEGIN_SRC bash
+# debian@os-control:~$ for ip in $(openstack floating ip list -c "Floating IP Address" -f value); do\
+#   echo "Delete ${ip}...";\
+#   openstack floating ip delete "${ip}";\
+# done
+# #+END_SRC
+
+** Wordpress MySQL Database                                        :solution:
+Start a VM with ~wordpress-db~ name, ~debian-9~ image, ~m1.small~
+flavor, ~private~ network and ~admin~ key-pair. Also, provision your
+VM with the next script thanks to the ~--user-data
+~/rsc/lib/install-mariadb.sh~ option.
+
+#+BEGIN_SRC bash
+openstack server create --wait --image debian-9\
+                               --flavor m1.small --network private\
+                               --key-name admin\
+                               --user-data ~/rsc/lib/install-mariadb.sh\
+                               wordpress-db
+#+END_SRC
+
+** Wordpress Application                                           :solution:
+Start a VM with ~wordpress-app~ name, ~debian-9~ image, ~m1.small~
+flavor, ~private~ network and ~admin~ key-pair. Also, provision your
+VM with the next script thanks to the ~--user-data
+~/rsc/lib/install-wp.sh~ option. Note that you need to provide the IP address
+of the MySQL server to this script before running it.
+
+#+BEGIN_SRC bash
+openstack server create --wait --image debian-9\
+                               --flavor m1.small --network private\
+                               --key-name admin\
+                               --user-data ~/rsc/lib/install-wp.sh\
+                               wordpress-app
+#+END_SRC
+
+Then, attach a floating ip to that VM.
+#+BEGIN_SRC bash
+debian@os-control:~$ openstack server add floating ip\
+  wordpress-wp\
+  $(openstack floating ip create public -c floating_ip_address -f value)
+#+END_SRC
+
+Finally, you can reach WordPress.
+#+BEGIN_SRC bash
+debian@os-control:~$ lynx <floating_ip>/wp
+#+END_SRC
+
+* Automatize the deployment with Heat
+** Heat introduction
+*** Introduction
+In the previous sessions, we saw how to boot a VM with OpenStack, and execute a
+post-installation script using the ~user-data~ mechanism. Such mechanism can
+help us to install software but it is not enough to deploy a real Cloud
+application. Cloud applications are composed of multiple services that
+collaborate to deliver the application. Each service is a charge of an aspect of
+the application. This separation of concerns brings flexibility. If a single
+service is overloaded, it is common to deploy new units of this service to
+balance the load.
+
+Let's take a simple example! WordPress[fn:wordpress] is a very popular content
+management system (CMS) written in PHP, which is mainly used as a blog system.
+It is composed of two elements: a Web server (Apache) and a database (MySQL).
+Apache serves the PHP code of WordPress and stores its information in the
+database.
+
+Automation is a very important concept for devops. Imagine you have your own
+datacenter and want to exploit it by renting WordPress instances to your
+customers. Each time a client rents an instance, you have to manually deploy it.
+Wouldn't it more convenient to automate all the operations? :) To that end, we
+are going to use an OpenStack project to automate the deployment of
+applications: OpenStack Heat.
+
+Heat is the OpenStack orchestrator: it eats templates (called HOT for Heat
+Orchestration Template - which are files written in YAML) describing the
+OpenStack infrastructure you want to deploy (e.g. vms, networks, storages) as
+well as software configurations. Then the Heat engine is in charge of sending
+the appropriate requests to OpenStack to deploy the system described in your
+template (deployments are called ~stacks~ in Heat). In the following
+subsections, we are going to manipulate Heat to understand how to deploy
+applications on OpenStack. The following examples are extracted from the heat
+templates you can find under the following directory:
+~lib/heat_templates/debian/hello_world/~.
+
+*** Boot a VM
+The simplest HOT template your can declare describes how to boot a VM:
+
+#+INCLUDE: "lib/heat_templates/debian/hello_world/1_boot_vm.yaml" src yaml
+
+As depicted in this example, the different OpenStack resources can be declared
+using types. OpenStack resource types are listed in the
+documentation[fn:heat_resource_list], browsing this page, you can see that
+resources exist for most OpenStack services (e.g. Nova, Neutron, Glance, Cinder,
+Heat). Here, we declare a new resource called ~my_vm~ which is defined by the
+type ~OS::Nova::Server~ to declare a new virtual machine. A type defines
+different properties (some are mandatory, some are optional, see the
+documentation for more details). The ~OS::Nova::Server~ properties should be
+familiar to you since it is the classical properties Nova requires to boot a VM
+(i.e. a name, an image, a flavor, a key name). Once you have written this
+template in a file, you can now deploy the stack as following:
+
+#+BEGIN_SRC bash
+$ openstack stack create -t ./1_boot_vm.yaml hw1
+$ openstack stack list
+$ openstack stack show hw1
+$ watch openstack server list
+$ openstack server ssh --login debian --identity ~/admin.pem --address-type provider-net hello_world
+$ openstack stack delete hw1
+#+END_SRC
+
+This simple template is enough to run a virtual machine. However it is very
+static. In the next subsection, we are going to manipulate parameters to add
+flexibility.
+
+*** Need more flexibility: let's add parameters!
+
+Templates can be more flexible with parameters. To that end you can:
+- declare a set of parameters to provide to your template;
+- use the intrinsic function ~get_param~ to map those parameters in your
+  resource declarations.
+Here's an example:
+
+#+INCLUDE: "lib/heat_templates/debian/hello_world/2_boot_vm_with_params.yaml" src yaml
+
+In this example, we defined two parameters. While the first one related to the
+VM flavor has a default value (i.e. ~m1.small~), the second one, corresponding
+to the name of the key pair to use, must be provided. To deploy this stack, run
+the following command:
+
+#+BEGIN_SRC bash
+$ openstack stack create -t ./2_boot_vm_with_params.yaml \
+    --parameter param_name=hello_params \
+    --parameter param_flavor=m1.medium \
+    hw2
+$ openstack server list
+$ openstack stack delete hw2
+#+END_SRC
+
+This command deploys our VM by overriding the default flavor value ~m1.small~ by
+~m1.medium~. This can be checked by typing: ~openstack server list~. The
+parameter ~param_name~ is required and no default value is provided. As such, if
+you try to create a stack without providing this parameter, you would the
+following error:
+
+#+BEGIN_SRC bash
+$ openstack stack create -t ./2_boot_vm_with_params.yaml \
+    --parameter param_flavor=m1.medium \
+    hw2_error
+ERROR: The Parameter (param_name) was not provided.
+#+END_SRC
+
+Parameters are the inputs of our templates. In the next subsection, we are going
+to see how templates can declare outputs, so that our stacks can return a set of
+attributes (e.g. the IP address of a deployed VM).
+
+*** Need our deployment to return values: let's use outputs!
+Templates can declare a set of attributes to return. For instance, you might
+need to know the IP address of a resource at run-time. To that end, you can
+declare attributes in a new section called ~outputs~:
+
+#+INCLUDE: "lib/heat_templates/debian/hello_world/3_boot_vm_with_output.yaml" src yaml
+
+We declared here an output attribute called ~HOSTIP~ which stores the IP address
+of the VM resource. We used here another intrinsic function which is used to get
+the IP address from our VM: ~get_attr~. Output attributes can be exploited in
+two ways: it can be displayed from the CLI, or it can be fetched by other stack
+templates (we will see this last case latter):
+
+#+BEGIN_SRC bash
+$ openstack stack create -t ./3_boot_vm_with_output.yaml hw3
+$ openstack stack output list hw3
+$ openstack stack output show hw3 HOSTIP
+$ openstack stack delete hw3
+#+END_SRC
+
+*** Integrate ~cloud-init~ in Heat
+It is possible to declare a post-installation script in the template with
+the user-data property:
+
+#+INCLUDE: "lib/heat_templates/debian/hello_world/4_boot_vm_with_user-data.yaml" src yaml
+
+#+BEGIN_SRC bash
+$ openstack stack create -t ./4_boot_vm_with_user-data.yaml hw4
+$ openstack server ssh --login debian --identity ~/admin.pem --address-type provider-net hw4
+$ openstack stack delete hw4
+#+END_SRC
+
+*** Dynamic configuration with ~cloud-init~ and parameters
+Let's mix the capabilities we learned from the parameter and cloud-init
+templates to write a template with a flexible post-installation script. With
+Heat, it is possible to provide a parameter to your user-data at run-time by
+using a new function: ~str_replace~!
+
+#+INCLUDE: "lib/heat_templates/debian/hello_world/5_boot_vm_with_user-data2.yaml" src yaml
+
+We used here the new intrinsic function ~str_replace~ to replace strings in our
+user-data. In this example, the parameter should be a string containing a set of
+packages to install in the VM. You can deploy the stack as follow:
+
+#+BEGIN_SRC bash
+$ openstack stack create \
+    -t ./5_boot_vm_with_user-data2.yaml \
+    --parameter PackageName="vim cowsay fortune fortunes" \
+   hw5
+#+END_SRC
+
+This mechanism is crucial to dynamically configure our services during the
+deployment. For instance, Service_A might require an IP address in its
+configuration file to access Service_B, which runs on another VM. This IP
+address is only known at run-time, so it must be represented by a variable
+managed in Heat templates. In the next subsections, we are going to study how to
+declare such variable, so that Heat resources can exchange information.
+
+*** Data dependency between resources
+Let's declare a template with two VMs: ~provider~ and ~user~. The idea is to
+configure user's static lookup table for hostnames (more information can be
+found by typing: ~man hosts~), so that user can target provider from its
+hostname rather than from its IP address. To that end, we will use the user-data
+mechanism to edit the ~/etc/hosts~ file on user, and map the IP address of
+provider with its hostname:
+
+#+INCLUDE: "lib/heat_templates/debian/hello_world/6_boot_vms_with_exchange.yaml" src yaml
+
+In this example, ~user~ requires the IP address of ~provider~ to boot. The Heat
+engine is in charge of managing dependencies between resources. Take a look
+during the deployment, and check that ~provider~ is deployed prior ~user~:
+
+#+BEGIN_SRC bash
+$ openstack stack create -t ./6_boot_vms_with_exchange.yaml hw6 && watch openstack server list
+$ openstack server ssh --login debian --identity ~/admin.pem --address-type provider-net user
+debian@user:~$ ping provider
+debian@user:~$ exit
+$ openstack stack delete hw6
+#+END_SRC
+
+*** Nested templates
+Heat is able to compose templates to keep human-readable files, using nested
+templates. For instance, we can use a first template that describes a virtual
+machine, and a second template which deploys multiple VMs by referencing the
+first one. Rather than create the first template, we can re-use
+~2_boot_vm_with_params.yaml~:
+
+#+INCLUDE: "lib/heat_templates/debian/hello_world/7_nested_template.yaml" src yaml
+
+To compose template, a new resource can be defined by specifying its type as the
+target of the desired template. A set of properties can be provided to the
+nested template and will be interpreted as parameters.
+
+Nested templates are very convenient to keep your code clean and re-use
+templates. We are now reaching the last subsection, where we are going to extend
+nested templates with data dependency.
+
+** Nested templates with data dependency
+
+Let's describe the same deployment as in `Data dependency between resources` by
+using nested templates. For that we need a new template:
+
+#+INCLUDE: "lib/heat_templates/debian/hello_world/8_nested_template_boot_vm.yaml" src yaml
+
+We can now declare the main template. While it defines three VMs, this template
+is easy to read since it points to the template created previously, and
+~3_boot_vm_with_output.yaml~:
+
+#+INCLUDE: "lib/heat_templates/debian/hello_world/8_nested_template_exchange.yaml" src yaml
+
+** Automatic deployment of WordPress with Heat
+As a DevOps at OMH, you are now in charge of the automation process of deploying
+WordPress instances for clients. Congratulation! To that end, you have to use
+what you learned from the previous section to design a template that describes a
+WordPress application using Heat. We are going to deploy WordPress inside two
+VMs: the first one holds the web server, the second one runs the database:
+
+- VM1: Apache + PHP + WordPress code
+- VM2: MySQL
+
+It is highly recommended that you create three HOT files:
+
+- ~sql_vm.yml~: containing the description of the VM running MySQL;
+- ~web_vm.yml~: containing the description of the VM running the Web server;
+- ~wp_app.yml~: containing the description of the WordPress application
+  (~sql_vm.yml~ + ~web_vm.yml~ as nested templates).
+
+To help you, we provide the post-installation script for both VMs. You should
+read them to understand what they do. Here's the first one is related to the
+database:
+
+#+INCLUDE: "lib/mariadb.sh" src yaml
+
+Here's the one for the web server:
+
+#+INCLUDE: "lib/apache2.sh" src yaml
+
+Once it is deployed, you should be able to reach the wordpress service by
+typing:
+
+#+BEGIN_SRC bash
+$ lynx <web_server_ip_address>/wp
+#+END_SRC
+
+* Appendix
+** Installs MariaDB on Debian 9
+#+INCLUDE: "lib/install-mariadb.sh" src bash
+
+** Installs Wordpress on Debian 9
+#+INCLUDE: "lib/install-wp.sh" src bash
+
+* Footnotes
+
+[fn:ovh] https://www.ovh.com/fr/cloud/
+[fn:ovh-vrack] https://www.ovh.com/manager/cloud/index.html#/vrack
+[fn:ovh-vrack-doc] https://docs.ovh.com/fr/public-cloud/utiliser-le-vrack-et-les-reseaux-prives-avec-les-instances-public-cloud/https://docs.ovh.com/fr/public-cloud/utiliser-le-vrack-et-les-reseaux-prives-avec-les-instances-public-cloud/
+[fn:cloudinit] https://cloud-init.io/
+[fn:cloudinit_modules] http://cloudinit.readthedocs.io/en/latest/topics/modules.html
+[fn:wordpress] https://wordpress.org/
+[fn:devstack] https://docs.openstack.org/devstack/latest/
+[fn:puppet] https://docs.openstack.org/puppet-openstack-guide/latest/
+[fn:kolla-ansible] https://docs.openstack.org/developer/kolla-ansible/
+[fn:enos-paper] https://hal.inria.fr/hal-01415522v2
+[fn:enos-code] https://github.com/BeyondTheClouds/enos
+[fn:virtualbox-downloads] https://www.virtualbox.org/wiki/Downloads
+[fn:vagrant-downloads] https://www.vagrantup.com/downloads.html
+[fn:enos-box] http://enos.irisa.fr/vagrant-box/polytech.box
+[fn:enos-provider] https://enos.readthedocs.io/en/latest/provider.html
+[fn:enos-g5k-provider] https://enos.readthedocs.io/en/latest/provider/grid5000.html
+[fn:enos-vagrant-provider] https://enos.readthedocs.io/en/latest/provider/vagrant.html
+[fn:vagrantfile] https://www.vagrantup.com/docs/vagrantfile/index.html
+[fn:cadvisor] https://github.com/google/cadvisor
+[fn:collectd] https://collectd.org/
+[fn:grafana] https://grafana.com/
+[fn:rally] https://rally.readthedocs.io/en/latest/
+[fn:shaker] https://pyshaker.readthedocs.io/en/latest/
+[fn:rally-scenarios] https://github.com/openstack/rally/tree/master/rally/plugins/openstack/scenarios
+[fn:shaker-scenarios] https://github.com/openstack/shaker/tree/master/shaker/scenarios/openstack
+[fn:dvr] https://wiki.openstack.org/wiki/Neutron/DVR
+
+* COMMENT Local Variables
+# Local Variables:
+# org-html-postamble: "<p class=\"author\">Author: %a</p>
+# <p class=\"email\">Email: %e</p>
+# <p class=\"github\">Find a typo, wanna make a proposition:
+#  <a href=\"https://github.com/BeyondTheClouds/enos-scenarios/issues/new?title=tp-imt (Day 2)\">open an issue</a></p>
+# <p class=\"date\">Last modification: %C</p>
+# <p class=\"license\">This work is licensed under a <a rel=\"license\" href=\"http://creativecommons.org/licenses/by-sa/4.0/\">Creative Commons Attribution-ShareAlike 4.0 International License</a>.</p>
+# <p class=\"creator\">%c – theme by
+#  <a href=\"http://gongzhitaao.org/orgcss\">http://gongzhitaao.org/orgcss</a></p>"
+# End:
