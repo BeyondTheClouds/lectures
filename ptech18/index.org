@@ -462,26 +462,25 @@ cli-vm login:
 #+END_EXAMPLE
 #+END_NOTE
 
-Before going to the next section, feel free to play around with the
-~openstack~ cli and Horizon. For instance, list all features offered
-by Nova with ~openstack server --help~ and try to figure out how to
-SSH on ~cli-vm~ using its name rather than its floating IP.
+Go on and play with the
+~openstack~ cli. For instance, list all features offered
+by Nova with ~openstack server --help~ and try to figure out how to : 
+1. SSH on ~cli-vm~ using its name rather than its IP;
+2. Suspend and resume it; 
+3. Create a snapshot of ~cli-vm~ (for this question, you should play directly wit the nova CLI)
+4. Boot a new machine ~cli-vm-clone~ from the snapshot.
+5. Delete ~cli-vm-clone~;
 
-
-Before going to the next section, play around with the ~openstack~ CLI
-and Horizon. For instance, list all the features offered by Nova with
-~openstack server --help~. Here are some exercises for you, find the
-CLI commands for the following actions:
-1. SSH on ~cli-vm~ using its name rather than its private IP;
-2. Attach ~cli-vm~ to the public network rather than attaching it a
-   floating ip (check afterwards on the machine the network
-   interfaces);
-3. What is the advantage of floating IP
-4. Create a snapshot of ~cli-vm~;
-5. Delete ~cli-vm~;
-6. Boot a new machine ~cli-vm-clone~ from the snapshot.
-
-# : openstack server ssh cli-vm --address-type private --login cirros
+#+BEGIN_COMMENT
+#+BEGIN_SRC bash
+sudo snap install openstackclients --edge --classic
+openstack server ssh cli-vm -l cirros
+openstack server suspend cli-vm
+nova image-create cli-vm cli-vm-img
+openstack image list
+openstack server create --flavor m1.tiny --network test --image cli-vm-img cli-vm-clone
+#+END_SRC
+#+END_COMMENT
 
 ** In Encryption We Trust
 Any cirros VMs share the same credentials ({{{ie}}} ~cirros~,
@@ -502,7 +501,7 @@ of your SSH key in the =~/.ssh/authorized_keys= of the VM ({{{ie}}}
 note the ~--key-name admin~).
 #+BEGIN_SRC bash
 vagrant@openstack:~$ openstack server create --wait --image cirros\
-                               --flavor m1.tiny --network private\
+                               --flavor m1.tiny --network test\
                                --key-name admin cli-vm-adminkey
 #+END_SRC
 
