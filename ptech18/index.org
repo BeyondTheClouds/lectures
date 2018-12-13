@@ -309,7 +309,7 @@ the deployment process is finished, Horizon is reachable from the web
 browser of your host machine http://192.168.142.127 with the following
 credentials:
 - login: ~admin~
-- password: ~demo~
+- password: ~keystone~
 
 From here, you can reach ~Project > Compute > Instances > Launch
 Instance~ and boot a virtual machine given the following information:
@@ -317,7 +317,7 @@ Instance~ and boot a virtual machine given the following information:
 - an image (e.g., ~cirros~)
 - a flavor to limit the resources of your instance (I recommend
   ~tiny~)
-- and a network setting (must be ~private~)
+- and a network setting (must be ~test~)
 
 You should select options by clicking on the arrow on the right of
 each possibility. When the configuration is OK, the ~Launch Instance~
@@ -331,18 +331,26 @@ access the VM:
 - login: ~cirros~
 - password: ~cubswin:)~
 
+Unfortunately this feature is disabled with Snap microstack but as
+every devops, you will prefer to access to your vm by the command line
+interface as desribed in the next section.
+
+** Unleash the Operator in You
+
 While Horizon is helpful to discover OpenStack features, this is not
 how a true operator administrates OpenStack. A true operator prefers
 command line interface 😄.
+You are luck, OpenStack provides such a command line interface. 
 
-** Unleash the Operator in You
-OpenStack provides a command line interface to operate your Cloud. But
-before using it, you need to set your environment with the OpenStack
-credentials, so that the command line won't bother you by requiring
-credentials each time.
+To use it, you need in most deployments to set your environment with
+the OpenStack credentials, so that the command line won't bother you
+by requiring credentials each time. you can retrieve this information
+through the horizon interface by clicking on the top right corner on
+the admin dropdown list and get the RC V3 file.
 
-Load the OpenStack credentials:
-: vagrant@openstack:~$ source ~/current/admin-openrc
+To setup your environment please source this file.
+: vagrant@openstack:~$ source ~/Downloads/admin-openrc
+
 
 You can then check that your environment is correctly set by:
 #+BEGIN_EXAMPLE
@@ -380,7 +388,7 @@ cirros VM called ~cli-vm~:
 vagrant@openstack:~$ openstack server create\
   --image cirros\
   --flavor m1.tiny\
-  --network private\
+  --network test\
   cli-vm
 #+END_EXAMPLE
 
@@ -409,15 +417,31 @@ to be pingable from the host.
 #+BEGIN_EXAMPLE
 vagrant@openstack:~$ openstack server add floating ip\
   cli-vm\
-  $(openstack floating ip create public -c floating_ip_address -f value)
+  $(openstack floating ip create external -c floating_ip_address -f value)
 #+END_EXAMPLE
 
 Then, ask for the status of your VM and its IPs with:
 : vagrant@openstack:~$ openstack server show cli-vm -c status -c addresses
 
 When the state is ~ACTIVE~, wait one minute or two, the time for the VM
-to boot. Then you can ping it on its floating IP and SSH on it:
+to boot. 
+#+BEGIN_do
+Ping it on its floating IP
 : vagrant@openstack:~$ ping <floating-ip> # floating-ip is 192.168.143.*
+Does it work? Why?  OpenStack is using different security rules, find
+which rules should be set in order to allow icmp packets as well as
+ssh connections to the VM.
+#+END_do
+
+#+BEGIN_COMMENT
+#+BEGIN_SRC bash
+SECGROUP_ID=`microstack.openstack security group list --project admin -f value -c ID`
+openstack security group rule create $SECGROUP_ID --proto tcp --remote-ip 0.0.0.0/0 --dst-port 22
+openstack security group rule create $SECGROUP_ID --proto icmp --remote-ip 0.0.0.0/0
+#+END_SRC
+#+END_COMMENT
+
+Once you succeed to ping the vm, you should be able to ssh on it
 : vagrant@openstack:~$ ssh -l cirros <floating-ip>
 
 #+BEGIN_NOTE
