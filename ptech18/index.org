@@ -5,9 +5,13 @@
 #+DATE: <2018-12-13 Thu>
 #+STARTUP: entitiespretty
 #+OPTIONS: ^:{} ':t email:t toc:nil
+#+PROPERTY: header-args :mkdirp yes
+#+HTML_DOCTYPE: html5
+#+OPTIONS: html5-fancy:t
 #+LINK: base-url https://rcherrueau.github.io/teaching/ptech18/%s
-#+LINK: horizon-url  http://localhost:8080/%s
+#+LINK: horizon-url  http://localhost/%s
 
+#+EXCLUDE_TAGS: noexport
 #+EXCLUDE_TAGS: solution
 
 #+HTML_HEAD: <link rel="stylesheet" type="text/css" href="timeline.css" />
@@ -20,13 +24,15 @@ are going to:
 - Operate this OpenStack to manage IaaS resources (e.g., boot VMs,
   setup a private Network).
 - Deploys a Wordpress as a Service.
-- Automatize all the stuff with the Heat template engine (i.e., manage
-  your cloud from your sofa!).
+# - Automatize all the stuff with the Heat template engine (i.e., manage
+#   your cloud from your sofa!).
 
 Find the slides of the lecture [[http://enos.irisa.fr/tp-polytech/openstack-slides.pdf][there]].
 #+END_abstract
 
-* Table of Contents                                          :TOC_3_gh:
+#+TOC: headlines 3
+
+* Table of Contents                                       :TOC_3_gh:noexport:
 - [[#requirements-and-setup][Requirements and Setup]]
   - [[#resources-of-the-lab][Resources of the Lab]]
   - [[#environment][Environment]]
@@ -36,27 +42,16 @@ Find the slides of the lecture [[http://enos.irisa.fr/tp-polytech/openstack-slid
   - [[#unleash-the-operator-in-you][Unleash the Operator in You]]
   - [[#in-encryption-we-trust][In Encryption We Trust]]
   - [[#the-art-of-provisioning-a-vm][The Art of Provisioning a VM]]
-- [[#deploys-a-wordpress-as-a-service][Deploys a Wordpress as a Service]]
-  - [[#clean-the-environment][Clean the environment]]
+    - [[#debian-9-ftw][Debian 9 FTW]]
+    - [[#cloudinit-in-action][Cloudinit in Action]]
+- [[#deploy-a-wordpress-as-a-service][Deploy a Wordpress as a Service]]
   - [[#wordpress-mysql-database][Wordpress MySQL Database]]
   - [[#wordpress-application][Wordpress Application]]
-- [[#automatize-the-deployment-with-heat][Automatize the deployment with Heat]]
-  - [[#heat-introduction][Heat introduction]]
-    - [[#introduction][Introduction]]
-    - [[#boot-a-vm][Boot a VM]]
-    - [[#need-more-flexibility-lets-add-parameters][Need more flexibility: let's add parameters!]]
-    - [[#need-our-deployment-to-return-values-lets-use-outputs][Need our deployment to return values: let's use outputs!]]
-    - [[#integrate-cloud-init-in-heat][Integrate ~cloud-init~ in Heat]]
-    - [[#dynamic-configuration-with-cloud-init-and-parameters][Dynamic configuration with ~cloud-init~ and parameters]]
-    - [[#data-dependency-between-resources][Data dependency between resources]]
-    - [[#nested-templates][Nested templates]]
-  - [[#nested-templates-with-data-dependency][Nested templates with data dependency]]
-  - [[#automatic-deployment-of-wordpress-with-heat][Automatic deployment of WordPress with Heat]]
 - [[#appendix][Appendix]]
   - [[#installs-mariadb-on-debian-9][Installs MariaDB on Debian 9]]
   - [[#installs-wordpress-on-debian-9][Installs Wordpress on Debian 9]]
 
-* COMMENT Notes
+* Lecture Notes                                                    :noexport:
 ** Problem with Virtualbox
 See https://github.com/CanonicalLtd/microstack/issues/41
 
@@ -72,18 +67,25 @@ And restart ~nova-compute~
 
 : sudo systemctl restart snap.microstack.nova-compute.service
 
+** Export
+#+BEGIN_SRC elisp :results none
+(org-babel-tangle)
+(org-ascii-export-to-ascii)
+(org-html-export-to-html)
+#+END_SRC
+
 * Requirements and Setup
 ** Resources of the Lab
 Get the resources of the lab at [[base-url:tp.tar.gz]].
 
 #+BEGIN_SRC bash
 curl -O https://rcherrueau.github.io/teaching/ptech18/tp.tar.gz
-tar xf tp
-cd tp
+tar xf ptech18
+cd ptech18
 #+END_SRC
 
 The archive contains:
-- index.org :: The current subject in text format.
+- index.txt :: The current subject in text format.
 - setup.sh :: Script that sets up the lab.
 - teardown.sh :: Script that uninstalls the lab.
 - rsc :: Resource directory with bash scripts useful for the lab.
@@ -121,7 +123,6 @@ Then, ensure OpenStack services are running on your machine.
 #+BEGIN_do
 Find the snap command that lists microstack OpenStack services and
 there status? What is the purpose of each service?
-#+END_do
 
 #+BEGIN_COMMENT
 : snap services microstack
@@ -136,27 +137,22 @@ there status? What is the purpose of each service?
 - nova-* :: Nova to manage VM
 - rabbitmq-server :: Communication bus used by all OpenStack services
 #+END_COMMENT
+#+END_do
 
 And finally, execute the ~setup.sh~ file (require sudo).
 : ./setup.sh
 
-#+BEGIN_SRC bash :tangle ./setup.sh    :shebang #!/usr/bin/env bash :exports none
+#+BEGIN_SRC bash :tangle ./setup.sh :shebang #!/usr/bin/env bash :exports none
 sudo apt update
 sudo apt install -y curl tcpdump
 sudo snap install microstack --classic --edge
 sudo snap install openstackclients --classic --edge
 #+END_SRC
 
-#+BEGIN_SRC bash :tangle ./teardown.sh :shebang #!/usr/bin/env bash :exports none
-for vm in $(openstack server list -c Name -f value); do\
-  echo "Deleting ${vm}...";\
-  openstack server delete "${vm}";\
-done
+#+BEGIN_SRC bash :noweb tangle :tangle ./teardown.sh :shebang #!/usr/bin/env bash :exports none
+<<lst:delete-vms>>
 
-for ip in $(openstack floating ip list -c "Floating IP Address" -f value); do\
-  echo "Delete ${ip}...";\
-  openstack floating ip delete "${ip}";\
-done
+<<lst:delete-fips>>
 
 sudo snap remove openstackclients
 sudo snap remove microstack
@@ -177,8 +173,8 @@ From here, you can reach ~Project > Compute > Instances > Launch
 Instance~ and boot a virtual machine given the following information:
 - a name (e.g., ~horizon-vm~)
 - an image (e.g., ~cirros~)
-- a flavor to limit the resources of your instance (I recommend
-  ~tiny~)
+- a flavor to limit the resources of your instance (we recommend
+  ~m1.tiny~)
 - and a network setting (must be ~test~)
 
 You should select options by clicking on the arrow on the right of
@@ -206,9 +202,9 @@ command line interface.
 To use it, you need in most deployments to set your environment with
 the OpenStack credentials, so that the command line won't bother you
 by requiring credentials each time. you can retrieve this information
-through the Horizon interface by clicking on the top right corner of
-the admin dropdown list and get the RC V3 file (or by clicking on that
-[[horizon-url:project/api_access/openrc/][link]]).
+through the Horizon interface by clicking on the ~admin~ dropdown list
+at the top right corner and get the "OpenStack RC File V3" (or by
+clicking on that [[horizon-url:project/api_access/openrc/][link]]).
 
 To setup your environment please source this file.
 : source ./admin-openrc.sh
@@ -231,8 +227,9 @@ OS_USERNAME=admin
 
 All operations to manage OpenStack are done through one single command
 line, called ~openstack~. Doing an ~openstack --help~ displays the
-really long list of possibilities provided by this command. The following
-gives you a selection of the most often used commands to operate your Cloud:
+really long list of possibilities provided by this command. The
+following gives you a selection of the most often used commands to
+operate your Cloud:
 - List OpenStack running services :: ~openstack endpoint list~
 - List images :: ~openstack image list~
 - List flavors :: ~openstack flavor list~
@@ -246,30 +243,29 @@ gives you a selection of the most often used commands to operate your Cloud:
 Using all these commands, you can use the CLI to start a new tiny
 cirros VM called ~cli-vm~:
 #+BEGIN_SRC bash
-openstack server create\
-  --image cirros\
-  --flavor m1.tiny\
-  --network test\
+openstack server create \
+  --image cirros \
+  --flavor m1.tiny \
+  --network test \
   cli-vm
 #+END_SRC
 
-Then, display the information about your VM with the following command:
+Then, display the information about your VM with the following
+command:
 : openstack server show cli-vm
 
-Note in particular the ~status~ of your VM. This status will go from
-~BUILD~: OpenStack is looking for the best place to boot the VM; to
-~ACTIVE~: your VM is running. The status could also be ~ERROR~ if you
-are experiencing hard times with your infrastructure.
+Note in particular the ~status~ of your VM.
+: openstack server show cli-vm -c status
 
-With the previous ~openstack server create~ command, the VM boots with
-a private IP. When the state is ~ACTIVE~, wait one minute or two, the
-time for the VM to boot. You can ask for the status of your VM and its
-IPs with:
-: openstack server show cli-vm -c status -c addresses
+This status will go from ~BUILD~: OpenStack is looking for the best
+place to boot the VM; to ~ACTIVE~: your VM is running (including the
+boot phase). The status could also be ~ERROR~ if you are experiencing
+hard times with your infrastructure.
 
-You can also check that the VM finished to boot by looking at its logs
-with ~openstack console log show cli-vm~. The VM finished to boot when
-last lines are:
+Because an ~ACTIVE~ state includes the booting phase, you may wait for
+one minute or two, the time for the VM finish booting. You can check
+that by looking at its logs with ~openstack console log show cli-vm~.
+The VM finished to boot when last lines are:
 #+BEGIN_EXAMPLE
 === cirros: current=0.3.4 uptime=16.56 ===
   ____               ____  ____
@@ -283,12 +279,14 @@ login as 'cirros' user. default password: 'cubswin:)'. use 'sudo' for root.
 cli-vm login:
 #+END_EXAMPLE
 
-Private IPs are used for communication between VMs, meaning you cannot
-ping your VM from an external network (e.g., the host machine). You
-have to manually affect a floating IP of the ~external~ network to
-your machine if you want it to be pingable from the host.
+With the previous ~openstack server create~ command, the VM boots with
+a private IP. Private IPs are used for communication between VMs,
+meaning you cannot ping your VM from an external network (e.g., the
+host machine). You have to manually affect a floating IP of the
+~external~ network to your machine if you want it to be pingable from
+the host.
 #+BEGIN_SRC bash
-ALLOCATED_FIP=$(openstack floating ip create\
+ALLOCATED_FIP=$(openstack floating ip create \
   -c floating_ip_address -f value external)
 openstack server add floating ip cli-vm "$ALLOCATED_FIP"
 #+END_SRC
@@ -391,9 +389,11 @@ openstack server resume cli-vm; openstack server show cli-vm -c status
 # 3.
 nova image-create cli-vm cli-vm-img; openstack image list
 # 4.
-openstack server create --wait --flavor m1.tiny\
-  --network test --image cli-vm-img\
+openstack server create --wait --flavor m1.tiny \
+  --network test --image cli-vm-img \
   cli-vm-clone
+# 5.
+openstack server delete cli-vm-clone
 #+END_SRC
 #+END_COMMENT
 
@@ -405,36 +405,36 @@ management of SSH keys. OpenStack can generate a SSH key and push the
 public counterpart on the VM. Therefore, doing a ~ssh~ on the VM will
 use the SSH key instead of asking the client to fill the credentials.
 
-Make an SSH key and store the private counterpart in =~/admin.pem=.
+Make an SSH key and store the private counterpart in =./admin.pem=.
 Then, give that file the correct permission access.
-: openstack keypair create --private-key ~/admin.pem admin
-: chmod 600 admin.pem
+: openstack keypair create --private-key ./admin.pem admin
+: chmod 600 ./admin.pem
 
 Start a new VM and ask OpenStack to copy the public counterpart of
 your SSH key in the =~/.ssh/authorized_keys= of the VM (i.e., note the
 ~--key-name admin~).
 #+BEGIN_SRC bash
-openstack server create --wait --image cirros\
-  --flavor m1.tiny --network test\
+openstack server create --wait --image cirros \
+  --flavor m1.tiny --network test \
   --key-name admin cli-vm-adminkey
 #+END_SRC
 
 Attach it a floating IP.
 #+BEGIN_SRC bash
-openstack server add floating ip\
-  cli-vm-adminkey\
+openstack server add floating ip \
+  cli-vm-adminkey \
   $(openstack floating ip create -c floating_ip_address -f value external)
 #+END_SRC
 
 Now you can access your VM using SSH without filling credentials.
 #+BEGIN_SRC bash
 openstack server ssh cli-vm-adminkey \
-  --login cirros\
-  --identity ~/admin.pem
+  --login cirros \
+  --identity ./admin.pem
 #+END_SRC
 
 Or directly with the ~ssh~ command
-: ssh -i ~/admin.pem cirros@$(openstack server show cli-vm-adminkey -c addresses -f value | sed  -Er 's/test=.+ (10\.20\.20\.[0-9]+).*/\1/g')
+: ssh -i ./admin.pem cirros@$(openstack server show cli-vm-adminkey -c addresses -f value | sed  -Er 's/test=.+ (10\.20\.20\.[0-9]+).*/\1/g')
 
 #+BEGIN_NOTE
 A regular ~ssh~ command looks like ~ssh -i <identity-file>
@@ -462,36 +462,118 @@ list of Cloudinit modules can be found [[http://cloudinit.readthedocs.io/en/late
 is able to run a bash script that will be executed on the VM as ~root~
 during the boot process.
 
-To tell OpenStack to make this script reachable from our VM, we use a
-mechanism called ~user-data~. For instance, the following starts a Debian and
-installs ~figlet~ and ~lolcat~ software on the VM:
+*** Debian 9 FTW
+:PROPERTIES:
+:CUSTOM_ID: sec:debian9-ftw
+:END:
+When it comes the time to deal with real applications, we cannot use
+cirros VMs anymore. A Cirros VM is good for testing because it starts
+fast and has a small memory footprint. However, do not expect to
+launch MySQL or even [[https://github.com/busyloop/lolcat][~lolcat~]] on a cirros.
+
+We are going to run several Debian9 VMs in this section. But, a
+Debian9 takes a lot more of resources to run. For this reason, you
+have to release all your resources before going further.
+
+Delete currently running VMs.
+#+NAME: lst:delete-vms
 #+BEGIN_SRC bash
-vagrant@openstack:~$ PROVISION_FILE='/tmp/provision.sh'
-vagrant@openstack:~$ cat > "$PROVISION_FILE" << EOF
-#!/bin/bash
+for vm in $(openstack server list -c Name -f value); do \
+  echo "Deleting ${vm}..."; \
+  openstack server delete "${vm}"; \
+done
+#+END_SRC
+
+In the same manner, delete floating IPs.
+#+NAME: lst:delete-fips
+#+BEGIN_SRC bash
+for ip in $(openstack floating ip list -c "Floating IP Address" -f value); do \
+  echo "Deleting ${ip}..."; \
+  openstack floating ip delete "${ip}"; \
+done
+#+END_SRC
+
+Then, create a new flavor with 5 Go of Disk.
+#+BEGIN_SRC bash
+openstack flavor create --ram 2048 \
+  --disk 5 --vcpus 1 --swap 1024 \
+  --public m1.mini
+#+END_SRC
+
+Download the Debian9 image with support of Cloudinit.
+#+BEGIN_SRC bash
+curl -L -o /tmp/debian-9.qcow2 \
+  https://cdimage.debian.org/cdimage/openstack/current-9/debian-9-openstack-amd64.qcow2
+#+END_SRC
+
+And import it into Glance.
+#+BEGIN_SRC bash
+openstack image create --disk-format=qcow2 \
+  --container-format=bare --property architecture=x86_64 \
+  --public --file /tmp/debian-9.qcow2 \
+  debian-9
+#+END_SRC
+
+*** Cloudinit in Action
+To tell Cloudinit to load and execute a specific script at boot time,
+you have to add the extra argument ~--user-date
+<file/path/of/your/script>~ at the regular ~openstack server create~
+command.
+
+#+BEGIN_do
+Start a new VM named ~art-vm~ based on the ~debian-9~ image and the
+~m1.mini~ flavor. The VM should load and execute the script [[lst:art.sh]]
+-- available under [[file:rsc/art.sh]] -- that installs the [[https://github.com/cmatsuoka/figlet][~figlet~]] and
+[[https://github.com/busyloop/lolcat][~lolcat~]] softwares on the VM.
+
+#+CAPTION: Cloudinit script available under [[file:rsc/art.sh]]
+#+NAME: lst:art.sh
+#+BEGIN_SRC bash :tangle ./rsc/art.sh :shebang #!/usr/bin/env bash
+# Fix DNS resolution
+echo "" >> /etc/resolv.conf
+echo "nameserver 8.8.8.8" >> /etc/resolv.conf
+
+# Install figlet and lolcat
 apt update
 apt install -y figlet lolcat
-EOF
-vagrant@openstack:~$ openstack server create --wait --image debian-9\
-  --flavor m1.small --network private\
-  --key-name admin\
-  --user-data "$PROVISION_FILE"\
-  cli-vm-provision
 #+END_SRC
 
 You can follow the correct installation of software with:
-: watch openstack console log show --lines=5 cli-vm-provision
+: watch openstack console log show --lines=20 art-vm
 
-Then, you can jump on the VM and call the ~figlet~ and ~lolcat~
-software.
+#+BEGIN_COMMENT
 #+BEGIN_SRC bash
-vagrant@openstack:~$ openstack server ssh cli-vm-provision \
-  --private\
-  --login debian\
-  --identity ~/admin.pem
-debian@cli-vm-provision:~$ figlet "The Art of Provisionning a VM" | lolcat
+openstack server create --wait --image debian-9 \
+  --flavor m1.mini --network test \
+  --key-name admin \
+  --user-data ./rsc/art.sh \
+  art-vm
 #+END_SRC
-* Deploys a Wordpress as a Service
+#+END_COMMENT
+#+END_do
+
+Then, attach it a floating IP.
+#+BEGIN_SRC bash
+openstack server add floating ip \
+  art-vm \
+  $(openstack floating ip create -c floating_ip_address -f value external)
+#+END_SRC
+
+Hence, you can jump on the VM and call the ~figlet~ and ~lolcat~
+software.
+#+BEGIN_EXAMPLE
+~$ openstack server ssh art-vm \
+  --login debian \
+  --identity ./admin.pem
+
+The authenticity of host '10.20.20.13 (10.20.20.13)' can't be established.
+ECDSA key fingerprint is SHA256:WgAn+/gWYg9MkauihPyQGwC0LJ8sLWM/ySrUzN8cK9w.
+Are you sure you want to continue connecting (yes/no)? yes
+
+debian@art-vm:~$ figlet "The Art of Provisionning a VM" | lolcat
+#+END_EXAMPLE
+
+* Deploy a Wordpress as a Service
 [[https://wordpress.org/][Wordpress]] is the most popular content management system (CMS) in use
 on the Web. People use it to create websites, blogs or applications.
 It is open-source, and based on PHP and MySQL under the hood.
@@ -506,78 +588,58 @@ The directory ~rsc~ provides bash scripts to deploy the MySQL database
 and the web server. As the DevOps of OPH -- Online Polytech Hosting --
 your job is to automatize the deployment of a Wordpress on your
 OpenStack. See the bash scripts in [[*Appendix][appendix]] for more information.
-Also, [[*Clean the environment][clean your environment]] before going further.
+Also, [[#sec:debian9-ftw][clean your environment]] before going further.
 
 #+BEGIN_do
 Make a bash script that automatically starts the ~wordpress-db~ and
 ~wordpress-app~ VM.
 #+END_do
 
-** Clean the environment
-When it comes the time to deal with real applications, we cannot use
-cirros VMs anymore. A Cirros VM is good for testing because it starts
-fast and has a small memory footprint. However, do not expect to
-launch MySQL on a cirros.
-
-We are going to run several Debian9 VMs in this section. But, a
-Debian9 takes a lot more of resources to run. For this reason, you
-have to release all your resources before going further.
-
-Delete currently running VMs.
-#+BEGIN_SRC bash
-for vm in $(openstack server list -c Name -f value); do\
-  echo "Deleting ${vm}...";\
-  openstack server delete "${vm}";\
-done
-#+END_SRC
-
-In the same manner, delete floating IPs.
-#+BEGIN_SRC bash
-for ip in $(openstack floating ip list -c "Floating IP Address" -f value); do\
-  echo "Delete ${ip}...";\
-  openstack floating ip delete "${ip}";\
-done
-#+END_SRC
-
 ** Wordpress MySQL Database                                        :solution:
-Start a VM with ~wordpress-db~ name, ~debian-9~ image, ~m1.small~
-flavor, ~private~ network and ~admin~ key-pair. Also, provision your
-VM with the next script thanks to the ~--user-data
-~/rsc/install-mariadb.sh~ option.
+Start a VM with ~wordpress-db~ name, ~debian-9~ image, ~m1.mini~
+flavor, ~test~ network and ~admin~ key-pair. Also, provision your VM
+with the [[file:rsc/install-mariadb.sh]] script thanks to the ~--user-data
+./rsc/install-mariadb.sh~ option.
 
 #+BEGIN_SRC bash
-openstack server create --wait --image debian-9\
-                               --flavor m1.small --network private\
-                               --key-name admin\
-                               --user-data ~/rsc/lib/install-mariadb.sh\
-                               wordpress-db
+openstack server create --wait --image debian-9 \
+  --flavor m1.mini --network test \
+  --key-name admin \
+  --user-data ./rsc/install-mariadb.sh \
+  wordpress-db
 #+END_SRC
 
 ** Wordpress Application                                           :solution:
-Start a VM with ~wordpress-app~ name, ~debian-9~ image, ~m1.small~
-flavor, ~private~ network and ~admin~ key-pair. Also, provision your
-VM with the next script thanks to the ~--user-data
-~/rsc/install-wp.sh~ option. Note that you need to provide the IP
-address of the MySQL server to this script before running it.
+Start a VM with ~wordpress-app~ name, ~debian-9~ image, ~m1.mini~
+flavor, ~test~ network and ~admin~ key-pair. Also, provision your VM
+with the [[file:rsc/install-wp.sh]] script thanks to the ~--user-data
+./rsc/install-wp.sh~ option. Note that you need to provide the IP
+address of the ~wordpress-db~ to this script before running it.
 
+Set the script with IP address of ~wordpress-db~.
 #+BEGIN_SRC bash
-openstack server create --wait --image debian-9\
-                               --flavor m1.small --network private\
-                               --key-name admin\
-                               --user-data ~/rsc/lib/install-wp.sh\
-                               wordpress-app
+sed -i '13s|.*|DB_HOST="'$(openstack server show wordpress-db -c addresses -f value | sed -Er "s/test=//g")'"|' ./rsc/install-wp.sh
 #+END_SRC
 
-Then, attach a floating ip to that VM.
+Then, create ~wordpress-app~.
 #+BEGIN_SRC bash
-debian@os-control:~$ openstack server add floating ip\
-  wordpress-wp\
-  $(openstack floating ip create public -c floating_ip_address -f value)
+openstack server create --wait --image debian-9 \
+  --flavor m1.mini --network test \
+  --key-name admin \
+  --user-data ./rsc/install-wp.sh \
+  wordpress-app
 #+END_SRC
 
-Finally, you can reach WordPress.
+Attach a floating ip to that VM.
+#+BEGIN_SRC bash
+openstack server add floating ip \
+  wordpress-app \
+  $(openstack floating ip create -c floating_ip_address -f value external)
+#+END_SRC
 
-* Automatize the deployment with Heat
+Finally, you can reach WordPress on ~http://<floating-ip>/wp~.
+
+* COMMENT Automatize the deployment with Heat
 ** Heat introduction
 *** Introduction
 In the previous sessions, we saw how to boot a VM with OpenStack, and execute a
@@ -635,7 +697,7 @@ $ openstack stack create -t ./1_boot_vm.yaml hw1
 $ openstack stack list
 $ openstack stack show hw1
 $ watch openstack server list
-$ openstack server ssh --login debian --identity ~/admin.pem --address-type provider-net hello_world
+$ openstack server ssh --login debian --identity ./admin.pem --address-type provider-net hello_world
 $ openstack stack delete hw1
 #+END_SRC
 
@@ -712,7 +774,7 @@ the user-data property:
 
 #+BEGIN_SRC bash
 $ openstack stack create -t ./4_boot_vm_with_user-data.yaml hw4
-$ openstack server ssh --login debian --identity ~/admin.pem --address-type provider-net hw4
+$ openstack server ssh --login debian --identity ./admin.pem --address-type provider-net hw4
 $ openstack stack delete hw4
 #+END_SRC
 
@@ -758,7 +820,7 @@ during the deployment, and check that ~provider~ is deployed prior ~user~:
 
 #+BEGIN_SRC bash
 $ openstack stack create -t ./6_boot_vms_with_exchange.yaml hw6 && watch openstack server list
-$ openstack server ssh --login debian --identity ~/admin.pem --address-type provider-net user
+$ openstack server ssh --login debian --identity ./admin.pem --address-type provider-net user
 debian@user:~$ ping provider
 debian@user:~$ exit
 $ openstack stack delete hw6
@@ -835,12 +897,12 @@ $ lynx <web_server_ip_address>/wp
 ** Installs Wordpress on Debian 9
 #+INCLUDE: "rsc/install-wp.sh" src bash
 
-* COMMENT Local Variables
+* Local Variables                                                  :noexport:
 # Local Variables:
 # org-html-postamble: "<p class=\"author\">Author: %a</p>
 # <p class=\"email\">Email: %e</p>
 # <p class=\"github\">Find a typo, wanna make a proposition:
-#  <a href=\"https://github.com/BeyondTheClouds/enos-scenarios/issues/new?title=tp-imt (Day 2)\">open an issue</a></p>
+#  <a href=\"https://github.com/BeyondTheClouds/lectures/issues/new?title=[ptech18]\">open an issue</a></p>
 # <p class=\"date\">Last modification: %C</p>
 # <p class=\"license\">This work is licensed under a <a rel=\"license\" href=\"http://creativecommons.org/licenses/by-sa/4.0/\">Creative Commons Attribution-ShareAlike 4.0 International License</a>.</p>
 # <p class=\"creator\">%c – theme by

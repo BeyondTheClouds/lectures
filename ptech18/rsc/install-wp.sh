@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
-
+#
 # Install and configure Apache to serve Wordpress for Debian 9.
+
+# Fix DNS resolution
+echo "" >> /etc/resolv.conf
+echo "nameserver 8.8.8.8" >> /etc/resolv.conf
 
 # Parameters
 DB_NAME=wordpress
 DB_USER=silr
 DB_PASSWORD=silr
-DB_HOST=
+DB_HOST=<TODO>
 
 apt-get update -y
 apt-get upgrade -y
@@ -39,4 +43,3 @@ define('DB_HOST', '${DB_HOST}');
 define('WP_CONTENT_DIR', '/var/lib/wordpress/wp-content');
 ?>
 EOF
-

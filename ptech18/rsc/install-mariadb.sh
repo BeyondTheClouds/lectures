@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
-
+#
 # Install and configure MariaDB for Debian 9.
+
+# Fix DNS resolution
+echo "" >> /etc/resolv.conf
+echo "nameserver 8.8.8.8" >> /etc/resolv.conf
 
 # Parameters
 DB_ROOTPASSWORD=root
@@ -14,7 +18,7 @@ apt install -q -y mariadb-server mariadb-client
 
 # Next line stops mysql install from popping up request for root password
 export DEBIAN_FRONTEND=noninteractive
-sed -i 's/127.0.0.1/0.0.0.0/' /etc/mysql/my.cnf
+sed -i 's/127.0.0.1/0.0.0.0/' /etc/mysql/mariadb.conf.d/50-server.cnf
 systemctl restart mysql
 
 # Setup MySQL root password and create a user and add remote privs to app subnet
