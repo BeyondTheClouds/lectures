@@ -12,9 +12,9 @@
 #+LINK: horizon-url  http://localhost/%s
 
 #+EXCLUDE_TAGS: noexport
-#+EXCLUDE_TAGS: solution
+# #+EXCLUDE_TAGS: solution
 
-#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="timeline.css" />
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="org.css" />
 
 #+BEGIN_abstract
 OpenStack has become the de-facto solution to operate compute, network
@@ -27,7 +27,7 @@ are going to:
 # - Automatize all the stuff with the Heat template engine (i.e., manage
 #   your cloud from your sofa!).
 
-Find the slides of the lecture [[http://enos.irisa.fr/tp-polytech/openstack-slides.pdf][there]].
+Find the slides of the lecture [[file:docs/CloudFogEdgeIntro.pdf][here]] and [[file:docs/openstack-slides.pdf][there]].
 #+END_abstract
 
 #+TOC: headlines 3
@@ -68,6 +68,7 @@ And restart ~nova-compute~
 : sudo systemctl restart snap.microstack.nova-compute.service
 
 ** Export
+Do ~C-c C-c~ on the following
 #+BEGIN_SRC elisp :results none
 (org-babel-tangle)
 (org-ascii-export-to-ascii)
@@ -80,7 +81,7 @@ Get the resources of the lab at [[base-url:tp.tar.gz]].
 
 #+BEGIN_SRC bash
 curl -O https://rcherrueau.github.io/teaching/ptech18/tp.tar.gz
-tar xf ptech18
+tar xf tp.tar.gz
 cd ptech18
 #+END_SRC
 
@@ -89,6 +90,7 @@ The archive contains:
 - setup.sh :: Script that sets up the lab.
 - teardown.sh :: Script that uninstalls the lab.
 - rsc :: Resource directory with bash scripts useful for the lab.
+- docs :: Slides of the lectures.
 
 ** Environment
 To follow the lab you'll need a Linux (prefer Ubuntu 18.04) with 6 Go
@@ -115,6 +117,9 @@ OpenStack (instead of 30 minutes for other options).
 #+END_note
 
 ** Setup OpenStack
+Install snap.
+: sudo apt install snapd
+
 Install OpenStack directly from the snap store.
 : sudo snap install microstack --classic --edge
 
@@ -124,19 +129,19 @@ Then, ensure OpenStack services are running on your machine.
 Find the snap command that lists microstack OpenStack services and
 there status? What is the purpose of each service?
 
-#+BEGIN_COMMENT
+#+BEGIN_solution
 : snap services microstack
 
-- glance-* :: Glance to manage VM images.
-- horizon-* :: OpenStack Web dashboard
+- glance-* :: Glance to manage VM images: ~openstack image --help~.
+- horizon-* :: OpenStack Web dashboard: [[horizon-url]].
 - keystone-* :: Keystone to manage authentication and authorization
                 on OpenStack.
+- neutron-* :: Neutron to manage networks: ~openstack network --help~.
+- nova-* :: Nova to manage VM: ~openstack server --help~.
 - memcached :: Cache used by all OpenStack services
 - mysqld :: Database used by all OpenStack services
-- neutron-* :: Neutron to manage networks
-- nova-* :: Nova to manage VM
 - rabbitmq-server :: Communication bus used by all OpenStack services
-#+END_COMMENT
+#+END_solution
 #+END_do
 
 And finally, execute the ~setup.sh~ file (require sudo).
@@ -150,6 +155,8 @@ sudo snap install openstackclients --classic --edge
 #+END_SRC
 
 #+BEGIN_SRC bash :noweb tangle :tangle ./teardown.sh :shebang #!/usr/bin/env bash :exports none
+. admin-openrc.sh
+
 <<lst:delete-vms>>
 
 <<lst:delete-fips>>
@@ -255,7 +262,7 @@ command:
 : openstack server show cli-vm
 
 Note in particular the ~status~ of your VM.
-: openstack server show cli-vm -c status
+: openstack server show cli-vm -c status -f json
 
 This status will go from ~BUILD~: OpenStack is looking for the best
 place to boot the VM; to ~ACTIVE~: your VM is running (including the
@@ -303,7 +310,7 @@ Note the new IP address. From which network this IP comes? Ping
 
 Does it work? Why? Hint: [[https://docs.openstack.org/neutron/latest/feature_classification/general_feature_support_matrix.html#operation_Security_Groups][OpenStack sets security groups by default]].
 
-#+BEGIN_COMMENT
+#+BEGIN_solution
 The IP comes from the network 10.20.20.0/24 serves on the host machine
 by ~br-ex~. Actually, Snap microstack [[https://github.com/CanonicalLtd/microstack/blob/130ff892b77b7a37268add7126216b31d3b5fd09/snap-overlay/bin/setup-br-ex][creates]] a new virtual interface
 named ~br-ex~ to manage the external network.
@@ -317,27 +324,11 @@ icmp packets and SSH connection on the VM.
 
 #+BEGIN_SRC bash
 SECGROUP_ID=`openstack security group list --project admin -f value -c ID`
-openstack security group rule create $SECGROUP_ID --proto tcp --remote-ip 0.0.0.0/0 --dst-port 22
+openstack security group rule create $SECGROUP_ID --proto tcp --remote-ip 0.0.0.0/0 \
+  --dst-port 22
 openstack security group rule create $SECGROUP_ID --proto icmp --remote-ip 0.0.0.0/0
 #+END_SRC
-
-# The enos way
-# #+BEGIN_SRC bash
-# ADMIN_PROJECT_ID=$(openstack project list --user admin -c ID -f value)
-# ADMIN_SEC_GROUP=$(openstack security group list --project ${ADMIN_PROJECT_ID} -c ID -f value)
-# for i in $(openstack security group rule list -c ID -f value)
-# do
-#     openstack security group rule delete $i
-# done
-#
-# openstack security group rule create ${ADMIN_SEC_GROUP} --protocol icmp --dst-port 1:65535 --remote-ip 0.0.0.0/0 --ingress
-# openstack security group rule create ${ADMIN_SEC_GROUP} --protocol icmp --dst-port 1:65535 --remote-ip 0.0.0.0/0 --egress
-# openstack security group rule create ${ADMIN_SEC_GROUP} --protocol tcp --dst-port 1:65535 --remote-ip 0.0.0.0/0 --ingress
-# openstack security group rule create ${ADMIN_SEC_GROUP} --protocol tcp --dst-port 1:65535 --remote-ip 0.0.0.0/0 --egress
-# openstack security group rule create ${ADMIN_SEC_GROUP} --protocol udp --dst-port 1:65535 --remote-ip 0.0.0.0/0 --ingress
-# openstack security group rule create ${ADMIN_SEC_GROUP} --protocol udp --dst-port 1:65535 --remote-ip 0.0.0.0/0 --egress
-# #+END_SRC
-#+END_COMMENT
+#+END_solution
 #+END_do
 
 Once you succeed to ping the vm, you should be able to SSH on it
@@ -350,7 +341,7 @@ From the cirros, ping the outside world.
 Does it work? Why? Hint: do a ~tcpdump -nni br-ex icmp~ to understand
 how the packets flow. Idem on the NIC of your default route.
 
-#+BEGIN_COMMENT
+#+BEGIN_solution
 The network traffic on ~br-ex~ is not supposed to go out, and you have
 to use the NIC of your default route (i.e., ~ip r|fgrep default~,
 e.g., ~eth0~ ) as a gateway (see,
@@ -367,7 +358,7 @@ First, enable Linux IP forwarding.
 
 Then, set up the SNAT with ~iptables~.
 : sudo iptables -t nat -A POSTROUTING ! -d 10.20.20.0/24 -o eth0 -j SNAT --to-source 10.0.2.15
-#+END_COMMENT
+#+END_solution
 #+END_do
 
 Go on, and play with the ~openstack~ cli. For instance, list all
@@ -375,11 +366,11 @@ features offered by Nova with ~openstack server --help~ and try to
 figure out how to:
 1. SSH on ~cli-vm~ using its name rather than its IP;
 2. Suspend and resume it;
-3. Create a snapshot of ~cli-vm~ (Hint: use the ~nova~ CLI directly)
+3. Create a snapshot of ~cli-vm~;
 4. Boot a new machine ~cli-vm-clone~ from the snapshot.
 5. Delete ~cli-vm-clone~;
 
-#+BEGIN_COMMENT
+#+BEGIN_solution
 #+BEGIN_SRC bash
 # 1.
 openstack server ssh cli-vm -l cirros
@@ -387,7 +378,7 @@ openstack server ssh cli-vm -l cirros
 openstack server suspend cli-vm; openstack server show cli-vm -c status
 openstack server resume cli-vm; openstack server show cli-vm -c status
 # 3.
-nova image-create cli-vm cli-vm-img; openstack image list
+openstack server image create --name cli-vm-img cli-vm; openstack image list
 # 4.
 openstack server create --wait --flavor m1.tiny \
   --network test --image cli-vm-img \
@@ -395,7 +386,7 @@ openstack server create --wait --flavor m1.tiny \
 # 5.
 openstack server delete cli-vm-clone
 #+END_SRC
-#+END_COMMENT
+#+END_solution
 
 ** In Encryption We Trust
 Any cirros VMs share the same credentials (i.e., ~cirros~, ~cubswin~)
@@ -516,7 +507,7 @@ openstack image create --disk-format=qcow2 \
 
 *** Cloudinit in Action
 To tell Cloudinit to load and execute a specific script at boot time,
-you have to add the extra argument ~--user-date
+you have to add the extra argument ~--user-data
 <file/path/of/your/script>~ at the regular ~openstack server create~
 command.
 
@@ -541,7 +532,7 @@ apt install -y figlet lolcat
 You can follow the correct installation of software with:
 : watch openstack console log show --lines=20 art-vm
 
-#+BEGIN_COMMENT
+#+BEGIN_solution
 #+BEGIN_SRC bash
 openstack server create --wait --image debian-9 \
   --flavor m1.mini --network test \
@@ -549,7 +540,7 @@ openstack server create --wait --image debian-9 \
   --user-data ./rsc/art.sh \
   art-vm
 #+END_SRC
-#+END_COMMENT
+#+END_solution
 #+END_do
 
 Then, attach it a floating IP.

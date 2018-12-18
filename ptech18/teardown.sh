@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+. admin-openrc.sh
+
 for vm in $(openstack server list -c Name -f value); do \
   echo "Deleting ${vm}..."; \
   openstack server delete "${vm}"; \
