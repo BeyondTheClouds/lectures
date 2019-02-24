@@ -1,0 +1,19 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[scripts]
+setup-aio  = "python ./setup-aio.py"
+setup-heat = "python ./setup-heat.py"
+
+[dev-packages]
+python-language-server = {extras = ["yapf"],version = "*"}
+pyls-isort = "*"
+pyls-mypy = "*"
+
+[packages]
+enoslib = "==2.0.2"
+
+[requires]
+python_version = "3.7"
