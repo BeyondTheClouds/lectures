@@ -1,6 +1,7 @@
 # $ pipenv run setup-aio  # thanks to Pipfile > scripts > setup-aio
 import logging
 import os
+import socket
 
 from enoslib.api import generate_inventory, emulate_network, validate_network
 from enoslib.infra.enos_g5k import api
@@ -11,7 +12,7 @@ from enoslib.infra.enos_g5k.configuration import *
 logging.basicConfig(level=logging.DEBUG)
 LOG   = logging.getLogger(__name__)
 TEAMS = [
-    ("ronana", "alebre")
+    ("ronana", "alebre"),
 ]
 
 # "alacour"
@@ -72,16 +73,16 @@ def make_conf(testing=True):
     conf.finalize()
     return conf
 
-def get_node_addresses(roles):
+def get_nodes(roles):
     return sorted(set([n.address for nodes in roles.values()
                                  for n in nodes]))
 
 def bootstrap(roles):
-    nodes = get_node_addresses(roles)
+    nodes = get_nodes(roles)
     cmd   = lambda cmd: api.exec_command_on_nodes(nodes, cmd, cmd)
 
     # Install the bare necessities
-    packages = [ 'htop', 'python', 'vim']
+    packages = [ 'silversearcher-ag', 'curl', 'htop', 'python', 'tcpdump', 'vim']
     cmd("apt-get update && apt-get -y --force-yes install %s" % ' '.join(packages))
 
     # Setup ssh for root w/ password
@@ -90,12 +91,16 @@ def bootstrap(roles):
     cmd('echo "PermitRootLogin yes"        >> /etc/ssh/sshd_config')
     cmd('systemctl restart ssh')
 
+    # Put /snap/bin in PATH
+    cmd('echo "export PATH=/snap/bin:${PATH} >> /root/.bashrc')
+
     return nodes
 
 # Claim the resources and do the scaffolding
-roles, networks = G5k(make_conf(testing=True)).init()
+roles, networks = G5k(make_conf(testing=False)).init(force_deploy=False)
 nodes = bootstrap(roles)
+addrs = map(socket.gethostbyname, nodes)
 
 print("Node affectation:")
-for (team, node) in zip(TEAMS, nodes):
-    print("  %s ⇒ %s" % (team, node))
+for (team, addr) in zip(TEAMS, addrs):
+    print("- %s :: ~%s~" % (', '.join(p for p in team), addr))

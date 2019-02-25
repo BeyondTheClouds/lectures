@@ -82,7 +82,6 @@ Do ~C-c C-c~ on the following
 Put it on my personal website and change the link to org file.
 
 #+BEGIN_SRC elisp :results silent :noweb yes
-
 (let* ((base-dir "~/prog/rcherrueau.github.com/teaching/")
        (export-dir (concat base-dir "2019/os-imt/"))
        (export-file (concat export-dir "index.html"))
@@ -99,17 +98,16 @@ Put it on my personal website and change the link to org file.
     (goto-char (point-min))
     (re-search-forward "href=\"org.css\"" nil t)
     (replace-match (format "href=\"%s/rsc/org.css\"" base-url))
-    (save-buffer))
-  )
+    (save-buffer)))
 #+END_SRC
 
 * Requirements and Setup
 ** Environment
 OpenStack needs, at least, 6 Go of RAM to run. And plenty more to
 start VMs on it. Therefore, this lab relies on [[https://www.grid5000.fr/][Grid'5000]], a testbed
-for experimental research, to acquire a /lab machine/ larger than your
+for experimental research, to acquire a /Lab machine/ larger than your
 personal one (started on /ecotype/ the cluster hosted in B200). The
-lab machine is a Ubuntu18.04 with 126Go of RAM and 20 CPU cores. This
+Lab machine is a Ubuntu18.04 with 126Go of RAM and 20 CPU cores. This
 should be enough resources for this lab!
 
 The lab makes use of [[https://github.com/CanonicalLtd/microstack][Snap microstack]]: OpenStack in a Snap that you can
@@ -133,21 +131,21 @@ OpenStack (instead of 30 minutes for other options).
 #+END_note
 
 ** Access the Lab machine
-Here is the assignation list of lab machine per team:
+Here is the assignation list of Lab machine per team:
 - TODO
 
-First thing first, you have to connect to the lab machine.
-Unfortunately, the lab machine isn't available publicly, but hides
+First thing first, you have to connect to the Lab machine.
+Unfortunately, the Lab machine isn't available publicly, but hides
 behind the Grid'5000 private network. One solution, as explained in
 the [[https://www.grid5000.fr/mediawiki/index.php/Getting_Started#Connecting_for_the_first_time][official tutorial]], consists in opening an SSH connection to the
 publicly available ~access.grid5000.fr~ machine, and from there, doing
-a second SSH connection to the lab machine. But this solution is
+a second SSH connection to the Lab machine. But this solution is
 fairly limited since it doesn't give an access to services from your
 own machine[fn:g5k-tunnel].
 
-To ease the interaction between your own machine and the lab one, you
+To ease the interaction between your own machine and the Lab one, you
 should setup the Grid'5000 [[https://en.wikipedia.org/wiki/Virtual_private_network][VPN]]. The Grid'5000 VPN gives you access to
-the Grid'5000 private network and thus, lab machines wherever your are
+the Grid'5000 private network and thus, Lab machines wherever your are
 on the globe.
 
 Next gives you the procedure on Ubuntu, but should be similar on other
@@ -181,11 +179,11 @@ $ ip route
 # ...
 #+end_src
 
-You can finally connect to your lab machine in another shell with the
+You can finally connect to your Lab machine in another shell with the
 following SSH command. Use ~os-imt~ as password.
-: ssh -l root <ip-of-your-lab-machine>
+: ssh -l root <ip-of-your-Lab-machine>
 
-The rest of this lab proceeds on the lab machine.
+The rest of this lab proceeds on the Lab machine.
 
 ** Resources of the Lab
 Get the resources of the lab at [[cdn-url:2019/os-imt/tp.tar.gz]].
@@ -220,7 +218,7 @@ there status? What is the purpose of each service?
 : snap services microstack
 
 - glance-* :: Glance to manage VM images: ~openstack image --help~.
-- horizon-* :: OpenStack Web dashboard: [[http://<ip-of-your-lab-machine>]].
+- horizon-* :: OpenStack Web dashboard: [[http://<ip-of-your-Lab-machine>]].
 - keystone-* :: Keystone to manage authentication and authorization
                 on OpenStack.
 - neutron-* :: Neutron to manage networks: ~openstack network --help~.
@@ -273,7 +271,7 @@ sudo snap remove microstack
 ** OpenStack Horizon Dashboard
 One service deployed is the OpenStack dashboard (Horizon). On your own
 machine horizon is reachable from the web browser at
-[[http://<ip-of-your-lab-machine>]] with the following credentials:
+[[http://<ip-of-your-Lab-machine>]] with the following credentials:
 - login: ~admin~
 - password: ~keystone~
 
@@ -312,14 +310,14 @@ credentials, so that the command line won't bother you by requiring
 credentials each time. you can retrieve this information through the
 Horizon interface by clicking on the ~admin~ dropdown list at the top
 right corner and get the "OpenStack RC File V3" (or by following
-[[http://<ip-of-your-lab-machine>/project/api_access/openrc/]]).
+[[http://<ip-of-your-Lab-machine>/project/api_access/openrc/]]).
 
 Take a look at this file, and then source it to setup your
 environment.
 : source ./admin-openrc.sh
 
 You can then check that your environment is correctly set.
-#+BEGIN_EXAMPLE
+#+begin_src bash
 $ env|fgrep OS_|sort
 
 OS_AUTH_URL=http://localhost:5000/v3/
@@ -332,7 +330,7 @@ OS_PROJECT_NAME=admin
 OS_REGION_NAME=microstack
 OS_USER_DOMAIN_NAME=Default
 OS_USERNAME=admin
-#+END_EXAMPLE
+#+end_src
 
 All operations to manage OpenStack are done through one single command
 line, called ~openstack~. Doing an ~openstack --help~ displays the
@@ -413,7 +411,7 @@ Note the new IP address. From which network this IP comes? Ping
 Does it work? Why? Hint: [[https://docs.openstack.org/neutron/latest/feature_classification/general_feature_support_matrix.html#operation_Security_Groups][OpenStack sets security groups by default]].
 
 #+BEGIN_comment
-The IP comes from the network 10.20.20.0/24 served on the host machine
+The IP comes from the network 10.20.20.0/24 served on the Lab machine
 by ~br-ex~. Actually, Snap microstack [[https://github.com/CanonicalLtd/microstack/blob/130ff892b77b7a37268add7126216b31d3b5fd09/snap-overlay/bin/setup-br-ex][creates]] a new virtual interface
 named ~br-ex~ to manage the external network.
 

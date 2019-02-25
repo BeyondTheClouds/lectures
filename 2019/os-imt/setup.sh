@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-sudo snap install microstack --classic --edge
-sudo snap install openstackclients --classic --edge
+snap install microstack --classic --edge
+snap install openstackclients --classic --edge
 
 # Make nova use kvm instead of qemu by deleting qemu specific conf
 sed -i '7,$d' /var/snap/microstack/common/etc/nova/nova.conf.d/hypervisor.conf
@@ -15,5 +15,7 @@ mount --types overlay --options \
   lowerdir=$HORIZON,upperdir=$UPP_BIN,workdir=$WORK_BIN \
   "snap-microstack-overlay" $HORIZON
 
-sed -i '39s/.*/ALLOWED_HOSTS = ['*']/' $HORIZON/local_settings.py
+echo "ALLOWED_HOSTS = ['*']" >> $HORIZON/local_settings.py
 snap restart microstack.horizon-uwsgi
+
+export PATH=/snap/bin:$PATH
