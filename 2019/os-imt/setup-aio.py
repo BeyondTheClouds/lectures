@@ -12,34 +12,20 @@ from enoslib.infra.enos_g5k.configuration import *
 logging.basicConfig(level=logging.DEBUG)
 LOG   = logging.getLogger(__name__)
 TEAMS = [
-    ("ronana", "alebre"),
+    ("ronana",      "alebre"),
+    ("alacour",     "mnoritop"),
+    ("aqueiros",    "rlao"),
+    ("blemee",      "launea"),
+    ("bpeyresaube", "nguegan"),
+    ("cg",          "mmainchai"),
+    ("damarti",     "eguerin"),
+    ("jfreta",      "vjorda"),
+    ("kforest",     "maguyo"),
+    ("lparis",      "sedahmani"),
+    ("mmaheo",      "qeud"),
+    ("nfrayssinhe", "thlailler"),
+    ("rgrison",     "tandrieu"),
 ]
-
-# "alacour"
-# "amanue"
-# "aqueiros"
-# "blemee"
-# "bpeyresaube"
-# "cg"
-# "damarti"
-# "eguerin"
-# "jfreta"
-# "kforest"
-# "launea"
-# "lparis"
-# "maguyo"
-# "mmaheo"
-# "mmainchai"
-# "mnoritop"
-# "nfrayssinhe"
-# "nguegan"
-# "qeud"
-# "rgrison"
-# "rlao"
-# "sedahmani"
-# "tandrieu"
-# "thlailler"
-# "vjorda"
 
 def make_conf(testing=True):
     prod_net = NetworkConfiguration(
@@ -83,7 +69,8 @@ def bootstrap(roles):
 
     # Install the bare necessities
     packages = [ 'silversearcher-ag', 'curl', 'htop', 'python', 'tcpdump', 'vim']
-    cmd("apt-get update && apt-get -y --force-yes install %s" % ' '.join(packages))
+    cmd('apt update')
+    cmd("apt install -y --force-yes %s" % ' '.join(packages))
 
     # Setup ssh for root w/ password
     cmd('echo "root:os-imt" | chpasswd')
@@ -92,7 +79,10 @@ def bootstrap(roles):
     cmd('systemctl restart ssh')
 
     # Put /snap/bin in PATH
-    cmd('echo "export PATH=/snap/bin:${PATH} >> /root/.bashrc')
+    cmd('echo "export PATH=/snap/bin:${PATH}" >> /root/.bashrc')
+
+    # Disable ip forwarding
+    cmd('sudo sysctl -w net.ipv4.ip_forward=1')
 
     return nodes
 
@@ -101,6 +91,6 @@ roles, networks = G5k(make_conf(testing=False)).init(force_deploy=False)
 nodes = bootstrap(roles)
 addrs = map(socket.gethostbyname, nodes)
 
-print("Node affectation:")
+print("Lab machine assignations:")
 for (team, addr) in zip(TEAMS, addrs):
     print("- %s :: ~%s~" % (', '.join(p for p in team), addr))

@@ -79,14 +79,13 @@ Do ~C-c C-c~ on the following
 #+END_SRC
 
 ** Publish
-Put it on my personal website and change the link to org file.
-
+Put it on my personal website and change the link to org file to link the one in
 #+BEGIN_SRC elisp :results silent :noweb yes
-(let* ((base-dir "~/prog/rcherrueau.github.com/teaching/")
+(let* ((base-url "https://rcherrueau.github.io")
+       (base-dir "~/prog/rcherrueau.github.com/teaching/")
        (export-dir (concat base-dir "2019/os-imt/"))
-       (export-file (concat export-dir "index.html"))
-       (base-url "https://rcherrueau.github.io"))
-
+       (export-file (concat export-dir "index.html")))
+  ;; Delete export if it exists. Always start from the ground base.fd
   (when (file-directory-p export-dir)
     (delete-directory export-dir t))
 
@@ -96,8 +95,8 @@ Put it on my personal website and change the link to org file.
   (find-file export-file)
   (with-current-buffer "index.html"
     (goto-char (point-min))
-    (re-search-forward "href=\"org.css\"" nil t)
-    (replace-match (format "href=\"%s/rsc/org.css\"" base-url))
+    (while (re-search-forward "href=\"org.css\"" nil t)
+      (replace-match (format "href=\"%s/rsc/org.css\"" base-url)))
     (save-buffer)))
 #+END_SRC
 
@@ -226,7 +225,7 @@ Then, ensure OpenStack services are running on your machine.
 Find the snap command that lists microstack OpenStack services and
 there status? What is the purpose of each service?
 
-#+BEGIN_comment
+#+BEGIN_solution
 : snap services microstack
 
 - glance-* :: Glance to manage VM images: ~openstack image --help~.
@@ -238,7 +237,7 @@ there status? What is the purpose of each service?
 - memcached :: Cache used by all OpenStack services
 - mysqld :: Database used by all OpenStack services
 - rabbitmq-server :: Communication bus used by all OpenStack services
-#+END_comment
+#+END_solution
 #+END_do
 
 And finally, execute the ~setup.sh~ file.
@@ -421,10 +420,9 @@ Note the new IP address. From which network this IP comes? Ping
 : ping "$ALLOCATED_FIP"
 
 Does it work? Why? Hint: [[https://docs.openstack.org/neutron/latest/feature_classification/general_feature_support_matrix.html#operation_Security_Groups][OpenStack sets security groups by default]].
-See also, for examples of security groups
-https://docs.openstack.org/neutron/latest/admin/deploy-lb-selfservice.html#verify-network-operation.
+See also some examples of security groups rules in the [[https://docs.openstack.org/neutron/latest/admin/deploy-lb-selfservice.html#verify-network-operation][neutron doc]].
 
-#+BEGIN_comment
+#+BEGIN_solution
 The IP comes from the network 10.20.20.0/24 served on the Lab machine
 by ~br-ex~. Actually, Snap microstack [[https://github.com/CanonicalLtd/microstack/blob/130ff892b77b7a37268add7126216b31d3b5fd09/snap-overlay/bin/setup-br-ex][creates]] a new virtual interface
 named ~br-ex~ to manage the external network.
@@ -438,11 +436,11 @@ icmp packets and SSH connection on the VM.
 
 #+BEGIN_SRC bash
 SECGROUP_ID=`openstack security group list --project admin -f value -c ID`
+openstack security group rule create $SECGROUP_ID --proto icmp --remote-ip 0.0.0.0/0
 openstack security group rule create $SECGROUP_ID --proto tcp --remote-ip 0.0.0.0/0 \
   --dst-port 22
-openstack security group rule create $SECGROUP_ID --proto icmp --remote-ip 0.0.0.0/0
 #+END_SRC
-#+END_comment
+#+END_solution
 #+END_do
 
 Once you succeed to ping the vm, you should be able to SSH on it
@@ -450,29 +448,49 @@ Once you succeed to ping the vm, you should be able to SSH on it
 
 #+BEGIN_do
 From the cirros, ping the outside world.
-: ping 8.8.8.8 # Google, could you HERE me?!
+: ping 8.8.8.8 # GOOGLE could you HERE me?!
 
 Does it work? Why? Hint: do a ~tcpdump -nni br-ex icmp~ to understand
-how the packets flow. Idem on the NIC of your default route.
+how the packets flow. Idem on the NIC of your default route, e.g,
+~tcpdump -nni eno1 icmp~.
 
-#+BEGIN_comment
-The network traffic on ~br-ex~ is not supposed to go out, and you have
-to use the NIC of your default route (i.e., ~ip r|fgrep default~,
-e.g., ~eth0~ ) as a gateway (see,
-https://www.systutorials.com/1372/setting-up-gateway-using-iptables-and-route-on-linux/).
+#+BEGIN_solution
+The global network traffic on ~br-ex~ is not supposed to go out. The
+~ip route~ on the Lab machine lacks of an /explicit/ route ~8.8.8.0/9~
+that tells toward which NIC a packets is supposed to go for ~8.8.8.8~
+destination. Thus a /Google ping from the VM/ reaches the Lab machine
+but ends here (i.e., ~tcpdump -nni br-ex icmp~ shows ~ping~ packets,
+but not ~tcpdump -nni eno1 icmp~).
+
+On the other hand, a /VM and Google ping from the Lab/ machine both
+reaches their target (as in ~ping "$ALLOCATED_FIP" -c 3~ and ~ping
+8.8.8.8 -c 3~). Therefore, the Lab machine may be configured as a
+/gateway/ to Internet. The idea consists in saying that any traffic
+that doesn't match any NICs will go through the default Lab NIC (~ip
+route|fgrep default~, i.e., ~eno1~).
+
+Configuring the Lab machine as Internet gateway requires to activate
+/Kernel IP Forwarding/.
+: sysctl -w net.ipv4.ip_forward=1
+
+From now, the Google ping from the VM reaches Internet via ~eno1~ (as
+seen by ~tcpdump -nni eno1 icmp~). Unfortunately, it still doesn't do
+the trick, because the packet goes out with the ~10.20.20.*~ source
+address. For this reason, Google sees ~ICMP echo request~ incoming
+packets from ~10.20.20.*~ and hence, replies ~ICMP echo reply~ to
+~10.20.20.*~ which makes sense nowhere except on the Lab machine.
 
 You have to change the source IP of out packet (~10.20.20.*~) to
-gateway's IP (e.g., ~10.0.2.15~ on my own machine). The ~iptables~
-will then automatically change the replied packet's destination IP
-(~10.0.2.15~) to the original source IP (~10.20.20.*~). This process
-is called a SNAT and you can implement it with ~iptables~.
+gateway's IP (i.e., Your lab machine). The ~iptables~ will then
+automatically change the replied packet's destination IP
+(~<ip-of-your-Lab-machine>~) to the original source IP (~10.20.20.*~).
+This process is called a SNAT and you can implement it with ~iptables~
+(see,
+https://www.systutorials.com/1372/setting-up-gateway-using-iptables-and-route-on-linux/).
 
-First, enable Linux IP forwarding.
-: sudo sysctl -w net.ipv4.ip_forward=1
-
-Then, set up the SNAT with ~iptables~.
-: sudo iptables -t nat -A POSTROUTING ! -d 10.20.20.0/24 -o eth0 -j SNAT --to-source 10.0.2.15
-#+END_comment
+Set up the SNAT with ~iptables~.
+: sudo iptables -t nat -A POSTROUTING ! -d 10.20.20.0/24 -o eno1 -j SNAT --to-source <ip-of-your-Lab-machine>
+#+END_solution
 #+END_do
 
 Go on, and play with the ~openstack~ cli. For instance, list all
@@ -484,7 +502,7 @@ figure out how to:
 4. Boot a new machine ~cli-vm-clone~ from the snapshot.
 5. Delete ~cli-vm-clone~;
 
-#+BEGIN_comment
+#+BEGIN_solution
 #+BEGIN_SRC bash
 # 1.
 openstack server ssh cli-vm -l cirros
@@ -500,7 +518,7 @@ openstack server create --wait --flavor m1.tiny \
 # 5.
 openstack server delete cli-vm-clone
 #+END_SRC
-#+END_comment
+#+END_solution
 
 ** In Encryption We Trust
 Any cirros VMs share the same credentials (i.e., ~cirros~, ~cubswin~)
