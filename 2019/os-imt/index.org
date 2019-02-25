@@ -9,12 +9,14 @@
 #+HTML_DOCTYPE: html5
 #+OPTIONS: html5-fancy:t
 #+LINK: base-url https://rcherrueau.github.io/teaching/2019/os-imt/%s
-#+LINK: cdn-url  https://raw.githubusercontent.com/BeyondTheClouds/lectures/master/2019/os-imt/%s
+#+LINK: cdn-url  https://raw.githubusercontent.com/BeyondTheClouds/lectures/master/%s
+#+MACRO: co  OMH
+#+MACRO: c5o Online Mine Hosting
 
 #+EXCLUDE_TAGS: noexport
 #+EXCLUDE_TAGS: solution
 
-#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="../../org.css" />
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="org.css" />
 
 #+BEGIN_abstract
 OpenStack has become the de-facto solution to operate compute, network
@@ -27,7 +29,7 @@ are going to:
 - Automatize all the stuff with the Heat template engine (i.e., manage
   your cloud from your sofa!).
 
-Find the slides of the lecture [[file:docs/CloudFogEdgeIntro.pdf][here]] and [[file:docs/openstack-slides.pdf][there]].
+Find the slides of the lecture [[cdn-url:2018/os-polytech/docs/CloudFogEdgeIntro.pdf][here]] and [[cdn-url:2018/os-polytech/docs/openstack-slides.pdf][there]].
 #+END_abstract
 
 #+TOC: headlines 3
@@ -35,7 +37,7 @@ Find the slides of the lecture [[file:docs/CloudFogEdgeIntro.pdf][here]] and [[f
 * Table of Contents                                       :TOC_3_gh:noexport:
 - [[#requirements-and-setup][Requirements and Setup]]
   - [[#environment][Environment]]
-  - [[#access-the-lab-machine][Access the lab machine]]
+  - [[#access-the-lab-machine][Access the Lab machine]]
   - [[#resources-of-the-lab][Resources of the Lab]]
   - [[#setup-openstack][Setup OpenStack]]
 - [[#play-with-openstack][Play with OpenStack]]
@@ -45,12 +47,6 @@ Find the slides of the lecture [[file:docs/CloudFogEdgeIntro.pdf][here]] and [[f
   - [[#the-art-of-provisioning-a-vm][The Art of Provisioning a VM]]
     - [[#debian-9-ftw][Debian 9 FTW]]
     - [[#cloudinit-in-action][Cloudinit in Action]]
-- [[#deploy-a-wordpress-as-a-service][Deploy a Wordpress as a Service]]
-  - [[#wordpress-mysql-database][Wordpress MySQL Database]]
-  - [[#wordpress-application][Wordpress Application]]
-- [[#appendix][Appendix]]
-  - [[#installs-mariadb-on-debian-9][Installs MariaDB on Debian 9]]
-  - [[#installs-wordpress-on-debian-9][Installs Wordpress on Debian 9]]
 - [[#footnotes][Footnotes]]
 
 * Lecture Notes                                                    :noexport:
@@ -71,10 +67,25 @@ And restart ~nova-compute~
 
 ** Export
 Do ~C-c C-c~ on the following
-#+BEGIN_SRC elisp :results none
+#+BEGIN_SRC elisp :results silent
+(defun fcmd (&rest cmds) (s-join " " cmds))
+
 (org-babel-tangle)
 (org-ascii-export-to-ascii)
 (org-html-export-to-html)
+
+;; Make the tp.tar.gz
+(shell-command (fcmd "tar czf tp.tar.gz"
+                     "index.txt" "setup.sh"
+                     "teardown.sh" "rsc"))
+
+;; Put it in export, to later push on personal website
+;; (let ((export-dir (concat default-directory "export")))
+;;   (when (file-directory-p export-dir)
+;;     (delete-directory export-dir t))
+;;
+;;   (make-directory export-dir)
+;;   (shell-command (fcmd "cp -r " "index.html" "tp.tar.gz" export-dir)))
 #+END_SRC
 
 * Requirements and Setup
@@ -106,7 +117,7 @@ OpenStack (instead of 30 minutes for other options).
   deployments.
 #+END_note
 
-** Access the lab machine
+** Access the Lab machine
 Here is the assignation list of lab machine per team:
 - TODO
 
@@ -162,7 +173,7 @@ following SSH command. Use ~os-imt~ as password.
 The rest of this lab proceeds on the lab machine.
 
 ** Resources of the Lab
-Get the resources of the lab at [[cdn-url:tp.tar.gz]].
+Get the resources of the lab at [[cdn-url:2019/os-imt/tp.tar.gz]].
 
 #+BEGIN_SRC bash
 curl -O https://raw.githubusercontent.com/BeyondTheClouds/lectures/master/2019/os-imt/tp.tar.gz
@@ -595,10 +606,10 @@ argument to the regular ~openstack server create~ command.
 #+BEGIN_do
 Start a new VM named ~art-vm~ based on the ~debian-9~ image and the
 ~m1.mini~ flavor. The VM should load and execute the script [[lst:art.sh]]
--- available under [[file:rsc/art.sh]] -- that installs the [[https://github.com/cmatsuoka/figlet][~figlet~]] and
+-- available under ~rsc/art.sh~ -- that installs the [[https://github.com/cmatsuoka/figlet][~figlet~]] and
 [[https://github.com/busyloop/lolcat][~lolcat~]] softwares on the VM.
 
-#+CAPTION: Cloudinit script available under [[file:rsc/art.sh]]
+#+CAPTION: Cloudinit script available under ~rsc/art.sh~
 #+NAME: lst:art.sh
 #+BEGIN_SRC bash :tangle ./rsc/art.sh :shebang #!/usr/bin/env bash
 # Fix DNS resolution
@@ -648,29 +659,7 @@ Are you sure you want to continue connecting (yes/no)? yes
 debian@art-vm:~$ figlet "The Art of Provisionning a VM" | lolcat
 #+END_EXAMPLE
 
-* Deploy a Wordpress as a Service
-
- is the most popular content management system (CMS) in use
-on the Web. People use it to create websites, blogs or applications.
-It is open-source, and based on PHP and MySQL under the hood.
-
-A common Wordpress deployment consists in two machines:
-- ~wordpress-db~   :: A machine that contains the MySQL database for
-     Wordpress.
-- ~wordpress-app~  :: A machine that contains a web server and serves
-     the Wordpress CMS.
-
-The directory ~rsc~ provides bash scripts to deploy the MySQL database
-and the web server. As the DevOps of OPH -- Online Polytech Hosting --
-your job is to automatize the deployment of a Wordpress on your
-OpenStack. See the bash scripts in [[*Appendix][appendix]] for more information.
-Also, [[#sec:debian9-ftw][clean your environment]] before going further.
-
-#+BEGIN_do
-Make a bash script that automatically starts the ~wordpress-db~ and
-~wordpress-app~ VM.
-#+END_do
-
+* COMMENT Deploy a Wordpress as a Service
 In the previous sessions, we saw how to boot a VM with OpenStack, and
 execute a post-installation script using the ~user-data~ mechanism.
 Such mechanism can help us to install software but it is not enough to
@@ -684,31 +673,34 @@ Let's take a simple example: [[https://wordpress.org/][WordPress]]! WordPress is
 content management system (CMS) in use on the Web. People use it to
 create websites, blogs or applications. WordPress is open-source,
 written in PHP and composed of two elements: a Web server (Apache) and
-a database (MySQL). Apache serves the PHP code of WordPress and stores
+database (MySQL). Apache serves the PHP code of WordPress and stores
 its information in the database.
 
-Automation is a very important concept for devops. Imagine you have your own
-datacenter and want to exploit it by renting WordPress instances to your
-customers. Each time a client rents an instance, you have to manually deploy it.
-Wouldn't it more convenient to automate all the operations? :) To that end, we
-are going to use an OpenStack project to automate the deployment of
-applications: OpenStack Heat.
+Automation is a very important concept for DeVops. Imagine you have
+your own datacenter and want to exploit it by renting WordPress
+instances to your customers. Each time a client rents an instance, you
+have to manually deploy it. Wouldn't it be more convenient to automate
+all the operations? 😎
 
-Heat is the OpenStack orchestrator: it eats templates (called HOT for Heat
-Orchestration Template - which are files written in YAML) describing the
-OpenStack infrastructure you want to deploy (e.g. vms, networks, storages) as
-well as software configurations. Then the Heat engine is in charge of sending
-the appropriate requests to OpenStack to deploy the system described in your
-template (deployments are called ~stacks~ in Heat). In the following
-subsections, we are going to manipulate Heat to understand how to deploy
-applications on OpenStack. The following examples are extracted from the heat
-templates you can find under the following directory:
-~lib/heat_templates/debian/hello_world/~.
+#+BEGIN_do
+As the DevOps of {{{co}}} -- {{{c5o}}} -- your job is to automatize
+the deployment of WordPress on your OpenStack. To do so, you have to
+make a bash script that automatically starts :
 
-** Wordpress MySQL Database                                        :solution:
+- ~wordpress-db~   :: A VM that contains the MySQL database for
+     Wordpress.
+- ~wordpress-app~  :: A VM that contains a web server and serves the
+     Wordpress CMS.
+
+The ~rsc~ directory provides bash scripts to deploy the MySQL database
+and web server of WordPress. Review it before going further. Also,
+remind to [[#sec:debian9-ftw][clean your environment]].
+#+END_do
+
+** WordPress MySQL Database                                        :solution:
 Start a VM with ~wordpress-db~ name, ~debian-9~ image, ~m1.mini~
 flavor, ~test~ network and ~admin~ key-pair. Also, provision your VM
-with the [[file:rsc/install-mariadb.sh]] script thanks to the ~--user-data
+with the ~rsc/install-mariadb.sh~ script thanks to the ~--user-data
 ./rsc/install-mariadb.sh~ option.
 
 #+BEGIN_SRC bash
@@ -719,10 +711,10 @@ openstack server create --wait --image debian-9 \
   wordpress-db
 #+END_SRC
 
-** Wordpress Application                                           :solution:
+** WordPress Application                                           :solution:
 Start a VM with ~wordpress-app~ name, ~debian-9~ image, ~m1.mini~
 flavor, ~test~ network and ~admin~ key-pair. Also, provision your VM
-with the [[file:rsc/install-wp.sh]] script thanks to the ~--user-data
+with the ~rsc/install-wp.sh~ script thanks to the ~--user-data
 ./rsc/install-wp.sh~ option. Note that you need to provide the IP
 address of the ~wordpress-db~ to this script before running it.
 
@@ -747,7 +739,7 @@ openstack server add floating ip \
   $(openstack floating ip create -c floating_ip_address -f value external)
 #+END_SRC
 
-Finally, you can reach WordPress on ~http://<floating-ip>/wp~.
+Finally, you can reach WordPress on [[http://<floating-ip>/wp]].
 
 * COMMENT Automatize the deployment with Heat
 ** Heat introduction
@@ -1000,13 +992,7 @@ typing:
 $ lynx <web_server_ip_address>/wp
 #+END_SRC
 
-* Appendix
-** Installs MariaDB on Debian 9
-#+INCLUDE: "rsc/install-mariadb.sh" src bash
-
-** Installs Wordpress on Debian 9
-#+INCLUDE: "rsc/install-wp.sh" src bash
-
+* COMMENT Appendix
 * Footnotes
 [fn:g5k-tunnel] For sure, you always can setup an SSH tunnel but this
 is a bit annoying.
