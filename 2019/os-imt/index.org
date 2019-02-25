@@ -8,7 +8,6 @@
 #+PROPERTY: header-args :mkdirp yes
 #+HTML_DOCTYPE: html5
 #+OPTIONS: html5-fancy:t
-#+LINK: base-url https://rcherrueau.github.io/teaching/2019/os-imt/%s
 #+LINK: cdn-url  https://raw.githubusercontent.com/BeyondTheClouds/lectures/master/%s
 #+MACRO: co  OMH
 #+MACRO: c5o Online Mine Hosting
@@ -67,25 +66,41 @@ And restart ~nova-compute~
 
 ** Export
 Do ~C-c C-c~ on the following
-#+BEGIN_SRC elisp :results silent
-(defun fcmd (&rest cmds) (s-join " " cmds))
-
+#+BEGIN_SRC elisp :results silent :noweb yes
 (org-babel-tangle)
 (org-ascii-export-to-ascii)
 (org-html-export-to-html)
 
 ;; Make the tp.tar.gz
+(defun fcmd (&rest cmds) (s-join " " cmds))
 (shell-command (fcmd "tar czf tp.tar.gz"
                      "index.txt" "setup.sh"
                      "teardown.sh" "rsc"))
+#+END_SRC
 
-;; Put it in export, to later push on personal website
-;; (let ((export-dir (concat default-directory "export")))
-;;   (when (file-directory-p export-dir)
-;;     (delete-directory export-dir t))
-;;
-;;   (make-directory export-dir)
-;;   (shell-command (fcmd "cp -r " "index.html" "tp.tar.gz" export-dir)))
+** Publish
+Put it on my personal website and change the link to org file.
+
+#+BEGIN_SRC elisp :results silent :noweb yes
+
+(let* ((base-dir "~/prog/rcherrueau.github.com/teaching/")
+       (export-dir (concat base-dir "2019/os-imt/"))
+       (export-file (concat export-dir "index.html"))
+       (base-url "https://rcherrueau.github.io"))
+
+  (when (file-directory-p export-dir)
+    (delete-directory export-dir t))
+
+  (make-directory export-dir)
+  (shell-command (format "cp -r index.html %s" export-file))
+
+  (find-file export-file)
+  (with-current-buffer "index.html"
+    (goto-char (point-min))
+    (re-search-forward "href=\"org.css\"" nil t)
+    (replace-match (format "href=\"%s/rsc/org.css\"" base-url))
+    (save-buffer))
+  )
 #+END_SRC
 
 * Requirements and Setup
@@ -140,7 +155,7 @@ UNIX systems. You can also do it on Windows, however expect to be on
 your own in case of troubles.
 
 1. Install the [[https://openvpn.net/][OpenVPN]] client
-   : apt update -y && apt install -y openvpn
+   : sudo apt update -y && apt install -y openvpn
 3. Go on [[https://api.grid5000.fr/stable/users/][UMS]] > My Account > VPN.
 4. Create new certificate > Generate from passphrase, and fill the
    form with a new password (remember it!).
@@ -220,8 +235,8 @@ And finally, execute the ~setup.sh~ file.
 : ./setup.sh
 
 #+BEGIN_SRC bash :tangle ./setup.sh :shebang #!/usr/bin/env bash :exports none
-sudo snap install microstack --classic --edge
-sudo snap install openstackclients --classic --edge
+snap install microstack --classic --edge
+snap install openstackclients --classic --edge
 
 # Make nova use kvm instead of qemu by deleting qemu specific conf
 sed -i '7,$d' /var/snap/microstack/common/etc/nova/nova.conf.d/hypervisor.conf
@@ -236,8 +251,10 @@ mount --types overlay --options \
   lowerdir=$HORIZON,upperdir=$UPP_BIN,workdir=$WORK_BIN \
   "snap-microstack-overlay" $HORIZON
 
-sed -i '39s/.*/ALLOWED_HOSTS = ['*']/' $HORIZON/local_settings.py
+echo "ALLOWED_HOSTS = ['*']" >> $HORIZON/local_settings.py
 snap restart microstack.horizon-uwsgi
+
+export PATH=/snap/bin:$PATH
 #+END_SRC
 
 #+BEGIN_SRC bash :noweb tangle :tangle ./teardown.sh :shebang #!/usr/bin/env bash :exports none
