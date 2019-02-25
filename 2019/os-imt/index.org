@@ -132,7 +132,19 @@ OpenStack (instead of 30 minutes for other options).
 
 ** Access the Lab machine
 Here is the assignation list of Lab machine per team:
-- TODO
+- ronana, alebre :: ~172.16.193.4~
+- alacour, mnoritop :: ~172.16.193.40~
+- aqueiros, rlao :: ~172.16.193.41~
+- blemee, launea :: ~172.16.193.42~
+- bpeyresaube, nguegan :: ~172.16.193.43~
+- cg, mmainchai :: ~172.16.193.44~
+- damartin, eguerin :: ~172.16.193.45~
+- jfreta, vjorda :: ~172.16.193.46~
+- kforest, maguyo :: ~172.16.193.47~
+- lparis, sedahmani :: ~172.16.193.5~
+- mmaheo, qeud :: ~172.16.193.6~
+- nfrayssinhe, thlailler :: ~172.16.193.7~
+- rgrison, tandrieu :: ~172.16.193.8~
 
 First thing first, you have to connect to the Lab machine.
 Unfortunately, the Lab machine isn't available publicly, but hides
@@ -409,6 +421,8 @@ Note the new IP address. From which network this IP comes? Ping
 : ping "$ALLOCATED_FIP"
 
 Does it work? Why? Hint: [[https://docs.openstack.org/neutron/latest/feature_classification/general_feature_support_matrix.html#operation_Security_Groups][OpenStack sets security groups by default]].
+See also, for examples of security groups
+https://docs.openstack.org/neutron/latest/admin/deploy-lb-selfservice.html#verify-network-operation.
 
 #+BEGIN_comment
 The IP comes from the network 10.20.20.0/24 served on the Lab machine
