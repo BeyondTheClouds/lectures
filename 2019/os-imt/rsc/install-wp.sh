@@ -41,5 +41,6 @@ define('DB_USER', '${DB_USER}');
 define('DB_PASSWORD', '${DB_PASSWORD}');
 define('DB_HOST', '${DB_HOST}');
 define('WP_CONTENT_DIR', '/var/lib/wordpress/wp-content');
+define('WP_SITEURL', 'http://' . $_SERVER['HTTP_HOST'] . '/wp');
 ?>
 EOF

@@ -2,7 +2,7 @@
 . admin-openrc.sh
 
 # Delete VMs
-for vm in $(openstack server list -c Name -f value); do \
+for vm in $(openstack server list -c ID -f value); do \
   echo "Deleting ${vm}..."; \
   openstack server delete "${vm}"; \
 done

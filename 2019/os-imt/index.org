@@ -14,7 +14,7 @@
 #+MACRO: c5o Online Mine Hosting
 
 #+EXCLUDE_TAGS: noexport
-#+EXCLUDE_TAGS: solution
+# #+EXCLUDE_TAGS: solution
 
 #+HTML_HEAD: <link rel="stylesheet" type="text/css" href="org.css" />
 
@@ -45,10 +45,11 @@ Find the slides of the lecture [[cdn-url:2018/os-polytech/docs/CloudFogEdgeIntro
   - [[#openstack-horizon-dashboard][OpenStack Horizon Dashboard]]
   - [[#unleash-the-operator-in-you][Unleash the Operator in You]]
   - [[#in-encryption-we-trust][In Encryption We Trust]]
-  - [[#the-art-of-provisioning-a-vm][The Art of Provisioning a VM]]
+  - [[#the-art-of-contextualizing-a-vm][The Art of Contextualizing a VM]]
     - [[#debian-9-ftw][Debian 9 FTW]]
     - [[#cloudinit-in-action][Cloudinit in Action]]
 - [[#deploy-a-wordpress-as-a-service-as-a-devops][Deploy a Wordpress as a Service (as a DevOps)]]
+  - [[#enable-http-connections][Enable HTTP connections]]
   - [[#wordpress-mariadb-database][WordPress MariaDB Database]]
   - [[#wordpress-application][WordPress Application]]
 - [[#footnotes][Footnotes]]
@@ -585,11 +586,12 @@ a bit according to your network cidr.
 : openstack server show cli-vm-adminkey -c addresses -f value | sed  -Er 's/test=.+ (10\.20\.20\.[0-9]+).*/\1/g'
 #+END_note
 
-** The Art of Provisioning a VM
-Provisioning is the process that automatically installs software,
+** The Art of Contextualizing a VM
+Contextualizing is the process that automatically installs software,
 alters configurations, and more on the machine as part of the boot
-process. On OpenStack, provisioning is achieved thanks to [[https://cloud-init.io/][Cloudinit]].
-It is a program that runs at the boot time to customize the VM.
+process. On OpenStack, contextualizing is achieved thanks to
+[[https://cloud-init.io/][Cloudinit]]. It is a program that runs at the boot time to customize the
+VM.
 
 You have already used Cloudinit without even knowing it! The previous
 command ~openstack server create~ with the ~--identity~ parameter
@@ -619,7 +621,7 @@ want to release all your resources before going further.
 #+NAME: lst:delete-rscs
 #+BEGIN_SRC bash
 # Delete VMs
-for vm in $(openstack server list -c Name -f value); do \
+for vm in $(openstack server list -c ID -f value); do \
   echo "Deleting ${vm}..."; \
   openstack server delete "${vm}"; \
 done
@@ -641,25 +643,25 @@ curl -L -o /tmp/debian-9.qcow2 \
 Import the image into Glance; name it ~debian-9~. Use ~openstack image
 create --help~ for creation arguments. Find values example with
 ~openstack image show cirros~.
-#+BEGIN_comment
+#+BEGIN_solution
 #+BEGIN_SRC bash
 openstack image create --disk-format=qcow2 \
   --container-format=bare --property architecture=x86_64 \
   --public --file /tmp/debian-9.qcow2 \
   debian-9
 #+END_SRC
-#+END_comment
+#+END_solution
 
 And, create a new ~m1.mini~ flavor with 5 Go of Disk, 2 Go of RAM, 2
 VCPU and 1 Go of swap. Use ~openstack flavor create --help~ for
 creation arguments.
-#+BEGIN_comment
+#+BEGIN_solution
 #+BEGIN_SRC bash
 openstack flavor create --ram 2048 \
   --disk 5 --vcpus 2 --swap 1024 \
   --public m1.mini
 #+END_SRC
-#+END_comment
+#+END_solution
 #+END_do
 
 *** Cloudinit in Action
@@ -676,6 +678,7 @@ Start a new VM named ~art-vm~ based on the ~debian-9~ image and the
 #+CAPTION: Cloudinit script available under ~rsc/art.sh~
 #+NAME: lst:art.sh
 #+BEGIN_SRC bash :tangle ./rsc/art.sh :shebang #!/usr/bin/env bash
+#!/usr/bin/env bash
 # Fix DNS resolution
 echo "" >> /etc/resolv.conf
 echo "nameserver 8.8.8.8" >> /etc/resolv.conf
@@ -685,7 +688,7 @@ apt update
 apt install -y figlet lolcat
 #+END_SRC
 
-#+BEGIN_comment
+#+BEGIN_solution
 #+BEGIN_SRC bash
 openstack server create --wait --image debian-9 \
   --flavor m1.mini --network test \
@@ -693,14 +696,14 @@ openstack server create --wait --image debian-9 \
   --user-data ./rsc/art.sh \
   art-vm
 #+END_SRC
-#+END_comment
+#+END_solution
 
 You can follow the correct installation of software with:
 : watch openstack console log show --lines=20 art-vm
 
 Could you notice /when/ the VM has finished to boot based on the
 ~console log~ output?
-#+BEGIN_comment
+#+BEGIN_solution
 #+BEGIN_src bash
 CLOUDINIT_END_RX="Cloud-init v\. .\+ finished"
 function wait_cloudinit {
@@ -717,7 +720,7 @@ function wait_cloudinit {
 
 wait_cloudinit art-vm
 #+END_src
-#+END_comment
+#+END_solution
 #+END_do
 
 Then, attach it a floating IP.
@@ -738,7 +741,7 @@ The authenticity of host '10.20.20.13 (10.20.20.13)' can't be established.
 ECDSA key fingerprint is SHA256:WgAn+/gWYg9MkauihPyQGwC0LJ8sLWM/ySrUzN8cK9w.
 Are you sure you want to continue connecting (yes/no)? yes
 
-debian@art-vm:~$ figlet "The Art of Provisionning a VM" | lolcat
+debian@art-vm:~$ figlet "The Art of Contextualizing a VM" | lolcat
 #+END_EXAMPLE
 
 * Deploy a Wordpress as a Service (as a DevOps)
@@ -782,19 +785,31 @@ database and web server of WordPress. Review it before going further
 (spot the *TODO*).
 
 Also, remind to [[#sec:debian9-ftw][clean your environment]].
+
+#+BEGIN_solution
+Find the solution in the ~./rsc/wordpress-deploy.sh~ script.
+#+END_solution
 #+END_do
+
+** Enable HTTP connections                                         :solution:
+First thing first, enable HTTP connections.
+#+BEGIN_SRC bash
+openstack security group rule create $SECGROUP_ID \
+  --proto tcp --remote-ip 0.0.0.0/0 \
+  --dst-port 80
+#+END_SRC
 
 ** WordPress MariaDB Database                                      :solution:
 Start a VM with ~wordpress-db~ name, ~debian-9~ image, ~m1.mini~
-flavor, ~test~ network and ~admin~ key-pair. Also, provision your VM
-with the ~rsc/install-mariadb.sh~ script thanks to the ~--user-data
+flavor, ~test~ network and ~admin~ key-pair. Also, contextualize your
+VM with the ~rsc/install-mariadb.sh~ script thanks to the ~--user-data
 ./rsc/install-mariadb.sh~ option.
 
-#+BEGIN_SRC bash
+#+BEGIN_SRC bash :tangle ./rsc/wordpress-deploy.sh :shebang #!/usr/bin/env bash
 openstack server create --wait --image debian-9 \
   --flavor m1.mini --network test \
   --key-name admin \
-  --user-data ./rsc/install-mariadb.sh \
+  --user-data ./install-mariadb.sh \
   wordpress-db
 
 wait_cloudinit wordpress-db
@@ -802,79 +817,61 @@ wait_cloudinit wordpress-db
 
 ** WordPress Application                                           :solution:
 Start a VM with ~wordpress-app~ name, ~debian-9~ image, ~m1.mini~
-flavor, ~test~ network and ~admin~ key-pair. Also, provision your VM
-with the ~rsc/install-wp.sh~ script thanks to the ~--user-data
+flavor, ~test~ network and ~admin~ key-pair. Also, contextualize your
+VM with the ~rsc/install-wp.sh~ script thanks to the ~--user-data
 ./rsc/install-wp.sh~ option. Note that you need to provide the IP
 address of the ~wordpress-db~ to this script before running it.
 
-Set the script with IP address of ~wordpress-db~.
-#+BEGIN_SRC bash
-sed -i '13s|.*|DB_HOST="'$(openstack server show wordpress-db -c addresses -f value | sed -Er "s/test=//g")'"|' ./rsc/install-wp.sh
+Get a floating ip for the VM.
+#+BEGIN_SRC bash :tangle ./rsc/wordpress-deploy.sh
+WP_APP_FIP=$(openstack floating ip create -c floating_ip_address -f value external)
+#+END_SRC
+
+Set the script with IP address of ~wordpress-db~ and floating ip
+#+BEGIN_SRC bash :tangle ./rsc/wordpress-deploy.sh
+sed -i '13s|.*|DB_HOST="'$(openstack server show wordpress-db -c addresses -f value | sed -Er "s/test=//g")'"|' ./install-wp.sh
 #+END_SRC
 
 Then, create ~wordpress-app~.
-#+BEGIN_SRC bash
+#+BEGIN_SRC bash :tangle ./rsc/wordpress-deploy.sh :shebang #!/usr/bin/env bash
 openstack server create --wait --image debian-9 \
   --flavor m1.mini --network test \
   --key-name admin \
-  --user-data ./rsc/install-wp.sh \
+  --user-data ./install-wp.sh \
   wordpress-app
 
 wait_cloudinit wordpress-app
 #+END_SRC
 
-Attach a floating ip to that VM.
-#+BEGIN_SRC bash
-openstack server add floating ip \
-  wordpress-app \
-  $(openstack floating ip create -c floating_ip_address -f value external)
+Attach the ~WP_APP_FIP~ floating ip to that VM.
+#+BEGIN_SRC bash :tangle ./rsc/wordpress-deploy.sh
+openstack server add floating ip wordpress-app "${WP_APP_FIP}"
 #+END_SRC
 
-Enable HTTP connections
-#+BEGIN_SRC bash
-openstack security group rule create $SECGROUP_ID \
-  --proto tcp --remote-ip 0.0.0.0/0 \
-  --dst-port 80
-#+END_SRC
+Setup redirection to access your floating ip on port 80.
+: iptables -t nat -A PREROUTING -p tcp --dport 8080 -j DNAT --to "${WP_APP_FIP}:80"
 
-Setup an SSH tunnel to access ~10.20.20.*~ from your own machine.
+Finally, you can reach WordPress on [[http://<ip-of-your-lab>:8080/wp]].
+
+#+BEGIN_note
+Optionally, you can do it with an SSH tunnel to access ~10.20.20.*~
+from your own machine.
 : ssh -NL 8080:<floating-ip>:80 -l root <ip-of-your-lab-machine>
 
-Finally, you can reach WordPress on [[http://localhost:8080/wp]].
+Then, reach WordPress on [[http://localhost:8080/wp]].
+#+END_note
 
 * COMMENT Automatize the deployment with Heat
 ** Heat introduction
-*** Introduction
-In the previous sessions, we saw how to boot a VM with OpenStack, and execute a
-post-installation script using the ~user-data~ mechanism. Such mechanism can
-help us to install software but it is not enough to deploy a real Cloud
-application. Cloud applications are composed of multiple services that
-collaborate to deliver the application. Each service is a charge of an aspect of
-the application. This separation of concerns brings flexibility. If a single
-service is overloaded, it is common to deploy new units of this service to
-balance the load.
-
-Let's take a simple example! WordPress[fn:wordpress] is a very popular
-content management system (CMS) written in PHP, which is mainly used
-as a blog system. It is composed of two elements: a Web server
-(Apache) and a database (MariaDB). Apache serves the PHP code of
-WordPress and stores its information in the database.
-
-Automation is a very important concept for devops. Imagine you have your own
-datacenter and want to exploit it by renting WordPress instances to your
-customers. Each time a client rents an instance, you have to manually deploy it.
-Wouldn't it more convenient to automate all the operations? :) To that end, we
-are going to use an OpenStack project to automate the deployment of
-applications: OpenStack Heat.
-
-Heat is the OpenStack orchestrator: it eats templates (called HOT for Heat
-Orchestration Template - which are files written in YAML) describing the
-OpenStack infrastructure you want to deploy (e.g. vms, networks, storages) as
-well as software configurations. Then the Heat engine is in charge of sending
-the appropriate requests to OpenStack to deploy the system described in your
-template (deployments are called ~stacks~ in Heat). In the following
-subsections, we are going to manipulate Heat to understand how to deploy
-applications on OpenStack. The following examples are extracted from the heat
+Heat is the OpenStack orchestrator: it eats templates (called HOT for
+Heat Orchestration Template - which are files written in YAML)
+describing the OpenStack infrastructure you want to deploy (e.g. VMs,
+networks, storages) as well as software configurations. Then the Heat
+engine is in charge of sending the appropriate requests to OpenStack
+to deploy the system described in your template (deployments are
+called ~stacks~ in Heat). In the following subsections, we are going
+to manipulate Heat to understand how to deploy applications on
+OpenStack. The following examples are extracted from the heat
 templates you can find under the following directory:
 ~lib/heat_templates/debian/hello_world/~.
 
@@ -883,17 +880,18 @@ The simplest HOT template your can declare describes how to boot a VM:
 
 #+INCLUDE: "lib/heat_templates/debian/hello_world/1_boot_vm.yaml" src yaml
 
-As depicted in this example, the different OpenStack resources can be declared
-using types. OpenStack resource types are listed in the
-documentation[fn:heat_resource_list], browsing this page, you can see that
-resources exist for most OpenStack services (e.g. Nova, Neutron, Glance, Cinder,
-Heat). Here, we declare a new resource called ~my_vm~ which is defined by the
-type ~OS::Nova::Server~ to declare a new virtual machine. A type defines
-different properties (some are mandatory, some are optional, see the
-documentation for more details). The ~OS::Nova::Server~ properties should be
-familiar to you since it is the classical properties Nova requires to boot a VM
-(i.e. a name, an image, a flavor, a key name). Once you have written this
-template in a file, you can now deploy the stack as following:
+As depicted in this example, the different OpenStack resources can be
+declared using types. OpenStack resource types are listed in the
+documentation[fn:heat_resource_list], browsing this page, you can see
+that resources exist for most OpenStack services (e.g. Nova, Neutron,
+Glance, Cinder, Heat). Here, we declare a new resource called ~my_vm~
+which is defined by the type ~OS::Nova::Server~ to declare a new
+virtual machine. A type defines different properties (some are
+mandatory, some are optional, see the documentation for more details).
+The ~OS::Nova::Server~ properties should be familiar to you since it
+is the classical properties Nova requires to boot a VM (i.e. a name,
+an image, a flavor, a key name). Once you have written this template
+in a file, you can now deploy the stack as following:
 
 #+BEGIN_SRC bash
 $ openstack stack create -t ./1_boot_vm.yaml hw1
