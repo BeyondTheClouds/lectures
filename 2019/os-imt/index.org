@@ -8,7 +8,8 @@
 #+PROPERTY: header-args :mkdirp yes
 #+HTML_DOCTYPE: html5
 #+OPTIONS: html5-fancy:t
-#+LINK: cdn-url  https://raw.githubusercontent.com/BeyondTheClouds/lectures/master/%s
+#+LINK: base-url  https://rcherrueau.github.io/teaching/2019/os-imt/%s
+#+LINK: cdn-url   https://raw.githubusercontent.com/BeyondTheClouds/lectures/master/%s
 #+MACRO: co  OMH
 #+MACRO: c5o Online Mine Hosting
 
@@ -29,6 +30,7 @@ are going to:
   your cloud from your sofa!).
 
 Find the slides of the lecture [[cdn-url:2018/os-polytech/docs/CloudFogEdgeIntro.pdf][here]] and [[cdn-url:2018/os-polytech/docs/openstack-slides.pdf][there]].
+# This document is an [[https://orgmode.org/][Org mode]] document, you can find its source [[base-url:index.org][here]].
 #+END_abstract
 
 #+TOC: headlines 3
@@ -39,13 +41,16 @@ Find the slides of the lecture [[cdn-url:2018/os-polytech/docs/CloudFogEdgeIntro
   - [[#access-the-lab-machine][Access the Lab machine]]
   - [[#resources-of-the-lab][Resources of the Lab]]
   - [[#setup-openstack][Setup OpenStack]]
-- [[#play-with-openstack][Play with OpenStack]]
+- [[#play-with-openstack-as-an-admin][Play with OpenStack (as an Admin)]]
   - [[#openstack-horizon-dashboard][OpenStack Horizon Dashboard]]
   - [[#unleash-the-operator-in-you][Unleash the Operator in You]]
   - [[#in-encryption-we-trust][In Encryption We Trust]]
   - [[#the-art-of-provisioning-a-vm][The Art of Provisioning a VM]]
     - [[#debian-9-ftw][Debian 9 FTW]]
     - [[#cloudinit-in-action][Cloudinit in Action]]
+- [[#deploy-a-wordpress-as-a-service-as-a-devops][Deploy a Wordpress as a Service (as a DevOps)]]
+  - [[#wordpress-mariadb-database][WordPress MariaDB Database]]
+  - [[#wordpress-application][WordPress Application]]
 - [[#footnotes][Footnotes]]
 
 * Lecture Notes                                                    :noexport:
@@ -64,8 +69,15 @@ And restart ~nova-compute~
 
 : sudo systemctl restart snap.microstack.nova-compute.service
 
-** Export
+** Export and publish
+#+BEGIN_SRC elisp :results silent :noweb yes
+<<export>>
+<<publish>>
+#+END_SRC
+
+*** Export
 Do ~C-c C-c~ on the following
+#+NAME: export
 #+BEGIN_SRC elisp :results silent :noweb yes
 (org-babel-tangle)
 (org-ascii-export-to-ascii)
@@ -78,21 +90,24 @@ Do ~C-c C-c~ on the following
                      "teardown.sh" "rsc"))
 #+END_SRC
 
-** Publish
+*** Publish
 Put it on my personal website and change the link to org file to link the one in
+#+NAME: publish
 #+BEGIN_SRC elisp :results silent :noweb yes
 (let* ((base-url "https://rcherrueau.github.io")
        (base-dir "~/prog/rcherrueau.github.com/teaching/")
-       (export-dir (concat base-dir "2019/os-imt/"))
-       (export-file (concat export-dir "index.html")))
-  ;; Delete export if it exists. Always start from the ground base.fd
+       (export-dir (concat base-dir "2019/os-imt/")))
+  ;; Delete export if it exists. Always start from the ground base.
   (when (file-directory-p export-dir)
     (delete-directory export-dir t))
 
+  ;; Create os-imt directory and copy index files
   (make-directory export-dir)
-  (shell-command (format "cp -r index.html %s" export-file))
+  (shell-command (format "cp -r index.org %s" export-dir))
+  (shell-command (format "cp -r index.html %s" export-dir))
 
-  (find-file export-file)
+  ;; Link with online css
+  (find-file (concat export-dir "index.html"))
   (with-current-buffer "index.html"
     (goto-char (point-min))
     (while (re-search-forward "href=\"org.css\"" nil t)
@@ -130,6 +145,9 @@ OpenStack (instead of 30 minutes for other options).
 #+END_note
 
 ** Access the Lab machine
+:PROPERTIES:
+:CUSTOM_ID: sec:assign-lab
+:END:
 Here is the assignation list of Lab machine per team:
 - ronana, alebre :: ~172.16.193.4~
 - alacour, mnoritop :: ~172.16.193.40~
@@ -275,7 +293,7 @@ sudo snap remove openstackclients
 sudo snap remove microstack
 #+END_SRC
 
-* Play with OpenStack
+* Play with OpenStack (as an Admin)
 :PROPERTIES:
 :CUSTOM_ID: sec:play-with-os
 :END:
@@ -557,15 +575,15 @@ openstack server ssh cli-vm-adminkey \
 #+END_SRC
 
 Or directly with the ~ssh~ command
-: ssh -i ./admin.pem cirros@$(openstack server show cli-vm-adminkey -c addresses -f value | sed  -Er 's/test=.+ (10\.20\.20\.[0-9]+).*/\1/g')
+: ssh -i ./admin.pem -l cirros $(openstack server show cli-vm-adminkey -c addresses -f value | sed  -Er 's/test=.+ (10\.20\.20\.[0-9]+).*/\1/g')
 
-#+BEGIN_NOTE
-A regular ~ssh~ command looks like ~ssh -i <identity-file>
-<name>@<server-ip>~. The following OpenStack command followed by the
-~sed~ returns the floating IP of ~cli-vm-adminkey~. You may have to
-adapt it a bit according to your network cidr.
+#+BEGIN_note
+A regular ~ssh~ command looks like ~ssh -i <identity-file> -l <name>
+<server-ip>~. The following OpenStack command followed by the ~sed~
+returns the floating IP of ~cli-vm-adminkey~. You may have to adapt it
+a bit according to your network cidr.
 : openstack server show cli-vm-adminkey -c addresses -f value | sed  -Er 's/test=.+ (10\.20\.20\.[0-9]+).*/\1/g'
-#+END_NOTE
+#+END_note
 
 ** The Art of Provisioning a VM
 Provisioning is the process that automatically installs software,
@@ -592,17 +610,12 @@ during the boot process.
 When it comes the time to deal with real applications, we cannot use
 cirros VMs anymore. A Cirros VM is good for testing because it starts
 fast and has a small memory footprint. However, do not expect to
-launch MySQL or even [[https://github.com/busyloop/lolcat][~lolcat~]] on a cirros.
+launch [[https://en.wikipedia.org/wiki/MariaDB][MariaDB]] or even [[https://github.com/busyloop/lolcat][~lolcat~]] on a cirros.
 
 We are going to run several Debian9 VMs in this section. But, a
 Debian9 takes a lot more of resources to run. For this reason, you may
 want to release all your resources before going further.
 
-#+BEGIN_do
-Make one single bash command that deletes currently running VMs. Do
-the same for floating IPs.
-
-#+BEGIN_comment
 #+NAME: lst:delete-rscs
 #+BEGIN_SRC bash
 # Delete VMs
@@ -611,36 +624,40 @@ for vm in $(openstack server list -c Name -f value); do \
   openstack server delete "${vm}"; \
 done
 
-# Delete floating IPs
+# Releasing floating IPs
 for ip in $(openstack floating ip list -c "Floating IP Address" -f value); do \
-  echo "Deleting ${ip}..."; \
+  echo "Releasing ${ip}..."; \
   openstack floating ip delete "${ip}"; \
 done
 #+END_SRC
-#+END_comment
-#+END_do
 
-Then, create a new flavor with 5 Go of Disk.
-#+BEGIN_SRC bash
-openstack flavor create --ram 2048 \
-  --disk 5 --vcpus 1 --swap 1024 \
-  --public m1.mini
-#+END_SRC
-
-Download the Debian9 image with support of Cloudinit.
+Then, download the Debian9 image with support of Cloudinit.
 #+BEGIN_SRC bash
 curl -L -o /tmp/debian-9.qcow2 \
   https://cdimage.debian.org/cdimage/openstack/current-9/debian-9-openstack-amd64.qcow2
 #+END_SRC
 
 #+BEGIN_do
-And import it into Glance. Use ~openstack image --help~
+Import the image into Glance; name it ~debian-9~. Use ~openstack image
+create --help~ for creation arguments. Find values example with
+~openstack image show cirros~.
 #+BEGIN_comment
 #+BEGIN_SRC bash
 openstack image create --disk-format=qcow2 \
   --container-format=bare --property architecture=x86_64 \
   --public --file /tmp/debian-9.qcow2 \
   debian-9
+#+END_SRC
+#+END_comment
+
+And, create a new ~m1.mini~ flavor with 5 Go of Disk, 2 Go of RAM, 2
+VCPU and 1 Go of swap. Use ~openstack flavor create --help~ for
+creation arguments.
+#+BEGIN_comment
+#+BEGIN_SRC bash
+openstack flavor create --ram 2048 \
+  --disk 5 --vcpus 2 --swap 1024 \
+  --public m1.mini
 #+END_SRC
 #+END_comment
 #+END_do
@@ -681,8 +698,26 @@ openstack server create --wait --image debian-9 \
 You can follow the correct installation of software with:
 : watch openstack console log show --lines=20 art-vm
 
-Tells when the VM has finished to boot based on the output of ~console
-log~.
+Could you notice /when/ the VM has finished to boot based on the
+~console log~ output?
+#+BEGIN_comment
+#+BEGIN_src bash
+CLOUDINIT_END_RX="Cloud-init v\. .\+ finished"
+function wait_cloudinit {
+  local vm="$1"
+
+  while ! openstack console log show --lines=5 "${vm}"|grep "${CLOUDINIT_END_RX}"
+  do
+    echo "Waiting for Cloudinit to finish..."
+    echo "Current status is"
+    openstack console log show --lines=20 "${vm}"
+    sleep 5
+  done
+}
+
+wait_cloudinit art-vm
+#+END_src
+#+END_comment
 #+END_do
 
 Then, attach it a floating IP.
@@ -695,7 +730,7 @@ openstack server add floating ip \
 Hence, you can jump on the VM and call the ~figlet~ and ~lolcat~
 software.
 #+BEGIN_EXAMPLE
-~$ openstack server ssh art-vm \
+openstack server ssh art-vm \
   --login debian \
   --identity ./admin.pem
 
@@ -706,7 +741,7 @@ Are you sure you want to continue connecting (yes/no)? yes
 debian@art-vm:~$ figlet "The Art of Provisionning a VM" | lolcat
 #+END_EXAMPLE
 
-* COMMENT Deploy a Wordpress as a Service
+* Deploy a Wordpress as a Service (as a DevOps)
 In the previous sessions, we saw how to boot a VM with OpenStack, and
 execute a post-installation script using the ~user-data~ mechanism.
 Such mechanism can help us to install software but it is not enough to
@@ -718,10 +753,10 @@ is common to deploy new units of this service to balance the load.
 
 Let's take a simple example: [[https://wordpress.org/][WordPress]]! WordPress is a very popular
 content management system (CMS) in use on the Web. People use it to
-create websites, blogs or applications. WordPress is open-source,
-written in PHP and composed of two elements: a Web server (Apache) and
-database (MySQL). Apache serves the PHP code of WordPress and stores
-its information in the database.
+create websites, blogs or applications. It is open-source, written in
+PHP and composed of two elements: a Web server (Apache) and database
+(MariaDB). Apache serves the PHP code of WordPress and stores its
+information in the database.
 
 Automation is a very important concept for DeVops. Imagine you have
 your own datacenter and want to exploit it by renting WordPress
@@ -732,19 +767,24 @@ all the operations? 😎
 #+BEGIN_do
 As the DevOps of {{{co}}} -- {{{c5o}}} -- your job is to automatize
 the deployment of WordPress on your OpenStack. To do so, you have to
-make a bash script that automatically starts :
+make a bash script that:
 
-- ~wordpress-db~   :: A VM that contains the MySQL database for
-     Wordpress.
-- ~wordpress-app~  :: A VM that contains a web server and serves the
-     Wordpress CMS.
+1. Starts ~wordpress-db~: a VM that contains the MariaDB database for
+   WordPress.
+2. Waits until its final deployment (the database is running)
+3. Starts ~wordpress-app~: a VM that contains a web server and serves
+   the Wordpress CMS.
+4. Finally, connects to the WordPress website and initializes a new
+   WordPress project named ~os-imt~.
 
-The ~rsc~ directory provides bash scripts to deploy the MySQL database
-and web server of WordPress. Review it before going further. Also,
-remind to [[#sec:debian9-ftw][clean your environment]].
+The ~rsc~ directory provides bash scripts to deploy the MariaDB
+database and web server of WordPress. Review it before going further
+(spot the *TODO*).
+
+Also, remind to [[#sec:debian9-ftw][clean your environment]].
 #+END_do
 
-** WordPress MySQL Database                                        :solution:
+** WordPress MariaDB Database                                      :solution:
 Start a VM with ~wordpress-db~ name, ~debian-9~ image, ~m1.mini~
 flavor, ~test~ network and ~admin~ key-pair. Also, provision your VM
 with the ~rsc/install-mariadb.sh~ script thanks to the ~--user-data
@@ -756,6 +796,8 @@ openstack server create --wait --image debian-9 \
   --key-name admin \
   --user-data ./rsc/install-mariadb.sh \
   wordpress-db
+
+wait_cloudinit wordpress-db
 #+END_SRC
 
 ** WordPress Application                                           :solution:
@@ -777,6 +819,8 @@ openstack server create --wait --image debian-9 \
   --key-name admin \
   --user-data ./rsc/install-wp.sh \
   wordpress-app
+
+wait_cloudinit wordpress-app
 #+END_SRC
 
 Attach a floating ip to that VM.
@@ -786,7 +830,17 @@ openstack server add floating ip \
   $(openstack floating ip create -c floating_ip_address -f value external)
 #+END_SRC
 
-Finally, you can reach WordPress on [[http://<floating-ip>/wp]].
+Enable HTTP connections
+#+BEGIN_SRC bash
+openstack security group rule create $SECGROUP_ID \
+  --proto tcp --remote-ip 0.0.0.0/0 \
+  --dst-port 80
+#+END_SRC
+
+Setup an SSH tunnel to access ~10.20.20.*~ from your own machine.
+: ssh -NL 8080:<floating-ip>:80 -l root <ip-of-your-lab-machine>
+
+Finally, you can reach WordPress on [[http://localhost:8080/wp]].
 
 * COMMENT Automatize the deployment with Heat
 ** Heat introduction
@@ -800,11 +854,11 @@ the application. This separation of concerns brings flexibility. If a single
 service is overloaded, it is common to deploy new units of this service to
 balance the load.
 
-Let's take a simple example! WordPress[fn:wordpress] is a very popular content
-management system (CMS) written in PHP, which is mainly used as a blog system.
-It is composed of two elements: a Web server (Apache) and a database (MySQL).
-Apache serves the PHP code of WordPress and stores its information in the
-database.
+Let's take a simple example! WordPress[fn:wordpress] is a very popular
+content management system (CMS) written in PHP, which is mainly used
+as a blog system. It is composed of two elements: a Web server
+(Apache) and a database (MariaDB). Apache serves the PHP code of
+WordPress and stores its information in the database.
 
 Automation is a very important concept for devops. Imagine you have your own
 datacenter and want to exploit it by renting WordPress instances to your
@@ -1013,11 +1067,11 @@ WordPress application using Heat. We are going to deploy WordPress inside two
 VMs: the first one holds the web server, the second one runs the database:
 
 - VM1: Apache + PHP + WordPress code
-- VM2: MySQL
+- VM2: MariaDB
 
 It is highly recommended that you create three HOT files:
 
-- ~sql_vm.yml~: containing the description of the VM running MySQL;
+- ~sql_vm.yml~: containing the description of the VM running MariaDB;
 - ~web_vm.yml~: containing the description of the VM running the Web server;
 - ~wp_app.yml~: containing the description of the WordPress application
   (~sql_vm.yml~ + ~web_vm.yml~ as nested templates).
