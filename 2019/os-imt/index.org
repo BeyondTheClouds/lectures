@@ -9,7 +9,7 @@
 #+HTML_DOCTYPE: html5
 #+OPTIONS: html5-fancy:t
 #+LINK: base-url  https://rcherrueau.github.io/teaching/2019/os-imt/%s
-#+LINK: cdn-url   https://raw.githubusercontent.com/BeyondTheClouds/lectures/master/%s
+#+LINK: cdn-url   https://github.com/BeyondTheClouds/lectures/blob/34fc596c4b8404e60d6f34f4223dbe4703c40c3b/%s?raw=true
 #+LINK: os-cloud  http://10.16.61.255:80
 #+MACRO: co  OMH
 #+MACRO: c5o Online Mine Hosting
@@ -695,10 +695,10 @@ extra argument to the regular ~openstack server create~ command.
 #+BEGIN_do
 Start a new VM named ~art-vm~ based on the ~debian-9~ image and the
 ~m1.mini~ flavor. The VM should load and execute the script [[lst:art.sh]]
--- available under ~rsc/art.sh~ -- that installs the [[https://github.com/cmatsuoka/figlet][~figlet~]] and
+-- available under [[cdn-url:2019/os-imt/rsc/art.sh][~rsc/art.sh~]] -- that installs the [[https://github.com/cmatsuoka/figlet][~figlet~]] and
 [[https://github.com/busyloop/lolcat][~lolcat~]] softwares on the VM.
 
-#+CAPTION: ~cloud-init~ script available under ~rsc/art.sh~
+#+CAPTION: ~cloud-init~ script available under [[cdn-url:2019/os-imt/rsc/art.sh][~rsc/art.sh~]]
 #+NAME: lst:art.sh
 #+BEGIN_SRC bash :tangle ./rsc/art.sh :shebang #!/usr/bin/env bash
 #!/usr/bin/env bash
@@ -810,7 +810,7 @@ database and web server of WordPress. Review it before going further
 Also, remind to [[#sec:debian9-ftw][clean your environment]].
 
 #+BEGIN_solution
-Find the solution in the ~./rsc/wordpress-deploy.sh~ script.
+Find the solution in the [[cdn-url:2019/os-imt/rsc/wordpress-deploy.sh][~rsc/wordpress-deploy.sh~]] script.
 #+END_solution
 #+END_do
 
@@ -825,7 +825,7 @@ openstack security group rule create $SECGROUP_ID \
 ** WordPress MariaDB Database                                      :solution:
 Start a VM with ~wordpress-db~ name, ~debian-9~ image, ~m1.mini~
 flavor, ~test~ network and ~admin~ key-pair. Also, contextualize your
-VM with the ~rsc/install-mariadb.sh~ script thanks to the ~--user-data
+VM with the [[cdn-url:2019/os-imt/rsc/install-mariadb.sh][~rsc/install-mariadb.sh~]] script thanks to the ~--user-data
 ./rsc/install-mariadb.sh~ option.
 
 #+BEGIN_SRC bash :tangle ./rsc/wordpress-deploy.sh :shebang #!/usr/bin/env bash
@@ -841,7 +841,7 @@ wait_cloudinit wordpress-db
 ** WordPress Application                                           :solution:
 Start a VM with ~wordpress-app~ name, ~debian-9~ image, ~m1.mini~
 flavor, ~test~ network and ~admin~ key-pair. Also, contextualize your
-VM with the ~rsc/install-wp.sh~ script thanks to the ~--user-data
+VM with the [[cdn-url:2019/os-imt/rsc/install-wp.sh][~rsc/install-wp.sh~]] script thanks to the ~--user-data
 ./rsc/install-wp.sh~ option. Note that you need to provide the IP
 address of the ~wordpress-db~ to this script before running it.
 
@@ -1268,7 +1268,7 @@ nested templates. For instance, we can use a first template that
 describes a virtual machine, and a second template which deploys
 multiple VMs by referencing the first one. Rather than create the
 first template, we can re-use
-~rsc/heat-templates/2_boot_vm_with_params.yaml~:
+[[cdn-url:2019/os-imt/rsc/heat-templates/2_boot_wm_with_params.yaml][~rsc/heat-templates/2_boot_vm_with_params.yaml~]]:
 
 #+begin_src yaml :tangle rsc/heat-templates/7_nested_template.yaml
 heat_template_version: 2017-09-01
@@ -1422,7 +1422,7 @@ Once it is deployed, you should be able to reach the wordpress service by
 going on [[http://<web-server-ip-address>/wp]].
 
 #+begin_solution
-Find the solution in the ~./rsc/heat-templates/wordpress/~ directory.
+Find the solution in the [[cdn-url:2019/os-imt/rsc/heat-templates/wordpress/][~rsc/heat-templates/wordpress/~]] directory.
 #+end_solution
 #+END_do
 
