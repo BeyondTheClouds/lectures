@@ -5,14 +5,14 @@ description: >
 
 resources:
     my_provider_vm:
-        # Template can be provided as resource type:
+        # Template can be provided as resource type (relatively to
+        # that template)
         type: ./2_boot_vm_with_params.yaml
         # The related properties are given as template's parameters:
         properties:
-            param_name: provider
+            param_vm_name: provider
             param_flavor: m1.medium
     my_user_vm:
         type: ./2_boot_vm_with_params.yaml
         properties:
-            param_name: user
-
+            param_vm_name: user

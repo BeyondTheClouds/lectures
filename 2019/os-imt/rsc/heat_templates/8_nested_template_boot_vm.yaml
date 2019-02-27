@@ -4,7 +4,7 @@ description: >
     Boot a VM, ease access to a remote host and return its IP address!
 
 parameters:
-    param_name:
+    param_vm_name:
         type: string
         description: Name of the server
     param_image:
@@ -31,10 +31,12 @@ resources:
     my_vm:
         type: "OS::Nova::Server"
         properties:
-            name: { get_param: param_name }
+            name: { get_param: param_vm_name }
             image: { get_param: param_image }
-            flavor: { get_param: param_flavor } 
+            flavor: { get_param: param_flavor }
             key_name: { get_param: param_key }
+            networks:
+              - {network: private}
             user_data:
                 str_replace:
                     params:
@@ -52,4 +54,3 @@ outputs:
     HOSTIP:
         description: IP address of the created instance
         value: { get_attr: [my_vm, first_address] }
-

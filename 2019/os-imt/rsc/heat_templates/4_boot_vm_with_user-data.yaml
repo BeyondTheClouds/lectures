@@ -7,14 +7,16 @@ resources:
     my_vm:
         type: "OS::Nova::Server"
         properties:
-            name: hello_world
+            name: hello_cloud_init
             image: debian-9
-            flavor: m1.small
+            flavor: m1.mini
             key_name: admin
+            networks:
+              - {network: private}
             # We set here the user-data:
             user_data: |
-                #!/bin/bash
+                #!/usr/bin/env bash
                 apt-get update
-                apt-get install -y fortune fortunes cowsay
-                echo -e "#!/bin/bash\n\nfortune | cowsay -n\necho" \
+                apt-get install -y fortune fortunes cowsay lolcat
+                echo -e "#!/bin/bash\n\nfortune | cowsay -n | lolcat\necho" \
                          > /etc/profile.d/cowsay.sh

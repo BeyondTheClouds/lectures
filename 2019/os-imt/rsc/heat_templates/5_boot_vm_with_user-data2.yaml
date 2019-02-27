@@ -12,10 +12,12 @@ resources:
     my_vm:
         type: "OS::Nova::Server"
         properties:
-            name: hello_world
+            name: hello_cloud_init_params
             image: debian-9
-            flavor: m1.small
+            flavor: m1.mini
             key_name: admin
+            networks:
+              - {network: private}
             user_data:
                 # This intrinsic function can replace strings in user-data:
                 str_replace:
@@ -24,7 +26,6 @@ resources:
                         ${PACKAGE_NAME}: { get_param: PackageName }
                     # We define here the script
                     template: |
-                        #!/bin/bash
+                        #!/usr/bin/env bash
                         apt-get update
                         apt-get install -y ${PACKAGE_NAME}
-

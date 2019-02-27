@@ -15,6 +15,7 @@ resources:
         properties:
             name: hello_world      # Name of the VM
             image: debian-9        # Its image of the VM (must be available in Glance)
-            flavor: m1.small       # Its flavor (must exist in Nova)
+            flavor: m1.mini        # Its flavor (must exist in Nova)
             key_name: admin        # Name of the SSH Key (must exist in Nova)
-
+            networks:              # List of networks to connect to
+              - {network: private}

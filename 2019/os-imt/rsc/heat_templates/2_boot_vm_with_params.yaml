@@ -6,7 +6,7 @@ description: >
 # Here we define parameters
 # Parameters have a name, and a list of properties:
 parameters:
-    param_name:
+    param_vm_name:
         type: string                               # the type of the parameter (required)
         description: Name of the server            # an optional description
     param_image:
@@ -27,8 +27,9 @@ resources:
     my_vm:
         type: "OS::Nova::Server"
         properties:
-            name: { get_param: param_name }
+            name: { get_param: param_vm_name }
             image: { get_param: param_image }
             flavor: { get_param: param_flavor }
             key_name: { get_param: param_key }
-
+            networks:
+              - {network: private}

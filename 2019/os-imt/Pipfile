@@ -16,6 +16,8 @@ pyls-mypy = "*"
 [packages]
 enoslib = "==2.0.2"
 openstacksdk = "*"
+python-openstackclient = "*"
+python-heatclient = "*"
 
 [requires]
 python_version = "3.7"
