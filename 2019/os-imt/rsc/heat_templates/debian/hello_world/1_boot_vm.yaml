@@ -1,0 +1,20 @@
+# The following heat template version tag is mandatory:
+heat_template_version: 2017-09-01
+
+# Here we define a simple decription of the template (optional):
+description: >
+    Simply boot a VM!
+
+# Here we declare the resources to deploy.
+# Resources are defined by a name and a type which described many properties:
+resources:
+    # Name of my resource:
+    my_vm:
+        # Its type, here we want to define an OpenStack Nova server:
+        type: "OS::Nova::Server"
+        properties:
+            name: hello_world      # Name of the VM
+            image: debian-9        # Its image of the VM (must be available in Glance)
+            flavor: m1.small       # Its flavor (must exist in Nova)
+            key_name: admin        # Name of the SSH Key (must exist in Nova)
+

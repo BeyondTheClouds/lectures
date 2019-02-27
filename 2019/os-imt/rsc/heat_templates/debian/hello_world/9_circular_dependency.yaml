@@ -1,0 +1,20 @@
+heat_template_version: 2017-09-01
+
+description: >
+    Crash due to a circular dependency!
+
+resources:
+    my_provider_vm:
+        type: ./8_nested_template_boot_vm.yaml
+        properties:
+            param_name: provider
+            param_remote_hostname: { get_attr: [my_user_vm, HOSTNAME] }
+            param_remote_ip: { get_attr: [my_user_vm, HOSTIP] }
+
+    my_user_vm:
+        type: ./8_nested_template_boot_vm.yaml
+        properties:
+            param_name: user
+            param_remote_hostname: { get_attr: [my_provider_vm, HOSTNAME] }
+            param_remote_ip: { get_attr: [my_provider_vm, HOSTIP] }
+

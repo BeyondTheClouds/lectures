@@ -1,0 +1,29 @@
+heat_template_version: 2017-09-01
+
+description: >
+    Boot two VMs and ease the access from user to provider!
+
+resources:
+    my_provider_vm:
+        type: "OS::Nova::Server"
+        properties:
+            name: provider
+            image: debian-9
+            flavor: m1.small
+            key_name: admin
+    my_user_vm:
+        type: "OS::Nova::Server"
+        properties:
+            name: user
+            image: debian-9
+            flavor: m1.small
+            key_name: admin
+            user_data:
+                str_replace:
+                    params:
+                        ${IP_ADDRESS}: { get_attr: [my_provider_vm, first_address] }
+                    template: |
+                        #!/bin/bash
+                        # With the following line, provider is reachable from its hostname
+                        echo "${IP_ADDRESS} provider" >> /etc/hosts
+

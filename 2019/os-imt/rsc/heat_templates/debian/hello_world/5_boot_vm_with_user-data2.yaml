@@ -1,0 +1,30 @@
+heat_template_version: 2017-09-01
+
+description: >
+    Boot a VM by installing a set of packages given as parameters!
+
+parameters:
+    PackageName:
+        label: List of packages to install
+        type: string
+
+resources:
+    my_vm:
+        type: "OS::Nova::Server"
+        properties:
+            name: hello_world
+            image: debian-9
+            flavor: m1.small
+            key_name: admin
+            user_data:
+                # This intrinsic function can replace strings in user-data:
+                str_replace:
+                    # We define here the parameters for our script
+                    params:
+                        ${PACKAGE_NAME}: { get_param: PackageName }
+                    # We define here the script
+                    template: |
+                        #!/bin/bash
+                        apt-get update
+                        apt-get install -y ${PACKAGE_NAME}
+

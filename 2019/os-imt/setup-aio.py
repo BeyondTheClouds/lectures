@@ -81,8 +81,8 @@ def bootstrap(roles):
     # Put /snap/bin in PATH
     cmd('echo "export PATH=/snap/bin:${PATH}" >> /root/.bashrc')
 
-    # Disable ip forwarding
-    cmd('sudo sysctl -w net.ipv4.ip_forward=1')
+    # Disable ip forwarding (for pedagogical purpose)
+    cmd('sudo sysctl -w net.ipv4.ip_forward=0')
 
     return nodes
 

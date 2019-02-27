@@ -1,0 +1,20 @@
+heat_template_version: 2017-09-01
+
+description: >
+    Boot a VM with a post-installation script!
+
+resources:
+    my_vm:
+        type: "OS::Nova::Server"
+        properties:
+            name: hello_world
+            image: debian-9
+            flavor: m1.small
+            key_name: admin
+            # We set here the user-data:
+            user_data: |
+                #!/bin/bash
+                apt-get update
+                apt-get install -y fortune fortunes cowsay
+                echo -e "#!/bin/bash\n\nfortune | cowsay -n\necho" \
+                         > /etc/profile.d/cowsay.sh

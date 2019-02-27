@@ -1,0 +1,38 @@
+heat_template_version: 2017-09-01
+
+description: >
+    Boot a VM given a set of parameters and return its IP address!
+
+parameters:
+    param_name:
+        type: string
+        description: Name of the server
+    param_image:
+        type: string
+        description: Image to use for servers
+        default: debian-9
+    param_flavor:
+        type: string
+        description: Flavor to use for servers
+        default: m1.small
+    param_key:
+        type: string
+        description: Key name to use for servers
+        default: admin
+
+resources:
+    my_vm:
+        type: "OS::Nova::Server"
+        properties:
+            name: { get_param: param_name }
+            image: { get_param: param_image }
+            flavor: { get_param: param_flavor } 
+            key_name: { get_param: param_key }
+
+# We set here outputs (stack returned attributes).
+# Outputs are defined by a name, and a set of properties:
+outputs:
+    HOSTIP:
+        description: IP address of the created instance    # The name is optional
+        value: { get_attr: [my_vm, first_address] }        # The value of this attribute
+

@@ -1,0 +1,18 @@
+heat_template_version: 2017-09-01
+
+description: >
+    Boot two different VMs by exploiting nested templates!
+
+resources:
+    my_provider_vm:
+        # Template can be provided as resource type:
+        type: ./2_boot_vm_with_params.yaml
+        # The related properties are given as template's parameters:
+        properties:
+            param_name: provider
+            param_flavor: m1.medium
+    my_user_vm:
+        type: ./2_boot_vm_with_params.yaml
+        properties:
+            param_name: user
+

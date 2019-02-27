@@ -1,0 +1,68 @@
+heat_template_version: 2017-09-01
+
+description: >
+    Template to deploy a WordPress application, composed of an SQL instance
+    and an HTTP instance that serves WordPress.
+
+
+parameters:
+    # Parameters used to describe the server resource
+    ServerKeyName:
+        label: Name of the SSH key to provide to cloud-init
+        type: string
+        default: admin
+    ServerImage:
+        label: Name of the image used to boot the server
+        type: string
+        default: debian-9
+    ServerFlavor:
+        label: Name of the flavor used to boot the server
+        type: string
+        default: m1.small
+    ServerNetwork:
+        label: Name of the network the server will be linked to
+        type: string
+        default: provider-net
+
+    # Parameters used in the cloud-init script to install & configure MariaDB
+    DBRootPassword:
+        label: Value of the password to manage the database
+        type: string
+        default: 0p3nSt4cK
+    DBName:
+        label: Name of the database to create
+        type: string
+        default: wordpress
+    DBUser:
+        label: Name of the database user
+        type: string
+        default: user
+    DBPassword:
+        label: Password to access the database
+        type: string
+        default: user
+
+resources:
+    database:
+        type: ./sql_vm.yaml
+        properties:
+            ServerKeyName: { get_param: ServerKeyName }
+            ServerImage: { get_param: ServerImage }
+            ServerFlavor: { get_param: ServerFlavor }
+            ServerNetwork: { get_param: ServerNetwork }
+            DBRootPassword: { get_param: DBRootPassword }
+            DBName: { get_param: DBName }
+            DBUser: { get_param: DBUser }
+            DBPassword: { get_param: DBPassword }
+    wordpress:
+        type: ./web_vm.yaml
+        properties:
+            ServerKeyName: { get_param: ServerKeyName }
+            ServerImage: { get_param: ServerImage }
+            ServerFlavor: { get_param: ServerFlavor }
+            ServerNetwork: { get_param: ServerNetwork }
+            DBName: { get_param: DBName }
+            DBUser: { get_param: DBUser }
+            DBPassword: { get_param: DBPassword }
+            DBHost: { get_attr: [database, DBHost] }
+

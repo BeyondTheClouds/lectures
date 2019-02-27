@@ -1,0 +1,101 @@
+heat_template_version: 2017-09-01
+
+description: >
+    Template to deploy an HTTP server that serves WordPress.
+    Requires an SQL database, whose IP address must be provided as a parameter.
+
+
+parameters:
+    # Parameters used to describe the server resource
+    ServerName:
+        label: Name of the Server
+        type: string
+        default: wordpress
+    ServerKeyName:
+        label: Name of the SSH key to provide to cloud-init
+        type: string
+        default: admin
+    ServerImage:
+        label: Name of the image used to boot the server
+        type: string
+        default: debian-9
+    ServerFlavor:
+        label: Name of the flavor used to boot the server
+        type: string
+        default: m1.small
+    ServerNetwork:
+        label: Name of the network the server will be linked to
+        type: string
+        default: provider-net
+
+    # Parameters used in the cloud-init script to install & configure the WordPress app
+    # The following parameters are given by the user:
+    DBName:
+        label: (REQUIRED) Name of the database to use
+        type: string
+    DBUser:
+        label: Name of the database user
+        type: string
+        default: user
+    DBPassword:
+        label: Password to access the database
+        type: string
+        default: user
+    # This parameter is returned by Heat Engine when the mysql_instance boots
+    DBHost:
+        label: (REQUIRED) IP address of the SQL server
+        type: string
+
+resources:
+    wordpress_instance:
+        type: OS::Nova::Server
+        properties:
+            name: { get_param: ServerName }
+            key_name: { get_param: ServerKeyName }
+            image: { get_param: ServerImage }
+            flavor: { get_param: ServerFlavor }
+            networks:
+                - network: { get_param: ServerNetwork }
+            user_data:
+                str_replace:
+                    params:
+                        ${DB_NAME}: { get_param: DBName }
+                        ${DB_USER}: { get_param: DBUser }
+                        ${DB_PASSWORD}: { get_param: DBPassword }
+                        ${DB_HOST}: { get_param: DBHost }
+                    template: |
+                        #!/usr/bin/env bash
+                        # Install and configure Apache to serve Wordpress for Debian 9.
+
+                        apt-get update -y
+                        apt-get upgrade -y
+                        apt-get install -q -y --force-yes wordpress apache2 curl
+
+                        cat << EOF > /etc/apache2/sites-available/wp.conf
+                        Alias /wp/wp-content /var/lib/wordpress/wp-content
+                        Alias /wp /usr/share/wordpress
+                        <Directory /usr/share/wordpress>
+                            Options FollowSymLinks
+                            AllowOverride Limit Options FileInfo
+                            DirectoryIndex index.php
+                            Require all granted
+                        </Directory>
+                        <Directory /var/lib/wordpress/wp-content>
+                            Options FollowSymLinks
+                            Require all granted
+                        </Directory>
+                        EOF
+
+                        a2ensite wp
+                        service apache2 reload
+
+                        cat << EOF > /etc/wordpress/config-default.php
+                        <?php
+                        define('DB_NAME', '${DB_NAME}');
+                        define('DB_USER', '${DB_USER}');
+                        define('DB_PASSWORD', '${DB_PASSWORD}');
+                        define('DB_HOST', '${DB_HOST}');
+                        define('WP_CONTENT_DIR', '/var/lib/wordpress/wp-content');
+                        ?>
+                        EOF
+
