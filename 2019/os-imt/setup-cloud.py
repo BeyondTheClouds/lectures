@@ -6,7 +6,7 @@ import yaml
 import openstack
 
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.ERROR)
 LOG   = logging.getLogger(__name__)
 TEAMS = [
     ("ronana",      "alebre"),
@@ -45,7 +45,8 @@ ENOS_ENV = {'networks': [
         "roles": ["neutron_external_interface"],
         "start": "10.16.90.0",
     }
-    ]}
+]}
+
 
 def make_cloud(cloud_auth_url):
     """Connects to `cloud_auth_url` OpenStack cloud.
@@ -146,6 +147,7 @@ def make_private_net(net, project):
 
     return private_snet
 
+
 def make_router(net, project, priv_snet):
     # Get public net and router if any
     public_net  = net.find_network("public", ignore_missing=False)
@@ -164,7 +166,7 @@ def make_router(net, project, priv_snet):
         #     enable_snat=True,
         #     external_fixed_ips=[{'subnet_id': public_snet.id,}])
         # LOG.info("Res net %s" % res)
-        LOG.error("openstack router set %s --external-gateway %s" % (router.id , public_net.name))
+        LOG.error("openstack router set %s --external-gateway %s" % (router.id, public_net.name))
 
         res = net.add_interface_to_router(router, subnet_id=priv_snet.id)
         LOG.info("Res net %s" % res)
@@ -187,24 +189,24 @@ def make_sec_group_rule(net, project):
     crit = [(p, d) for p in protocols for d in directions]
 
     for (p, d) in crit:
-        sgr_name = "%s-%s" % (p,d)
-        if not net.find_security_group_rule(sgr_name, project_id=project.id):
-            sgr = net.create_security_group_rule(
-                direction=d,
-                ether_type="IPv4",
-                port_range_min=None if p == "icmp" else 1,
-                port_range_max=None if p == "icmp" else 65535,
-                project_id=project.id,
-                protocol=p,
-                remote_ip_prefix="0.0.0.0/0",
-                security_group_id=sg_default.id)
+        sgr = net.create_security_group_rule(
+            direction=d,
+            ether_type="IPv4",
+            port_range_min=None if p == "icmp" else 1,
+            port_range_max=None if p == "icmp" else 65535,
+            project_id=project.id,
+            protocol=p,
+            remote_ip_prefix="0.0.0.0/0",
+            security_group_id=sg_default.id)
 
-            LOG.info("New sgr %s" % sgr)
+        LOG.info("New sgr %s" % sgr)
 
 
 cloud = make_cloud("http://10.16.61.255:35357/v3")
-project = make_account(cloud.identity, TEAMS[0])
-priv_snet = make_private_net(cloud.network, project)
-priv_net = make_router(cloud.network, project, priv_snet)
-make_sec_group_rule(cloud.network, project)
-# pub_net = make_public_net(cloud.network, project)
+
+for team in TEAMS:
+    project = make_account(cloud.identity, team)
+    priv_snet = make_private_net(cloud.network, project)
+    priv_net = make_router(cloud.network, project, priv_snet)
+    make_sec_group_rule(cloud.network, project)
+    # pub_net = make_public_net(cloud.network, project)

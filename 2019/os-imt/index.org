@@ -18,6 +18,7 @@
 # #+EXCLUDE_TAGS: solution
 
 #+HTML_HEAD: <link rel="stylesheet" type="text/css" href="org.css" />
+#+HTML_HEAD: <style>#table-of-contents .tag {display: none;}</style>
 
 #+BEGIN_abstract
 OpenStack has become the de-facto solution to operate compute, network
@@ -30,8 +31,8 @@ are going to:
 - Automatize all the stuff with the Heat template engine (i.e., manage
   your cloud from your sofa!).
 
-Find the slides of the lecture [[cdn-url:2018/os-polytech/docs/CloudFogEdgeIntro.pdf][here]] and [[cdn-url:2018/os-polytech/docs/openstack-slides.pdf][there]].
-# This document is an [[https://orgmode.org/][Org mode]] document, you can find its source [[base-url:index.org][here]].
+Find the slides of the lecture [[cdn-url:2018/os-polytech/docs/CloudFogEdgeIntro.pdf][here]] and [[cdn-url:2018/os-polytech/docs/openstack-slides.pdf][there]]. This document is an [[https://orgmode.org/][Org
+mode]] document, you can find its source [[base-url:index.org][here]].
 #+END_abstract
 
 #+TOC: headlines 3
@@ -49,22 +50,21 @@ Find the slides of the lecture [[cdn-url:2018/os-polytech/docs/CloudFogEdgeIntro
   - [[#the-art-of-contextualizing-a-vm][The Art of Contextualizing a VM]]
     - [[#debian-9-ftw][Debian 9 FTW]]
     - [[#cloud-init-in-action][~cloud-init~ in Action]]
-- [[#deploy-a-wordpress-as-a-service-as-a-devops][Deploy a Wordpress as a Service (as a DevOps)]]
+- [[#deploy-a-wordpress-as-a-service-as-a-devops][Deploy a WordPress as a Service (as a DevOps)]]
   - [[#enable-http-connections][Enable HTTP connections]]
   - [[#wordpress-mariadb-database][WordPress MariaDB Database]]
   - [[#wordpress-application][WordPress Application]]
-- [[#automatize-the-deployment-with-heat-as-a-software-engineer-devops][Automatize the deployment with Heat (as a Software Engineer DevOps)]]
-  - [[#heat-introduction][Heat introduction]]
-    - [[#preamble][Preamble]]
-    - [[#boot-a-vm][Boot a VM]]
-    - [[#need-more-flexibility-lets-add-parameters][Need more flexibility: let's add parameters!]]
-    - [[#need-our-deployment-to-return-values-lets-use-outputs][Need our deployment to return values: let's use outputs!]]
-    - [[#integrate-cloud-init-in-heat][Integrate ~cloud-init~ in Heat]]
-    - [[#dynamic-configuration-with-cloud-init-and-parameters][Dynamic configuration with ~cloud-init~ and parameters]]
-    - [[#data-dependency-between-resources][Data dependency between resources]]
-    - [[#nested-templates][Nested templates]]
+- [[#automatize-the-deployment-with-heat][Automatize the deployment with Heat]]
+  - [[#preamble][Preamble]]
+  - [[#boot-a-vm][Boot a VM]]
+  - [[#need-more-flexibility-lets-add-parameters][Need more flexibility: let's add parameters!]]
+  - [[#need-our-deployment-to-return-values-lets-use-outputs][Need our deployment to return values: let's use outputs!]]
+  - [[#integrate-cloud-init-in-heat][Integrate ~cloud-init~ in Heat]]
+  - [[#dynamic-configuration-with-cloud-init-and-parameters][Dynamic configuration with ~cloud-init~ and parameters]]
+  - [[#data-dependency-between-resources][Data dependency between resources]]
+  - [[#nested-templates][Nested templates]]
   - [[#nested-templates-with-data-dependency][Nested templates with data dependency]]
-  - [[#automatic-deployment-of-wordpress-with-heat][Automatic deployment of WordPress with Heat]]
+- [[#deploy-a-wordpress-as-a-service-as-a-heat-devops][Deploy a WordPress as a Service (as a Heat DevOps)]]
 - [[#footnotes][Footnotes]]
 
 * Lecture Notes                                                    :noexport:
@@ -767,7 +767,7 @@ Are you sure you want to continue connecting (yes/no)? yes
 debian@art-vm:~$ figlet "The Art of Contextualizing a VM" | lolcat
 #+END_EXAMPLE
 
-* Deploy a Wordpress as a Service (as a DevOps)
+* Deploy a WordPress as a Service (as a DevOps)
 In the previous sessions, we saw how to boot a VM with OpenStack, and
 execute a post-installation script using the ~user-data~ mechanism.
 Such mechanism can help us to install software but it is not enough to
@@ -884,8 +884,7 @@ from your own machine.
 Then, reach WordPress on [[http://localhost:8080/wp]].
 #+END_note
 
-* Automatize the deployment with Heat (as a Software Engineer DevOps)
-** Heat introduction
+* Automatize the deployment with Heat
 [[https://wiki.openstack.org/wiki/Heat][Heat]] is the OpenStack orchestrator: it eats templates (called HOT for
 Heat Orchestration Template - which are files written in YAML)
 describing the OpenStack infrastructure you want to deploy (e.g. VMs,
@@ -895,9 +894,9 @@ to deploy the system described in your template (deployments are
 called ~stacks~ in Heat). In the following subsections, we are going
 to manipulate Heat to understand how to deploy applications on
 OpenStack. The following examples are extracted from the heat
-templates you can find under the ~rsc/heat_templates/~ directory.
+templates you can find under the ~rsc/heat-templates/~ directory.
 
-*** Preamble
+** Preamble
 In this last part, the teacher has setup an OpenStack in a DataCenter
 (here, on top of Grid'5000) and created member account and project for
 each of you (not admin). As a preamble, you should:
@@ -906,7 +905,7 @@ each of you (not admin). As a preamble, you should:
   "OpenStack RC File V3" (see §[[#sec:os-cli]]) on your own machine.
   + user name: your Grid'5000 login
   + password: ~os-imt~
-- [[https://github.com/openstack/stable/rocky/python-openstackclient#getting-started][Install the OpenStack CLI]] and [[https://github.com/openstack/python-heatclient/tree/stable/rocky][Heat CLI]] on your own machine.
+- [[https://github.com/openstack/python-openstackclient/tree/stable/rocky#getting-started][Install the OpenStack CLI]] and [[https://github.com/openstack/python-heatclient/tree/stable/rocky][Heat CLI]] on your own machine.
   # : alias openstack="pipenv run openstack"
 - Source the "OpenStack RC File V3".
 - Reimport (or maybe recreate) your admin SSH key (see
@@ -920,10 +919,10 @@ some commands such as the following to know about new names.
 - ~openstack flavor list~
 - ...
 
-*** Boot a VM
+** Boot a VM
 The simplest HOT template your can declare describes how to boot a VM:
 
-#+BEGIN_SRC yaml :tangle rsc/heat_templates/1_boot_vm.yaml
+#+BEGIN_SRC yaml :tangle rsc/heat-templates/1_boot_vm.yaml
 # The following heat template version tag is mandatory:
 heat_template_version: 2017-09-01
 
@@ -961,7 +960,7 @@ image, a flavor, a key name). Once you have written this template in a
 file, you can now deploy the stack as following:
 
 #+BEGIN_SRC bash
-openstack stack create -t ./rsc/heat_templates/1_boot_vm.yaml hw1
+openstack stack create -t ./rsc/heat-templates/1_boot_vm.yaml hw1
 openstack stack list
 openstack stack show hw1
 watch openstack server list
@@ -972,7 +971,7 @@ This simple template is enough to run a virtual machine. However it is
 very static. In the next subsection, we are going to manipulate
 parameters to add flexibility.
 
-*** Need more flexibility: let's add parameters!
+** Need more flexibility: let's add parameters!
 
 Templates can be more flexible with parameters. To that end you can:
 - Declare a set of parameters to provide to your template.
@@ -980,7 +979,7 @@ Templates can be more flexible with parameters. To that end you can:
   your resource declarations.
 Here's an example:
 
-#+begin_src yaml :tangle rsc/heat_templates/2_boot_vm_with_params.yaml
+#+begin_src yaml :tangle rsc/heat-templates/2_boot_vm_with_params.yaml
 heat_template_version: 2017-09-01
 
 description: >
@@ -1025,7 +1024,7 @@ second one, corresponding to the name of the key pair to use, must be
 provided. To deploy this stack, run the following command:
 
 #+BEGIN_src bash
-openstack stack create -t ./rsc/heat_templates/2_boot_vm_with_params.yaml \
+openstack stack create -t ./rsc/heat-templates/2_boot_vm_with_params.yaml \
   --parameter param_vm_name=hello_params \
   --parameter param_flavor=m1.small \
   hw2
@@ -1040,7 +1039,7 @@ value is provided. As such, if you try to create a stack without
 providing this parameter, you end with the following error:
 
 #+BEGIN_SRC bash
-openstack stack create -t ./rsc/heat_templates/2_boot_vm_with_params.yaml \
+openstack stack create -t ./rsc/heat-templates/2_boot_vm_with_params.yaml \
     --parameter param_flavor=m1.medium \
     hw2_error
 ERROR: The Parameter (param_vm_name) was not provided.
@@ -1051,12 +1050,12 @@ are going to see how templates can declare outputs, so that our stacks
 can return a set of attributes (e.g., the IP address of a deployed
 VM).
 
-*** Need our deployment to return values: let's use outputs!
+** Need our deployment to return values: let's use outputs!
 Templates can declare a set of attributes to return. For instance, you
 might need to know the IP address of a resource at run-time. To that
 end, you can declare attributes in a new section called ~outputs~:
 
-#+begin_src yaml :tangle rsc/heat_templates/3_boot_vm_with_output.yaml
+#+begin_src yaml :tangle rsc/heat-templates/3_boot_vm_with_output.yaml
 heat_template_version: 2017-09-01
 
 description: >
@@ -1089,17 +1088,17 @@ CLI, or it can be fetched by other stack templates (we will see this
 last case latter):
 
 #+BEGIN_src bash
-openstack stack create -t ./rsc/heat_templates/3_boot_vm_with_output.yaml hw3
+openstack stack create -t ./rsc/heat-templates/3_boot_vm_with_output.yaml hw3
 openstack stack output list hw3
 openstack stack output show hw3 HOSTIP
 openstack stack delete hw3
 #+END_src
 
-*** Integrate ~cloud-init~ in Heat
+** Integrate ~cloud-init~ in Heat
 It is possible to declare a post-installation script in the template
 with the user-data property:
 
-#+begin_src yaml :tangle rsc/heat_templates/4_boot_vm_with_user-data.yaml
+#+begin_src yaml :tangle rsc/heat-templates/4_boot_vm_with_user-data.yaml
 heat_template_version: 2017-09-01
 
 description: >
@@ -1125,7 +1124,7 @@ resources:
 #+end_src
 
 #+BEGIN_src bash
-openstack stack create -t ./rsc/heat_templates/4_boot_vm_with_user-data.yaml hw4
+openstack stack create -t ./rsc/heat-templates/4_boot_vm_with_user-data.yaml hw4
 #+END_src
 
 Associating a floating IP is a bit tricky with Heat, so let's do it
@@ -1140,14 +1139,14 @@ openstack server ssh --login debian --identity ./admin.pem hello_cloud_init
 openstack stack delete hw4
 #+end_src
 
-*** Dynamic configuration with ~cloud-init~ and parameters
+** Dynamic configuration with ~cloud-init~ and parameters
 Let's mix the capabilities we learned from the parameter and
 cloud-init templates to write a template with a flexible
 post-installation script. With Heat, it is possible to provide a
 parameter to your user-data at run-time by using a new function:
 ~str_replace~!
 
-#+begin_src yaml :tangle rsc/heat_templates/5_boot_vm_with_user-data2.yaml
+#+begin_src yaml :tangle rsc/heat-templates/5_boot_vm_with_user-data2.yaml
 heat_template_version: 2017-09-01
 
 description: >
@@ -1188,7 +1187,7 @@ deploy the stack as follow:
 
 #+BEGIN_SRC bash
 openstack stack create \
-    -t ./rsc/heat_templates/5_boot_vm_with_user-data2.yaml \
+    -t ./rsc/heat-templates/5_boot_vm_with_user-data2.yaml \
     --parameter PackageName="vim cowsay fortune fortunes lolcat" \
    hw5
 #+END_SRC
@@ -1201,7 +1200,7 @@ represented by a variable managed in Heat templates. In the next
 subsections, we are going to study how to declare such variable, so
 that Heat resources can exchange information.
 
-*** Data dependency between resources
+** Data dependency between resources
 :PROPERTIES:
 :CUSTOM_ID: sec:data-deps-rscs
 :END:
@@ -1212,7 +1211,7 @@ hostname rather than from its IP address. To that end, we will use the user-data
 mechanism to edit the ~/etc/hosts~ file on user, and map the IP address of
 provider with its hostname:
 
-#+begin_src yaml :tangle rsc/heat_templates/6_boot_vms_with_exchange.yaml
+#+begin_src yaml :tangle rsc/heat-templates/6_boot_vms_with_exchange.yaml
 heat_template_version: 2017-09-01
 
 description: >
@@ -1253,7 +1252,7 @@ resources. Take a look during the deployment, and check that
 ~provider~ is deployed prior ~user~:
 
 #+BEGIN_src bash
-openstack stack create -t ./rsc/heat_templates/6_boot_vms_with_exchange.yaml hw6 \
+openstack stack create -t ./rsc/heat-templates/6_boot_vms_with_exchange.yaml hw6 \
   && watch openstack server list
 openstack server add floating ip user \
   $(openstack floating ip create -c floating_ip_address -f value public)
@@ -1263,15 +1262,15 @@ debian@user:~$ exit
 openstack stack delete hw6
 #+END_SRC
 
-*** Nested templates
+** Nested templates
 Heat is able to compose templates to keep human-readable files, using
 nested templates. For instance, we can use a first template that
 describes a virtual machine, and a second template which deploys
 multiple VMs by referencing the first one. Rather than create the
 first template, we can re-use
-~rsc/heat_templates/2_boot_vm_with_params.yaml~:
+~rsc/heat-templates/2_boot_vm_with_params.yaml~:
 
-#+begin_src yaml :tangle rsc/heat_templates/7_nested_template.yaml
+#+begin_src yaml :tangle rsc/heat-templates/7_nested_template.yaml
 heat_template_version: 2017-09-01
 
 description: >
@@ -1297,7 +1296,7 @@ type as the target of the desired template. A set of properties can be
 provided to the nested template and will be interpreted as parameters.
 
 #+BEGIN_src bash
-openstack stack create -t ./rsc/heat_templates/7_nested_template.yaml hw7 \
+openstack stack create -t ./rsc/heat-templates/7_nested_template.yaml hw7 \
   && watch openstack server list
 openstack stack delete hw7
 #+END_SRC
@@ -1310,7 +1309,7 @@ are going to extend nested templates with data dependency.
 Let's describe the same deployment as in [[#sec:data-deps-rscs][Data dependency between
 resources]] by using nested templates. For that we need a new template:
 
-#+begin_src yaml :tangle rsc/heat_templates/8_nested_template_boot_vm.yaml
+#+begin_src yaml :tangle rsc/heat-templates/8_nested_template_boot_vm.yaml
 heat_template_version: 2017-09-01
 
 description: >
@@ -1373,7 +1372,7 @@ We can now declare the main template. While it defines three VMs, this
 template is easy to read since it points to the template created
 previously, and ~3_boot_vm_with_output.yaml~:
 
-#+begin_src yaml :tangle rsc/heat_templates/8_nested_template_exchange.yaml
+#+begin_src yaml :tangle rsc/heat-templates/8_nested_template_exchange.yaml
 heat_template_version: 2017-09-01
 
 description: >
@@ -1399,26 +1398,33 @@ resources:
             param_remote_ip: { get_attr: [my_provider_vm, HOSTIP] }
 #+end_src
 
-** Automatic deployment of WordPress with Heat
-As a DevOps at {{{co}}}, you are now in charge of the automation
-process of deploying WordPress instances for clients. Congratulation!
-To that end, you have to use what you learned from the previous
-section to design a template that describes a WordPress application
-using Heat. We are going to deploy WordPress inside two VMs: the first
-one holds the web server, the second one runs the database:
+* Deploy a WordPress as a Service (as a Heat DevOps)
+As a DevOps at {{{co}}} -- {{{c5o}}} -- you are now in charge of the
+automation process of deploying WordPress instances for clients.
+Congratulation! To that end, you have to use what you learned from the
+previous section to design a template that describes a WordPress
+application using Heat. We are going to deploy WordPress inside two
+VMs: the first one holds the web server, the second one runs the
+database:
 
 - VM1: Apache + PHP + WordPress code
 - VM2: MariaDB
 
-It is highly recommended that you create three HOT files:
+#+BEGIN_do
+Create three HOT files:
 
-- ~sql_vm.yml~: containing the description of the VM running MariaDB;
-- ~web_vm.yml~: containing the description of the VM running the Web server;
-- ~wp_app.yml~: containing the description of the WordPress application
-  (~sql_vm.yml~ + ~web_vm.yml~ as nested templates).
+- ~sql-vm.yml~: containing the description of the VM running MariaDB;
+- ~web-vm.yml~: containing the description of the VM running the Web server;
+- ~wp-app.yml~: containing the description of the WordPress application
+  (~sql-vm.yml~ + ~web-vm.yml~ as nested templates).
 
 Once it is deployed, you should be able to reach the wordpress service by
 going on [[http://<web-server-ip-address>/wp]].
+
+#+begin_solution
+Find the solution in the ~./rsc/heat-templates/wordpress/~ directory.
+#+end_solution
+#+END_do
 
 * Footnotes
 [fn:g5k-tunnel] For sure, you always can setup an SSH tunnel but this
