@@ -10,7 +10,6 @@
 #+PROPERTY: header-args :mkdirp yes
 #+MACRO: co  OPH
 #+MACRO: c5o Online Polytech Hosting
-#+LINK: base-url https://rcherrueau.github.io/teaching/2019/os-polytech-laroche/%s
 #+LINK: cdn-url  https://raw.githubusercontent.com/BeyondTheClouds/lectures/master/%s
 #+LINK: horizon-url  http://localhost/%s
 
@@ -38,9 +37,9 @@ are going to:
   setup a private Network).
 - Deploys a Wordpress as a Service.
 
-Find the slides of the lecture [[cdn-url:2018/os-polytech/docs/CloudFogEdgeIntro.pdf][here]] and [[cdn-url:2018/os-polytech/docs/openstack-slides.pdf][there]].
+Find the slides of the lecture [[cdn-url:2018/os-polytech/docs/CloudFogEdgeIntro.pdf][here]] and [[cdn-url:2018/os-polytech/docs/openstack-slides.pdf][there]]. This document is an [[https://orgmode.org/][Org
+mode]] document, you can find its source [[cdn-url:2019/os-polytech-laroche/index.org][here]].
 #+END_abstract
-# This document is an [[https://orgmode.org/][Org mode]] document, you can find its source [[base-url:index.org][here]].
 
 #+TOC: headlines 2
 
@@ -63,28 +62,12 @@ Find the slides of the lecture [[cdn-url:2018/os-polytech/docs/CloudFogEdgeIntro
   - [[#install-wordpress-application-on-debian-9][Install Wordpress application on Debian 9]]
 
 * Lecture Notes                                                    :noexport:
-** Problem with Virtualbox
-See https://github.com/CanonicalLtd/microstack/issues/41
-
-Change ~/var/snap/microstack/common/etc/nova/nova.conf.d/hypervisor.conf~
-
-#+BEGIN_SRC conf
-[libvirt]
-virt_type = qemu
-cpu_mode = host-model
-#+END_SRC
-
-And restart ~nova-compute~
-
-: sudo systemctl restart snap.microstack.nova-compute.service
-
-** Export and publish
 #+BEGIN_SRC elisp :results silent :noweb yes
 <<export>>
 <<publish>>
 #+END_SRC
 
-*** Export
+** Export
 Do ~C-c C-c~ on the following
 #+NAME: export
 #+BEGIN_SRC elisp :results silent :noweb yes
@@ -100,7 +83,7 @@ Do ~C-c C-c~ on the following
                       "teardown.sh" "rsc"))
 #+END_SRC
 
-*** Publish
+** Publish
 Put it on my personal website and change the link to org file to link
 the one in
 #+NAME: publish
@@ -114,8 +97,8 @@ the one in
 
   ;; Create os-imt directory and copy index files
   (make-directory export-dir)
-  ;; (shell-command (format "cp -r index.org %s" export-dir))
   (shell-command (format "cp -r index.html %s" export-dir))
+  (shell-command (format "cp -r rsc %s" export-dir))
 
   ;; Link with online css
   ;; (find-file (concat export-dir "index.html"))
@@ -127,7 +110,7 @@ the one in
 )
 #+END_SRC
 
-*** Hide/show solutions
+** Hide/show solutions
 Hide solutions
 #+BEGIN_SRC elisp :results silent :noweb yes
 (save-excursion
@@ -206,8 +189,7 @@ Then, ensure OpenStack services are running on your machine.
 Find the snap command that lists microstack OpenStack services and
 there status? What is the purpose of each service?
 
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 : snap services microstack
 
 - glance-* :: Glance to manage VM images: ~openstack image --help~.
@@ -219,8 +201,7 @@ there status? What is the purpose of each service?
 - memcached :: Cache used by all OpenStack services
 - mysqld :: Database used by all OpenStack services
 - rabbitmq-server :: Communication bus used by all OpenStack services
-#+END_comment
-# solution
+#+END_solution
 #+END_do
 
 And finally, execute the ~setup.sh~ file with sudo.
@@ -370,8 +351,7 @@ most often used commands to operate your Cloud:
 #+BEGIN_do
 Using all these commands, you can use the CLI to start a new tiny
 cirros VM called ~cli-vm~.
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 #+BEGIN_src bash
 openstack server create \
   --image cirros \
@@ -379,8 +359,7 @@ openstack server create \
   --network test \
   cli-vm
 #+END_src
-#+END_comment
-# solution
+#+END_solution
 #+END_do
 
 Then, display the information about your VM with the following
@@ -436,8 +415,7 @@ Does it work? Why? Hint: [[https://docs.openstack.org/neutron/latest/feature_cla
 Find the command that list the security group rules of the ~admin~
 project. # (i.e., ~openstack project show admin~).
 
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 Regarding security rules, OpenStack is very conservative by default
 and prevents ingress and egress traffic. Spot the ~None~ values at ~IP
 Protocol~ and ~IP Range~ in the result table of the command that list
@@ -456,14 +434,12 @@ $ openstack security group rule list -c ID -c "IP Protocol" -c "IP Range" $SECGR
 | 9177e69a-ab91-4016-b8a7-b98e04588eee | None        | None      |
 +--------------------------------------+-------------+-----------+
 #+END_src
-#+END_comment
-# solution
+#+END_solution
 
 Then, make it work. See examples of security groups rules in the [[https://docs.openstack.org/neutron/latest/admin/deploy-lb-selfservice.html#verify-network-operation][neutron
 doc]].
 
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 To make it work, you have to setup new rules in the security group of
 the ~admin~ project. The following rules allow ICMP packets (for ping)
 and TCP on port 22 (for SSH connection) on the VM.
@@ -472,8 +448,7 @@ openstack security group rule create $SECGROUP_ID --proto icmp --remote-ip 0.0.0
 openstack security group rule create $SECGROUP_ID --proto tcp --remote-ip 0.0.0.0/0 \
   --dst-port 22
 #+END_src
-#+END_comment
-# solution
+#+END_solution
 #+END_do
 
 Once you succeed to ping the vm, you should be able to SSH on it
@@ -483,8 +458,8 @@ Once you succeed to ping the vm, you should be able to SSH on it
 *Note for the teacher:* The [[lst:undo-net-setup]] code undoes the
 [[https://opendev.org/x/microstack/src/commit/c5f679a67377e0e963e79603ef2cfb23a706df28/snap-overlay/bin/setup-br-ex#L21][microstack network setup]], so students have to resolve the next
 challenge (i.e., the next ~begin_do~). This bash snippet is tangle
-into file:setup.sh and could be disable in case of no network-oriented
-students.
+into [[file:setup.sh]] and could be disable in case of a no
+network-oriented students.
 #+END_comment
 #+name: lst:undo-net-setup
 #+begin_src bash :tangle ./setup.sh :exports none
@@ -501,44 +476,37 @@ From the cirros, ping the outside world.
 Does it work? Why? To help you in your diagnosis, here is a list of
 hints to check:
 - Ping Google and the VM from the Lab machine. Does it work?
-  #+BEGIN_comment
-# solution
+  #+BEGIN_solution
   : ping -c 2 8.8.8.8; ping -c 2 $ALLOCATED_FIP
   The ping from the Lab machine works for both Google and the VM.
   Thus, the Lab machine /could be a gateway/ between VMs and the
   Internet.
-  #+END_comment
-# solution
+  #+END_solution
 
 - Note the IP address of ~$ALLOCATED_FIP~. From which network this IP
   comes? Which NIC serves that network on the Lab machine?
-  #+BEGIN_comment
-# solution
+  #+BEGIN_solution
   : echo "$ALLOCATED_FIP"
   : openstack subnet show external-subnet -c cidr -c allocation_pools
   : ip address | fgrep -B 2 10.20.20
   The IP of the VM comes from the network 10.20.20.0/24, which is
   served on the Lab machine by ~br-ex~.
-  #+END_comment
-# solution
+  #+END_solution
 
 - Do a ~tcpdump~ on that NIC. Do you see the ICMP packets from
   ~$ALLOCATED_FIP~ that flow over that NIC?
-  #+BEGIN_comment
-# solution
+  #+BEGIN_solution
   : sudo tcpdump -nni br-ex icmp
   The ~tcpdump~ on ~br-ex~ shows ping ~echo request~ packets, but no
   ~echo reply~. So the packets are lost somewhere.... In other words,
   the Lab machine does not play its role of gateway between VMs and
   the Internet.
-  #+END_comment
-# solution
+  #+END_solution
 
 - Find the route that forward packets to the Internet on Lab machine.
   Do a ~tcpdump~ on the NIC that servers that route. Do you see the
   ICMP packets flow over that NIC?
-  #+BEGIN_comment
-# solution
+  #+BEGIN_solution
   To ensure the Lab machine does not play its role of gateway between
   VMs and the Internet, let's find the route that forward Google
   packets out of the Lab machine.
@@ -565,13 +533,11 @@ hints to check:
   set up with the next command (or ~echo 1 >
   /proc/sys/net/ipv4/ip_forward~).
   : sudo sysctl -w net.ipv4.ip_forward=1
-  #+END_comment
-# solution
+  #+END_solution
 
 - After making the packets flow on the second NIC, is everything OK
   with the IP address of the source in the ~tcpdump~ on ~eth0~?
-  #+BEGIN_comment
-# solution
+  #+BEGIN_solution
   From now, the ping of Google from the VM reaches Internet via ~eth0~
   (as seen by ~tcpdump -nni eth0 icmp~). Unfortunately, it still
   doesn't do the trick, because the packet goes out with the
@@ -589,9 +555,8 @@ hints to check:
   https://www.systutorials.com/1372/setting-up-gateway-using-iptables-and-route-on-linux/).
 
   Set up the SNAT with ~iptables~.
-  : sudo iptables -t nat -A POSTROUTING ! -d 10.20.20.0/24 -o eth0 -j SNAT --to-source <ip-of-your-Lab-machine>
-  #+END_comment
-# solution
+  : sudo iptables -t nat -A POSTROUTING ! -d 10.20.20.0/24 -o <NIC-of-your-Lab-machine> -j SNAT --to-source <ip-of-your-Lab-machine>
+  #+END_solution
 #+END_do
 
 Go on, and play with the ~openstack~ cli. For instance, list all
@@ -603,8 +568,7 @@ figure out how to:
 4. Boot a new machine ~cli-vm-clone~ from the snapshot.
 5. Delete ~cli-vm-clone~;
 
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 #+BEGIN_SRC bash
 # 1.
 openstack server ssh cli-vm -l cirros
@@ -620,8 +584,7 @@ openstack server create --wait --flavor m1.tiny \
 # 5.
 openstack server delete cli-vm-clone
 #+END_SRC
-#+END_comment
-# solution
+#+END_solution
 
 ** In Encryption We Trust
 :PROPERTIES:
@@ -730,29 +693,25 @@ curl -L -o /tmp/debian-9.qcow2 \
 Import the image into Glance; name it ~debian-9~. Use ~openstack image
 create --help~ for creation arguments. Find values example with
 ~openstack image show cirros~.
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 #+BEGIN_SRC bash
 openstack image create --disk-format=qcow2 \
   --container-format=bare --property architecture=x86_64 \
   --public --file /tmp/debian-9.qcow2 \
   debian-9
 #+END_SRC
-#+END_comment
-# solution
+#+END_solution
 
 And, create a new ~m1.mini~ flavor with 5 Go of Disk, 2 Go of RAM, 2
 VCPU and 1 Go of swap. Use ~openstack flavor create --help~ for
 creation arguments.
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 #+BEGIN_SRC bash
 openstack flavor create --ram 2048 \
   --disk 5 --vcpus 2 --swap 1024 \
   --public m1.mini
 #+END_SRC
-#+END_comment
-# solution
+#+END_solution
 #+END_do
 
 *** ~cloud-init~ in Action
@@ -782,8 +741,7 @@ apt update
 apt install -y figlet lolcat
 #+END_SRC
 
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 #+BEGIN_SRC bash
 openstack server create --wait --image debian-9 \
   --flavor m1.mini --network test \
@@ -791,44 +749,43 @@ openstack server create --wait --image debian-9 \
   --user-data ./rsc/art.sh \
   art-vm
 #+END_SRC
-#+END_comment
-# solution
+#+END_solution
 
 You can follow the correct installation of software with:
 : watch openstack console log show --lines=20 art-vm
 
 Could you notice /when/ the VM has finished to boot based on the
 ~console log~ output?
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 #+BEGIN_src bash :tangle ./rsc/wordpress-deploy.sh :shebang #!/usr/bin/env bash
 CLOUDINIT_END_RX="Cloud-init v\. .\+ finished"
 function wait_contextualization {
   local vm="$1"
   local console_log=$(openstack console log show --lines=20 "${vm}")
+
+  echo "Waiting for cloud-init to finish..."
+  echo "Current status is:"
   while ! echo "${console_log}"|grep -q "${CLOUDINIT_END_RX}"
   do
-      echo "Waiting for cloud-init to finish..."
-      echo "Current status is:"
       echo "${console_log}"
       sleep 5
       console_log=$(openstack console log show --lines=20 "${vm}")
-      # Clear the screen (cuu1 move cursor up by one line, el clear the line)
-      for i in {1..22}
-      do
+
+      # Clear the screen (`cuu1` move cursor up by one line, `el`
+      # clear the line)
+      while read -r line; do
           tput cuu1; tput el
-      done
+      done <<< "${console_log}"
   done
 
-  echo "cloud-init finished: "
+  # cloud-init finished
   echo "${console_log}"|grep "${CLOUDINIT_END_RX}"
 }
 #+END_src
 
 Then use it as the following.
 : wait_contextualization art-vm
-#+END_comment
-# solution
+#+END_solution
 #+END_do
 
 Then, attach it a floating IP.
@@ -869,38 +826,44 @@ at near-native speed. KVM (Kernel-based Virtual Machine) is a free
 full virtualization solution for Linux that takes advantage of x86
 hardware extensions (Intel VT or AMD-V).
 
-To check if your x86 provides hardware virtualization, execute the
-following command.
+To check if the x86 of your Lab machine provides hardware
+virtualization, execute the following command.
 : egrep -c '(vmx|svm)' /proc/cpuinfo
 If it outputs a number greater than 0, then proceed with the following
-to speed up the VMs execution.
+to speed up the VMs execution. Seek the [[https://docs.openstack.org/nova/stein/admin/configuration/hypervisor-kvm.html][Nova documentation]] for some
+help.
 
 #+BEGIN_do
 - Check that the KVM kernel module is loaded, and load it otherwise.
-  Seek the [[https://wiki.archlinux.org/index.php/KVM#Kernel_support][archlinux wiki]] for some help.
-  #+BEGIN_comment
-# solution
+  #+BEGIN_solution
+  /From the [[https://docs.openstack.org/nova/stein/admin/configuration/hypervisor-kvm.html#for-x86-based-systems][Nova documentation]]:/ Do the following command to list the
+  loaded kernel modules and verify that the KVM modules are loaded.
   : lsmod|fgrep kvm
-  : modprobe -r kvm_intel
-  #+END_comment
-# solution
+  If the output includes ~kvm_intel~ or ~kvm_amd~, the KVM hardware
+  virtualization modules are loaded and your kernel meets the module
+  requirements for OpenStack Compute.
+
+  If the output does not show that the KVM module is loaded, run the
+  next command.
+  : modprobe -a kvm
+  : modprobe -a kvm-intel  # for Intel
+  : modprobe -a kvm-amd    # for amd
+  #+END_solution
 
 - Change the configuration of ~nova-compute~ hypervisor (file
   ~/var/snap/microstack/common/etc/nova/nova.conf.d/hypervisor.conf~)
   to support KVM and reload it.
-  #+BEGIN_comment
-# solution
+  #+BEGIN_solution
   : NOVA_HYPERV_CONF=/var/snap/microstack/common/etc/nova/nova.conf.d/hypervisor.conf
   : sudo sed -i 's|virt_type.\+|virt_type = kvm|' $NOVA_HYPERV_CONF
   : sudo sed -i 's|cpu_mode.\+|cpu_mode = host-passthrough|' $NOVA_HYPERV_CONF
   : sudo snap restart microstack.nova-compute
-  #+END_comment
-# solution
+  #+END_solution
 #+END_do
 
 Finally, create a new VM such as in the [[#sec:cloud-init][previous section]] and
 appreciate how fast your VM displays the ~figlet "The Art of
-Contextualizing a VM" | lolcat~ command.
+Contextualizing a VM with KVM" | lolcat~ command.
 
 * Deploy a WordPress as a Service (as a DevOps)
 In the previous sessions, we saw how to boot a VM with OpenStack, and
@@ -944,8 +907,7 @@ before going further (spot the *TODO*).
 
 Also, remind to [[#sec:debian9-ftw][clean your environment]].
 
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 Find the solution in the [[file:rsc/wordpress-deploy.sh][~rsc/wordpress-deploy.sh~]] script.
 
 First thing first, enable HTTP connections.
@@ -1015,8 +977,7 @@ from your own machine.
 
 Then, reach WordPress on [[http://localhost:8080/wp]].
 #+END_note
-#+END_comment
-# solution
+#+END_solution
 #+END_do
 
 * COMMENT Automatize the deployment with Heat
@@ -1568,11 +1529,9 @@ Create three HOT files:
 Once it is deployed, you should be able to reach the wordpress service by
 going on [[http://<web-server-ip-address>/wp]].
 
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 Find the solution in the [[cdn-url:2019/os-imt/rsc/heat-templates/wordpress/][~rsc/heat-templates/wordpress/~]] directory.
-#+END_comment
-# solution
+#+END_solution
 #+END_do
 
 * Appendix
@@ -1665,5 +1624,5 @@ define('WP_CONTENT_DIR', '/var/lib/wordpress/wp-content');
 ?>
 EOF
 #+END_src
-# This is not needed anymore.
+# This is not needed anymore (at least, with SSH tunneling)
 # define('WP_SITEURL', 'http://' . $_SERVER['HTTP_HOST'] . '/wp');
