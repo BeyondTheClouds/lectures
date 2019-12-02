@@ -56,7 +56,7 @@ Find the slides of the lecture [[cdn-url:2018/os-polytech/docs/CloudFogEdgeIntro
   - [[#the-art-of-contextualizing-a-vm][The Art of Contextualizing a VM]]
     - [[#debian-9-ftw][Debian 9 FTW]]
     - [[#cloud-init-in-action][~cloud-init~ in Action]]
-  - [[#run-vms-with-kvm][Run VMs with KVM]]
+  - [[#run-vms-at-near-native-speed][Run VMs at (near-)Native Speed]]
 - [[#deploy-a-wordpress-as-a-service-as-a-devops][Deploy a WordPress as a Service (as a DevOps)]]
 - [[#appendix][Appendix]]
   - [[#install-mariadb-on-debian-9][Install MariaDB on Debian 9]]
@@ -174,7 +174,7 @@ Install snap.
 : sudo apt install snapd
 
 Install OpenStack directly from the snap store.
-: sudo snap install microstack --classic --beta
+: sudo snap install microstack --classic --candidate
 
 Execute the ~setup.sh~ file with sudo to initialize OpenStack (setup
 networks, flavors, images, ...).
@@ -211,18 +211,35 @@ snap install openstackclients --classic --candidate
 # Initialize  OpenStack
 microstack.init --auto
 
+# Put Identity endpoint in the `microstack` region.
+#
+# Identity endpoint is put in `None` region. This makes it unavailable
+# from a client in the default `microstack` region (as student).
+# $ sudo microstack.openstack endpoint list --service Identity
+# > +--------+--------------+--------------+-----------+----------------------------+
+# > | Region | Service Name | Service Type | Interface | URL                        |
+# > +--------+--------------+--------------+-----------+----------------------------+
+# > | None   | keystone     | identity     | admin     | http://10.20.20.1:5000/v3/ |
+# > | None   | keystone     | identity     | internal  | http://10.20.20.1:5000/v3/ |
+# > | None   | keystone     | identity     | public    | http://10.20.20.1:5000/v3/ |
+# > +--------+--------------+--------------+-----------+----------------------------+
+for id in $(microstack.openstack endpoint list --service identity -c ID -f value)
+do
+    microstack.openstack endpoint set --region microstack "${id}"
+done
+
 # Identity endpoint is unavailable after init for whatever reason.
 # > microstack.openstack endpoint list
 # endpoint for identity service in microstack region not found
-microstack.keystone-manage bootstrap \
-        --bootstrap-username admin \
-        --bootstrap-password keystone \
-        --bootstrap-project-name admin \
-        --bootstrap-role-name admin \
-        --bootstrap-service-name keystone \
-        --bootstrap-region-id microstack \
-        --bootstrap-admin-url "http://10.20.20.1:5000/v3/" \
-        --bootstrap-public-url "http://10.20.20.1:5000/v3/"
+# microstack.keystone-manage bootstrap \
+#         --bootstrap-username admin \
+#         --bootstrap-password keystone \
+#         --bootstrap-project-name admin \
+#         --bootstrap-role-name admin \
+#         --bootstrap-service-name keystone \
+#         --bootstrap-region-id microstack \
+#         --bootstrap-admin-url "http://10.20.20.1:5000/v3/" \
+#         --bootstrap-public-url "http://10.20.20.1:5000/v3/"
 
 # Make nova use qemu instead of qemu-kvm
 # i.e,:
@@ -243,8 +260,11 @@ snap restart microstack.horizon-uwsgi
 # Put snap openstackclients into the path.
 export PATH=/snap/bin:$PATH
 
+set +o xtrace
 <<lst:undo-icmp/ssh-sec-groups>>
+
 <<lst:undo-extnet-setup>>
+set -o xtrace
 #+END_SRC
 
 #+BEGIN_SRC bash :noweb tangle :tangle ./teardown.sh :shebang #!/usr/bin/env bash :exports none
@@ -376,10 +396,10 @@ could also be ~ERROR~ if you are experiencing hard times with your
 infrastructure.
 
 A VM in ~ACTIVE~ state still has to go through the [[http://www.tldp.org/LDP/intro-linux/html/sect_04_02.html][boot process and
-init]]. Hence, you may still wait for one minute or two after the
-~ACTIVE~ state for your VM to finish booting. You can check that by
-looking at its logs with ~openstack console log show cli-vm~. A CirrOS
-VM finished to boot when last lines are:
+init]]. Hence, you may still have to wait for one minute or two that
+your VM finishes to boot. You can check that your VM finished to boot
+by looking at its logs with ~openstack console log show cli-vm~. A
+CirrOS VM finished to boot when last lines are:
 #+BEGIN_EXAMPLE
 === cirros: current=0.4.0 latest=0.4.0 uptime=29.16 ===
   ____               ____  ____
@@ -410,8 +430,7 @@ Then, ask again for the status of your VM and its IPs.
 
 
 #+BEGIN_comment
-TODO
-*Note for the teacher:* The [[lst:undo-extnet-setup]] code undoes the
+*Note for the teacher:* The [[lst:undo-icmp/ssh-sec-groups]] code undoes the
 [[https://opendev.org/x/microstack/src/commit/1a25e50a172db7331edf2f836f3c2005222bb4c5/snap-overlay/bin/setup-br-ex#L21-L22][microstack network setup]], so students have to resolve the next
 challenge (i.e., the next ~begin_do~). This bash snippet is tangle
 into [[file:setup.sh]] and could be disable in case of a no
@@ -419,10 +438,15 @@ network-oriented students.
 #+END_comment
 #+name: lst:undo-icmp/ssh-sec-groups
 #+begin_src bash :exports none
-# Undo the external network setup of `microstack.init --auto`
-set +o xtrace
-# microstack.openstack ...
-set -o xtrace
+# Remove icmp and tcp security group rules of `microstack.init --auto`
+for rule in $(microstack.openstack security group rule list --protocol icmp -c ID -f value)
+do
+    microstack.openstack security group rule delete "${rule}"
+done
+for rule in $(microstack.openstack security group rule list --protocol tcp -c ID -f value)
+do
+    microstack.openstack security group rule delete "${rule}"
+done
 #+end_src
 
 #+BEGIN_do
@@ -435,10 +459,11 @@ project. # (i.e., ~openstack project show admin~).
 
 #+BEGIN_solution
 Regarding security rules, OpenStack is very conservative by default
-and prevents ingress and egress traffic. Spot the ~None~ values at ~IP
-Protocol~ and ~IP Range~ in the result table of the command that list
-security group rules of the admin project: These values should be
-interpreted as /"~None~ protocol in ~None~ network is allowed"/.
+and prevents ingress and egress traffic. Spot the ~None~ value at ~IP
+Protocol~, and ~0.0.0.0/0~ [[https://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing][CIDR]] at ~IP Range~, in the result table of
+the command that list security group rules of the admin project: These
+values should be interpreted as /"~None~ protocol on any (~0.0.0.0/0~)
+network is allowed"/.
 #+BEGIN_src bash
 $ SECGROUP_ID=`openstack security group list --project admin -f value -c ID`
 $ openstack security group rule list -c ID -c "IP Protocol" -c "IP Range" $SECGROUP_ID
@@ -446,10 +471,10 @@ $ openstack security group rule list -c ID -c "IP Protocol" -c "IP Range" $SECGR
 +--------------------------------------+-------------+-----------+
 | ID                                   | IP Protocol | IP Range  |
 +--------------------------------------+-------------+-----------+
-| 1b892ef7-35a5-43ca-93e8-8748945f0ee8 | None        | None      |
-| 1ea8cc81-8aa6-4e11-a759-606ba2e16247 | None        | None      |
-| 7439b698-6e10-45aa-877f-075e49769dd0 | None        | None      |
-| 9177e69a-ab91-4016-b8a7-b98e04588eee | None        | None      |
+| 473c2c5e-bd23-4b56-9d33-2276e483ac33 | None        | 0.0.0.0/0 |
+| 5b08ae18-ed18-4a82-8382-aa1cfc3effff | None        | ::/0      |
+| 9b104d51-61d2-4a0f-bac4-36b5803ac721 | None        | ::/0      |
+| ecd3aa5a-acde-4e9f-9738-14945bcee258 | None        | 0.0.0.0/0 |
 +--------------------------------------+-------------+-----------+
 #+END_src
 #+END_solution
@@ -469,7 +494,7 @@ openstack security group rule create $SECGROUP_ID --proto tcp --remote-ip 0.0.0.
 #+END_solution
 #+END_do
 
-Once you succeed to ping the vm, you should be able to SSH on it
+Once you succeed to ping the vm, you should also be able to SSH on it.
 : ssh -l cirros "$ALLOCATED_FIP"
 
 #+BEGIN_comment
@@ -482,11 +507,9 @@ network-oriented students.
 #+name: lst:undo-extnet-setup
 #+begin_src bash :exports none
 # Undo the external network setup of `microstack.init --auto`
-set +o xtrace
 sysctl -w net.ipv4.ip_forward=0 > /dev/null
 extcidr=10.20.20.0/24  # find it with `sudo iptables -t nat -L`
 iptables -w -t nat -D POSTROUTING -s $extcidr ! -d $extcidr -j MASQUERADE > /dev/null
-set -o xtrace
 #+end_src
 
 #+BEGIN_do
@@ -527,9 +550,9 @@ hints to check:
   Do a ~tcpdump~ on the NIC that servers that route. Do you see the
   ICMP packets flow over that NIC?
   #+BEGIN_solution
-  To ensure the Lab machine does not play its role of gateway between
-  VMs and the Internet, let's find the route that forward Google
-  packets out of the Lab machine.
+  To ensure that something is wrong on the Lab machine regarding its
+  role of gateway between VMs and the Internet, let's find the route
+  that forwards Google packets out of the Lab machine.
   : $ ip route
   :
   : default via 192.168.121.1 dev eth0 proto dhcp src 192.168.121.77 metric 100
@@ -563,8 +586,8 @@ hints to check:
   doesn't do the trick, because the packet goes out with the
   ~10.20.20.*~ source address. For this reason, Google sees ~ICMP echo
   request~ incoming packets from ~10.20.20.*~ and hence, replies ~ICMP
-  echo reply~ to ~10.20.20.*~ which does not makes sense except on the
-  Lab machine.
+  echo reply~ to ~10.20.20.*~ which does not makes sense out of a
+  private network.
 
   You have to change the source IP of out packet (~10.20.20.*~) to
   gateway's IP (i.e., Your lab machine). The ~iptables~ will then
@@ -575,7 +598,8 @@ hints to check:
   https://www.systutorials.com/1372/setting-up-gateway-using-iptables-and-route-on-linux/).
 
   Set up the SNAT with ~iptables~.
-  : sudo iptables -t nat -A POSTROUTING ! -d 10.20.20.0/24 -o <NIC-of-your-Lab-machine> -j SNAT --to-source <ip-of-your-Lab-machine>
+  # : sudo iptables -t nat -A POSTROUTING ! -d 10.20.20.0/24 -o <NIC-of-your-Lab-machine> -j SNAT --to-source <ip-of-your-Lab-machine>
+  : sudo iptables -t nat -A POSTROUTING -s 10.20.20.0/24 ! -d 10.20.20.0/24 -j MASQUERADE
   #+END_solution
 #+END_do
 
@@ -611,8 +635,8 @@ openstack server delete cli-vm-clone
 :CUSTOM_ID: sec:enc-trust
 :END:
 Any cirros VMs share the same credentials (i.e., ~cirros~, ~gocubsgo~)
-which is a security problem. As an IaaS DevOps, you want that only
-some clients can SSH on the VMs. Fortunately, OpenStack helps with the
+which is a security problem. As a IaaS DevOps, you want that only some
+clients can SSH on the VMs. Fortunately, OpenStack helps with the
 management of SSH keys. OpenStack can generate a SSH key and push the
 public counterpart on the VM. Therefore, doing a ~ssh~ on the VM will
 use the SSH key instead of asking the client to fill the credentials.
@@ -645,20 +669,20 @@ openstack server ssh cli-vm-adminkey \
   --identity ./admin.pem
 #+END_SRC
 
-Or directly with the ~ssh~ command
+#+BEGIN_note
+Or directly with the ~ssh~ command (for bash lovers ❤).
 : ssh -i ./admin.pem -l cirros $(openstack server show cli-vm-adminkey -c addresses -f value | sed  -Er 's/test=.+ (10\.20\.20\.[0-9]+).*/\1/g')
 
-#+BEGIN_note
 A regular ~ssh~ command looks like ~ssh -i <identity-file> -l <name>
-<server-ip>~. The following OpenStack command followed by the ~sed~
-returns the floating IP of ~cli-vm-adminkey~. You may have to adapt it
-a bit according to your network cidr.
+<server-ip>~. The OpenStack command followed by the ~sed~ returns the
+floating IP of ~cli-vm-adminkey~. You may have to adapt it a bit
+according to your network cidr.
 : openstack server show cli-vm-adminkey -c addresses -f value | sed  -Er 's/test=.+ (10\.20\.20\.[0-9]+).*/\1/g'
 #+END_note
 
 ** The Art of Contextualizing a VM
 Contextualizing is the process that automatically installs software,
-alters configurations, and more on the machine as part of the boot
+alters configurations, and does more on a machine as part of its boot
 process. On OpenStack, contextualizing is achieved thanks to
 [[https://cloud-init.io/][~cloud-init~]]. It is a program that runs at the boot time to customize
 the VM.
@@ -829,7 +853,7 @@ Are you sure you want to continue connecting (yes/no)? yes
 debian@art-vm:~$ figlet "The Art of Contextualizing a VM" | lolcat
 #+END_example
 
-** Run VMs with KVM
+** Run VMs at (near-)Native Speed
 Every time you do an ~openstack server create ...~, your request hits,
 at some point, the ~nova~ services. It starts by the ~nova-api~ that
 processes the REST request. The API, in turns, calls the
@@ -872,7 +896,7 @@ help.
 
 - Change the configuration of ~nova-compute~ hypervisor (file
   ~/var/snap/microstack/common/etc/nova/nova.conf.d/hypervisor.conf~)
-  to support KVM and reload it.
+  to support KVM and restart it.
   #+BEGIN_solution
   : NOVA_HYPERV_CONF=/var/snap/microstack/common/etc/nova/nova.conf.d/hypervisor.conf
   : sudo sed -i 's|virt_type.\+|virt_type = kvm|' $NOVA_HYPERV_CONF
