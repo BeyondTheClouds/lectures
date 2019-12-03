@@ -185,7 +185,8 @@ Then, ensure OpenStack services are running on your machine. Find the
 snap command that lists microstack OpenStack services and there
 status? What is the purpose of each service?
 
-#+BEGIN_solution
+#+BEGIN_comment
+# solution
 : snap services microstack
 
 - glance-* :: Glance to manage VM images: ~openstack image --help~.
@@ -197,7 +198,8 @@ status? What is the purpose of each service?
 - memcached :: Cache used by all OpenStack services
 - mysqld :: Database used by all OpenStack services
 - rabbitmq-server :: Communication bus used by all OpenStack services
-#+END_solution
+#+END_comment
+# solution
 #+END_do
 
 #+BEGIN_SRC bash :noweb tangle :tangle ./setup.sh :shebang #!/usr/bin/env bash :exports none
@@ -371,7 +373,8 @@ most often used commands to operate your Cloud:
 #+BEGIN_do
 Using all these commands, you can use the CLI to start a new tiny
 cirros VM called ~cli-vm~.
-#+BEGIN_solution
+#+BEGIN_comment
+# solution
 #+BEGIN_src bash
 openstack server create \
   --image cirros \
@@ -379,7 +382,8 @@ openstack server create \
   --network test \
   cli-vm
 #+END_src
-#+END_solution
+#+END_comment
+# solution
 #+END_do
 
 Then, display the information about your VM with the following
@@ -457,7 +461,8 @@ Does it work? Why? Hint: [[https://docs.openstack.org/neutron/latest/feature_cla
 Find the command that list the security group rules of the ~admin~
 project. # (i.e., ~openstack project show admin~).
 
-#+BEGIN_solution
+#+BEGIN_comment
+# solution
 Regarding security rules, OpenStack is very conservative by default
 and prevents ingress and egress traffic. Spot the ~None~ value at ~IP
 Protocol~, and ~0.0.0.0/0~ [[https://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing][CIDR]] at ~IP Range~, in the result table of
@@ -477,12 +482,14 @@ $ openstack security group rule list -c ID -c "IP Protocol" -c "IP Range" $SECGR
 | ecd3aa5a-acde-4e9f-9738-14945bcee258 | None        | 0.0.0.0/0 |
 +--------------------------------------+-------------+-----------+
 #+END_src
-#+END_solution
+#+END_comment
+# solution
 
 Then, make it work. See examples of security groups rules in the [[https://docs.openstack.org/neutron/latest/admin/deploy-lb-selfservice.html#verify-network-operation][neutron
 doc]].
 
-#+BEGIN_solution
+#+BEGIN_comment
+# solution
 To make it work, you have to setup new rules in the security group of
 the ~admin~ project. The following rules allow ICMP packets (for ping)
 and TCP on port 22 (for SSH connection) on the VM.
@@ -491,7 +498,8 @@ openstack security group rule create $SECGROUP_ID --proto icmp --remote-ip 0.0.0
 openstack security group rule create $SECGROUP_ID --proto tcp --remote-ip 0.0.0.0/0 \
   --dst-port 22
 #+END_src
-#+END_solution
+#+END_comment
+# solution
 #+END_do
 
 Once you succeed to ping the vm, you should also be able to SSH on it.
@@ -519,37 +527,44 @@ From the cirros, ping the outside world.
 Does it work? Why? To help you in your diagnosis, here is a list of
 hints to check:
 - Ping Google and the VM from the Lab machine. Does it work?
-  #+BEGIN_solution
+  #+BEGIN_comment
+# solution
   : ping -c 2 8.8.8.8; ping -c 2 $ALLOCATED_FIP
   The ping from the Lab machine works for both Google and the VM.
   Thus, the Lab machine /could be a gateway/ between VMs and the
   Internet.
-  #+END_solution
+  #+END_comment
+# solution
 
 - Note the IP address of ~$ALLOCATED_FIP~. From which network this IP
   comes? Which NIC serves that network on the Lab machine?
-  #+BEGIN_solution
+  #+BEGIN_comment
+# solution
   : echo "$ALLOCATED_FIP"
   : openstack subnet show external-subnet -c cidr -c allocation_pools
   : ip address | fgrep -B 2 10.20.20
   The IP of the VM comes from the network 10.20.20.0/24, which is
   served on the Lab machine by ~br-ex~.
-  #+END_solution
+  #+END_comment
+# solution
 
 - Do a ~tcpdump~ on that NIC. Do you see the ICMP packets from
   ~$ALLOCATED_FIP~ that flow over that NIC?
-  #+BEGIN_solution
+  #+BEGIN_comment
+# solution
   : sudo tcpdump -nni br-ex icmp
   The ~tcpdump~ on ~br-ex~ shows ping ~echo request~ packets, but no
   ~echo reply~. So the packets are lost somewhere.... In other words,
   the Lab machine does not play its role of gateway between VMs and
   the Internet.
-  #+END_solution
+  #+END_comment
+# solution
 
 - Find the route that forward packets to the Internet on Lab machine.
   Do a ~tcpdump~ on the NIC that servers that route. Do you see the
   ICMP packets flow over that NIC?
-  #+BEGIN_solution
+  #+BEGIN_comment
+# solution
   To ensure that something is wrong on the Lab machine regarding its
   role of gateway between VMs and the Internet, let's find the route
   that forwards Google packets out of the Lab machine.
@@ -576,11 +591,13 @@ hints to check:
   set up with the next command (or ~echo 1 >
   /proc/sys/net/ipv4/ip_forward~).
   : sudo sysctl -w net.ipv4.ip_forward=1
-  #+END_solution
+  #+END_comment
+# solution
 
 - After making the packets flow on the second NIC, is everything OK
   with the IP address of the source in the ~tcpdump~ on ~eth0~?
-  #+BEGIN_solution
+  #+BEGIN_comment
+# solution
   From now, the ping of Google from the VM reaches Internet via ~eth0~
   (as seen by ~tcpdump -nni eth0 icmp~). Unfortunately, it still
   doesn't do the trick, because the packet goes out with the
@@ -600,7 +617,8 @@ hints to check:
   Set up the SNAT with ~iptables~.
   # : sudo iptables -t nat -A POSTROUTING ! -d 10.20.20.0/24 -o <NIC-of-your-Lab-machine> -j SNAT --to-source <ip-of-your-Lab-machine>
   : sudo iptables -t nat -A POSTROUTING -s 10.20.20.0/24 ! -d 10.20.20.0/24 -j MASQUERADE
-  #+END_solution
+  #+END_comment
+# solution
 #+END_do
 
 Go on, and play with the ~openstack~ cli. For instance, list all
@@ -612,7 +630,8 @@ figure out how to:
 4. Boot a new machine ~cli-vm-clone~ from the snapshot.
 5. Delete ~cli-vm-clone~;
 
-#+BEGIN_solution
+#+BEGIN_comment
+# solution
 #+BEGIN_SRC bash
 # 1.
 openstack server ssh cli-vm -l cirros
@@ -628,7 +647,8 @@ openstack server create --wait --flavor m1.tiny \
 # 5.
 openstack server delete cli-vm-clone
 #+END_SRC
-#+END_solution
+#+END_comment
+# solution
 
 ** In Encryption We Trust
 :PROPERTIES:
@@ -737,25 +757,29 @@ curl -L -o /tmp/debian-9.qcow2 \
 Import the image into Glance; name it ~debian-9~. Use ~openstack image
 create --help~ for creation arguments. Find values example with
 ~openstack image show cirros~.
-#+BEGIN_solution
+#+BEGIN_comment
+# solution
 #+BEGIN_SRC bash
 openstack image create --disk-format=qcow2 \
   --container-format=bare --property architecture=x86_64 \
   --public --file /tmp/debian-9.qcow2 \
   debian-9
 #+END_SRC
-#+END_solution
+#+END_comment
+# solution
 
 And, create a new ~m1.mini~ flavor with 5 Go of Disk, 2 Go of RAM, 2
 VCPU and 1 Go of swap. Use ~openstack flavor create --help~ for
 creation arguments.
-#+BEGIN_solution
+#+BEGIN_comment
+# solution
 #+BEGIN_SRC bash
 openstack flavor create --ram 2048 \
   --disk 5 --vcpus 2 --swap 1024 \
   --public m1.mini
 #+END_SRC
-#+END_solution
+#+END_comment
+# solution
 #+END_do
 
 *** ~cloud-init~ in Action
@@ -785,7 +809,8 @@ apt update
 apt install -y figlet lolcat
 #+END_SRC
 
-#+BEGIN_solution
+#+BEGIN_comment
+# solution
 #+BEGIN_SRC bash
 openstack server create --wait --image debian-9 \
   --flavor m1.mini --network test \
@@ -793,14 +818,16 @@ openstack server create --wait --image debian-9 \
   --user-data ./rsc/art.sh \
   art-vm
 #+END_SRC
-#+END_solution
+#+END_comment
+# solution
 
 You can follow the correct installation of software with:
 : watch openstack console log show --lines=20 art-vm
 
 Could you notice /when/ the VM has finished to boot based on the
 ~console log~ output?
-#+BEGIN_solution
+#+BEGIN_comment
+# solution
 #+BEGIN_src bash :tangle ./rsc/wordpress-deploy.sh :shebang #!/usr/bin/env bash
 CLOUDINIT_END_RX="Cloud-init v\. .\+ finished"
 function wait_contextualization {
@@ -829,7 +856,8 @@ function wait_contextualization {
 
 Then use it as the following.
 : wait_contextualization art-vm
-#+END_solution
+#+END_comment
+# solution
 #+END_do
 
 Then, attach it a floating IP.
@@ -879,7 +907,8 @@ help.
 
 #+BEGIN_do
 - Check that the KVM kernel module is loaded, and load it otherwise.
-  #+BEGIN_solution
+  #+BEGIN_comment
+# solution
   /From the [[https://docs.openstack.org/nova/stein/admin/configuration/hypervisor-kvm.html#for-x86-based-systems][Nova documentation]]:/ Do the following command to list the
   loaded kernel modules and verify that the KVM modules are loaded.
   : lsmod|fgrep kvm
@@ -892,17 +921,20 @@ help.
   : modprobe -a kvm
   : modprobe -a kvm-intel  # for Intel
   : modprobe -a kvm-amd    # for amd
-  #+END_solution
+  #+END_comment
+# solution
 
 - Change the configuration of ~nova-compute~ hypervisor (file
   ~/var/snap/microstack/common/etc/nova/nova.conf.d/hypervisor.conf~)
   to support KVM and restart it.
-  #+BEGIN_solution
+  #+BEGIN_comment
+# solution
   : NOVA_HYPERV_CONF=/var/snap/microstack/common/etc/nova/nova.conf.d/hypervisor.conf
   : sudo sed -i 's|virt_type.\+|virt_type = kvm|' $NOVA_HYPERV_CONF
   : sudo sed -i 's|cpu_mode.\+|cpu_mode = host-passthrough|' $NOVA_HYPERV_CONF
   : sudo snap restart microstack.nova-compute
-  #+END_solution
+  #+END_comment
+# solution
 #+END_do
 
 Finally, create a new VM such as in the [[#sec:cloud-init][previous section]] and
@@ -951,7 +983,8 @@ before going further (spot the *TODO*).
 
 Also, remind to [[#sec:debian9-ftw][clean your environment]].
 
-#+BEGIN_solution
+#+BEGIN_comment
+# solution
 Find the solution in the [[file:rsc/wordpress-deploy.sh][~rsc/wordpress-deploy.sh~]] script.
 
 First thing first, enable HTTP connections.
@@ -1021,7 +1054,8 @@ from your own machine.
 
 Then, reach WordPress on [[http://localhost:8080/wp]].
 #+END_note
-#+END_solution
+#+END_comment
+# solution
 #+END_do
 
 * COMMENT Automatize the deployment with Heat
@@ -1035,6 +1069,72 @@ called ~stacks~ in Heat). In the following subsections, we are going
 to manipulate Heat to understand how to deploy applications on
 OpenStack. The following examples are extracted from the heat
 templates you can find under the ~rsc/heat-templates/~ directory.
+
+** Installation on microstack                                      :noexport:
+See https://docs.openstack.org/heat/train/install/install-ubuntu.html
+
+#+begin_src bash
+# Create heat database
+cat << EOSQL | sudo microstack.mysql
+CREATE DATABASE heat;
+GRANT ALL PRIVILEGES ON heat.* TO 'heat'@'localhost' IDENTIFIED BY 'HEAT_DBPASS';
+GRANT ALL PRIVILEGES ON heat.* TO 'heat'@'%' IDENTIFIED BY 'HEAT_DBPASS';
+EOSQL
+
+# Create the service credentials,
+microstack.openstack user create --domain default --password HEAT_PASS heat
+microstack.openstack role add --project service --user heat admin
+microstack.openstack service create --name heat --description "Orchestration" orchestration
+microstack.openstack endpoint create --region microstack \
+  orchestration public http://10.20.20.1:8004/v1/
+microstack.openstack endpoint create --region microstack \
+  orchestration internal http://10.20.20.1:8004/v1/
+microstack.openstack endpoint create --region microstack \
+  orchestration admin http://10.20.20.1:8004/v1/
+  # http://controller:8004/v1/%\(tenant_id\)s
+microstack.openstack endpoint create --region microstack \
+  cloudformation public http://10.20.20.1:8000/v1
+microstack.openstack endpoint create --region microstack \
+  cloudformation internal http://10.20.20.1:8000/v1
+microstack.openstack endpoint create --region microstack \
+  cloudformation admin http://10.20.20.1:8000/v1
+
+# Create the heat domain
+microstack.openstack domain create --description "Stack projects and users" heat
+microstack.openstack user create --domain heat --password HEAT_DOMAIN_PASS heat_domain_admin
+microstack.openstack role add --domain heat --user-domain heat --user heat_domain_admin admin
+microstack.openstack role create heat_stack_owner
+microstack.openstack role add --project admin --user demo heat_stack_owner
+microstack.openstack role create heat_stack_user
+
+# Install OpenStack heat
+apt update
+apt install heat-api heat-api-cfn heat-engine crudini
+
+# Configure templates
+crudini --set /etc/heat/heat.conf database connection "mysql+pymysql://heat:HEAT_DBPASS@10.20.20.1/heat"
+crudini --set /etc/heat/heat.conf DEFAULT transport_url "rabbit://openstack:rabbitmq@10.20.20.1"
+crudini --set /etc/heat/heat.conf DEFAULT heat_metadata_server_url "http://10.20.20.1:8000"
+crudini --set /etc/heat/heat.conf DEFAULT heat_waitcondition_server_url "http://10.20.20.1:8000/v1/waitcondition"
+crudini --set /etc/heat/heat.conf DEFAULT stack_domain_admin "heat_domain_admin"
+crudini --set /etc/heat/heat.conf DEFAULT stack_domain_admin_password "HEAT_DOMAIN_PASS"
+crudini --set /etc/heat/heat.conf DEFAULT stack_user_domain_name "heat"
+crudini --set /etc/heat/heat.conf keystone_authtoken www_authenticate_uri "http://10.20.20.1:5000"
+crudini --set /etc/heat/heat.conf keystone_authtoken auth_url "http://10.20.20.1:5000"
+crudini --set /etc/heat/heat.conf keystone_authtoken memcached_servers "10.20.20.1:11211"
+crudini --set /etc/heat/heat.conf keystone_authtoken auth_type "password"
+crudini --set /etc/heat/heat.conf keystone_authtoken project_domain_name "default"
+crudini --set /etc/heat/heat.conf keystone_authtoken user_domain_name "default"
+crudini --set /etc/heat/heat.conf keystone_authtoken project_name "service"
+crudini --set /etc/heat/heat.conf keystone_authtoken username "heat"
+crudini --set /etc/heat/heat.conf keystone_authtoken password "HEAT_PASS"
+crudini --set /etc/heat/heat.conf trustee auth_type "password"
+crudini --set /etc/heat/heat.conf trustee auth_url "http://10.20.20.1:5000"
+crudini --set /etc/heat/heat.conf trustee username "heat"
+crudini --set /etc/heat/heat.conf trustee password "HEAT_PASS"
+crudini --set /etc/heat/heat.conf trustee user_domain_name "default"
+crudini --set /etc/heat/heat.conf clients_keystone auth_uri "http://10.20.20.1:5000"
+#+end_src
 
 ** Preamble
 In this last part, the teacher has setup an OpenStack in a DataCenter
@@ -1573,9 +1673,11 @@ Create three HOT files:
 Once it is deployed, you should be able to reach the wordpress service by
 going on [[http://<web-server-ip-address>/wp]].
 
-#+BEGIN_solution
+#+BEGIN_comment
+# solution
 Find the solution in the [[cdn-url:2019/os-imt/rsc/heat-templates/wordpress/][~rsc/heat-templates/wordpress/~]] directory.
-#+END_solution
+#+END_comment
+# solution
 #+END_do
 
 * Appendix
