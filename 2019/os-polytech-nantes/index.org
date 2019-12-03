@@ -185,8 +185,7 @@ Then, ensure OpenStack services are running on your machine. Find the
 snap command that lists microstack OpenStack services and there
 status? What is the purpose of each service?
 
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 : snap services microstack
 
 - glance-* :: Glance to manage VM images: ~openstack image --help~.
@@ -198,8 +197,7 @@ status? What is the purpose of each service?
 - memcached :: Cache used by all OpenStack services
 - mysqld :: Database used by all OpenStack services
 - rabbitmq-server :: Communication bus used by all OpenStack services
-#+END_comment
-# solution
+#+END_solution
 #+END_do
 
 #+BEGIN_SRC bash :noweb tangle :tangle ./setup.sh :shebang #!/usr/bin/env bash :exports none
@@ -279,11 +277,11 @@ set -o xtrace
 
 sudo snap remove --purge openstackclients
 sudo snap remove --purge microstack
+#+END_SRC
 # # Iptables stuff disappear after a reboot
 # sudo sysctl -w net.ipv4.ip_forward=0
 # read -p 'Ip of your host machine (to remove iptables SNAT): '  IP_LAB
 # sudo iptables -t nat -A POSTROUTING ! -d 10.20.20.0/24 -o eth0 -j SNAT --to-source ${IP_LAB}
-#+END_SRC
 
 * Play with OpenStack (as an Admin)
 :PROPERTIES:
@@ -373,8 +371,7 @@ most often used commands to operate your Cloud:
 #+BEGIN_do
 Using all these commands, you can use the CLI to start a new tiny
 cirros VM called ~cli-vm~.
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 #+BEGIN_src bash
 openstack server create \
   --image cirros \
@@ -382,8 +379,7 @@ openstack server create \
   --network test \
   cli-vm
 #+END_src
-#+END_comment
-# solution
+#+END_solution
 #+END_do
 
 Then, display the information about your VM with the following
@@ -461,8 +457,7 @@ Does it work? Why? Hint: [[https://docs.openstack.org/neutron/latest/feature_cla
 Find the command that list the security group rules of the ~admin~
 project. # (i.e., ~openstack project show admin~).
 
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 Regarding security rules, OpenStack is very conservative by default
 and prevents ingress and egress traffic. Spot the ~None~ value at ~IP
 Protocol~, and ~0.0.0.0/0~ [[https://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing][CIDR]] at ~IP Range~, in the result table of
@@ -482,14 +477,12 @@ $ openstack security group rule list -c ID -c "IP Protocol" -c "IP Range" $SECGR
 | ecd3aa5a-acde-4e9f-9738-14945bcee258 | None        | 0.0.0.0/0 |
 +--------------------------------------+-------------+-----------+
 #+END_src
-#+END_comment
-# solution
+#+END_solution
 
 Then, make it work. See examples of security groups rules in the [[https://docs.openstack.org/neutron/latest/admin/deploy-lb-selfservice.html#verify-network-operation][neutron
 doc]].
 
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 To make it work, you have to setup new rules in the security group of
 the ~admin~ project. The following rules allow ICMP packets (for ping)
 and TCP on port 22 (for SSH connection) on the VM.
@@ -498,8 +491,7 @@ openstack security group rule create $SECGROUP_ID --proto icmp --remote-ip 0.0.0
 openstack security group rule create $SECGROUP_ID --proto tcp --remote-ip 0.0.0.0/0 \
   --dst-port 22
 #+END_src
-#+END_comment
-# solution
+#+END_solution
 #+END_do
 
 Once you succeed to ping the vm, you should also be able to SSH on it.
@@ -527,7 +519,7 @@ From the cirros, ping the outside world.
 Does it work? Why? To help you in your diagnosis, here is a list of
 hints to check:
 - Ping Google and the VM from the Lab machine. Does it work?
-  #+BEGIN_comment
+  #+BEGIN_
 # solution
   : ping -c 2 8.8.8.8; ping -c 2 $ALLOCATED_FIP
   The ping from the Lab machine works for both Google and the VM.
