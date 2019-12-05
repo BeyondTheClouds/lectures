@@ -1,20 +1,12 @@
 #!/usr/bin/env bash
-set -o errexit
 set -o xtrace
 
-. admin-openrc.sh
+# Undo the external network setup of `microstack.init --auto`
+sysctl -w net.ipv4.ip_forward=0 > /dev/null
+extcidr=10.20.20.0/24  # find it with `sudo iptables -t nat -L`
+iptables -w -t nat -D POSTROUTING -s $extcidr ! -d $extcidr -j MASQUERADE > /dev/null
 
-# Delete VMs
-for vm in $(openstack server list -c ID -f value); do \
-  echo "Deleting ${vm}..."; \
-  openstack server delete "${vm}"; \
-done
-
-# Releasing floating IPs
-for ip in $(openstack floating ip list -c "Floating IP Address" -f value); do \
-  echo "Releasing ${ip}..."; \
-  openstack floating ip delete "${ip}"; \
-done
+sudo apt purge --yes --quiet --autoremove heat-api heat-api-cfn heat-engine
 
 sudo snap remove --purge openstackclients
 sudo snap remove --purge microstack

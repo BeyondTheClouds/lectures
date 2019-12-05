@@ -11,6 +11,7 @@
 #+MACRO: co  OPH
 #+MACRO: c5o Online Polytech Hosting
 #+LINK: cdn-url  https://raw.githubusercontent.com/BeyondTheClouds/lectures/master/%s
+#+LINK: heat-doc   https://docs.openstack.org/heat/train/%s
 #+LINK: horizon-url  http://localhost/%s
 
 # -- HTML specific options
@@ -36,6 +37,8 @@ are going to:
 - Operate this OpenStack to manage IaaS resources (e.g., boot VMs,
   setup a private Network).
 - Deploys a Wordpress as a Service.
+- Automatize all the stuff with the Heat template engine (i.e., manage
+  your cloud from your sofa!).
 
 Find the slides of the lecture [[cdn-url:2018/os-polytech/docs/CloudFogEdgeIntro.pdf][here]] and [[cdn-url:2018/os-polytech/docs/openstack-slides.pdf][there]].
 # This document is an [[https://orgmode.org/][Org
@@ -58,6 +61,18 @@ Find the slides of the lecture [[cdn-url:2018/os-polytech/docs/CloudFogEdgeIntro
     - [[#cloud-init-in-action][~cloud-init~ in Action]]
   - [[#run-vms-at-near-native-speed][Run VMs at (near-)Native Speed]]
 - [[#deploy-a-wordpress-as-a-service-as-a-devops][Deploy a WordPress as a Service (as a DevOps)]]
+- [[#automatize-the-deployment-with-heat][Automatize the deployment with Heat]]
+  - [[#install-heat-orchestration-service-on-microstack][Install Heat orchestration service on microstack]]
+  - [[#boot-a-vm][Boot a VM]]
+  - [[#need-more-flexibility-lets-add-parameters][Need more flexibility: let's add parameters]]
+  - [[#need-our-deployment-to-return-values-lets-use-outputs][Need our deployment to return values: let's use outputs!]]
+  - [[#integrate-cloud-init-in-heat][Integrate ~cloud-init~ in Heat]]
+  - [[#dynamic-configuration-with-cloud-init-and-parameters][Dynamic configuration with ~cloud-init~ and parameters]]
+  - [[#data-dependency-between-resources][Data dependency between resources]]
+  - [[#nested-templates][Nested templates]]
+  - [[#nested-templates-with-data-dependency][Nested templates with data dependency]]
+  - [[#other-type-of-resources-floating-ip][Other type of resources: floating IP]]
+- [[#deploy-a-wordpress-as-a-service-as-a-heat-devops][Deploy a WordPress as a Service (as a Heat DevOps)]]
 - [[#appendix][Appendix]]
   - [[#install-mariadb-on-debian-9][Install MariaDB on Debian 9]]
   - [[#install-wordpress-application-on-debian-9][Install Wordpress application on Debian 9]]
@@ -81,6 +96,7 @@ Do ~C-c C-c~ on the following
 (defun f-cmd (&rest cmds) (s-join " " cmds))
 (shell-command (f-cmd "tar czf tp.tar.gz"
                       "index.txt" "setup.sh"
+                      "install-heat.sh"
                       "teardown.sh" "rsc"))
 #+END_SRC
 
@@ -125,8 +141,8 @@ Show solutions
 :CUSTOM_ID: sec:req-setup
 :END:
 ** Environment
-To follow the lab you'll need a Linux (prefer Ubuntu 18.04) with 8 Go
-of RAM and a few Go of disk.
+To follow the lab you'll need a Linux (tested under Ubuntu 18.04) with
+8 Go of RAM and a few Go of disk.
 
 The lab makes use of [[https://opendev.org/x/microstack/][Snap microstack]]: OpenStack in a Snap that you can
 run locally on a single machine. Snap is the Canonical's App delivery
@@ -200,12 +216,13 @@ status? What is the purpose of each service?
 #+END_solution
 #+END_do
 
-#+BEGIN_SRC bash :noweb tangle :tangle ./setup.sh :shebang #!/usr/bin/env bash :exports none
+*** Install script                                                 :noexport:
+#+BEGIN_SRC bash :noweb tangle :tangle ./setup.sh :shebang #!/usr/bin/env bash
 set -o errexit
 set -o xtrace
 
 # Install the bare necessities
-apt install -y curl tcpdump kmod
+apt install --yes --quiet curl tcpdump kmod
 snap install openstackclients --classic --candidate
 
 # Initialize  OpenStack
@@ -227,19 +244,6 @@ for id in $(microstack.openstack endpoint list --service identity -c ID -f value
 do
     microstack.openstack endpoint set --region microstack "${id}"
 done
-
-# Identity endpoint is unavailable after init for whatever reason.
-# > microstack.openstack endpoint list
-# endpoint for identity service in microstack region not found
-# microstack.keystone-manage bootstrap \
-#         --bootstrap-username admin \
-#         --bootstrap-password keystone \
-#         --bootstrap-project-name admin \
-#         --bootstrap-role-name admin \
-#         --bootstrap-service-name keystone \
-#         --bootstrap-region-id microstack \
-#         --bootstrap-admin-url "http://10.20.20.1:5000/v3/" \
-#         --bootstrap-public-url "http://10.20.20.1:5000/v3/"
 
 # Make nova use qemu instead of qemu-kvm
 # i.e,:
@@ -267,21 +271,17 @@ set +o xtrace
 set -o xtrace
 #+END_SRC
 
-#+BEGIN_SRC bash :noweb tangle :tangle ./teardown.sh :shebang #!/usr/bin/env bash :exports none
-set -o errexit
+*** Teardown script                                                :noexport:
+#+BEGIN_SRC bash :noweb tangle :tangle ./teardown.sh :shebang #!/usr/bin/env bash
 set -o xtrace
 
-. admin-openrc.sh
+<<lst:undo-extnet-setup>>
 
-<<lst:delete-rscs>>
+<<lst:remove-heat>>
 
 sudo snap remove --purge openstackclients
 sudo snap remove --purge microstack
 #+END_SRC
-# # Iptables stuff disappear after a reboot
-# sudo sysctl -w net.ipv4.ip_forward=0
-# read -p 'Ip of your host machine (to remove iptables SNAT): '  IP_LAB
-# sudo iptables -t nat -A POSTROUTING ! -d 10.20.20.0/24 -o eth0 -j SNAT --to-source ${IP_LAB}
 
 * Play with OpenStack (as an Admin)
 :PROPERTIES:
@@ -430,11 +430,11 @@ Then, ask again for the status of your VM and its IPs.
 
 
 #+BEGIN_comment
-*Note for the teacher:* The [[lst:undo-icmp/ssh-sec-groups]] code undoes the
-[[https://opendev.org/x/microstack/src/commit/1a25e50a172db7331edf2f836f3c2005222bb4c5/snap-overlay/bin/setup-br-ex#L21-L22][microstack network setup]], so students have to resolve the next
-challenge (i.e., the next ~begin_do~). This bash snippet is tangle
-into [[file:setup.sh]] and could be disable in case of a no
-network-oriented students.
+*Note for the teacher:* The [[lst:undo-icmp/ssh-sec-groups]] code undoes
+the [[https://opendev.org/x/microstack/src/commit/1a25e50a172db7331edf2f836f3c2005222bb4c5/tools/init/init/questions/__init__.py#L697-L726][microstack setup of default security rules]], so students have to
+resolve the next challenge (i.e., the next ~begin_do~). This bash
+snippet is tangle into [[file:setup.sh]] and could be disable in case of a
+no network-oriented students.
 #+END_comment
 #+name: lst:undo-icmp/ssh-sec-groups
 #+begin_src bash :exports none
@@ -682,7 +682,7 @@ openstack server ssh cli-vm-adminkey \
 #+END_SRC
 
 #+BEGIN_note
-Or directly with the ~ssh~ command (for bash lovers ❤).
+Or directly with the ~ssh~ command --- for bash lovers ❤.
 : ssh -i ./admin.pem -l cirros $(openstack server show cli-vm-adminkey -c addresses -f value | sed  -Er 's/test=.+ (10\.20\.20\.[0-9]+).*/\1/g')
 
 A regular ~ssh~ command looks like ~ssh -i <identity-file> -l <name>
@@ -793,7 +793,7 @@ Start a new VM named ~art-vm~ based on the ~debian-9~ image and the
 #+BEGIN_SRC bash :tangle ./rsc/art.sh
 #!/usr/bin/env bash
 # Fix DNS resolution
-echo "" >> /etc/resolv.conf
+echo "" > /etc/resolv.conf
 echo "nameserver 8.8.8.8" >> /etc/resolv.conf
 
 # Install figlet and lolcat
@@ -821,24 +821,31 @@ Could you notice /when/ the VM has finished to boot based on the
 #+BEGIN_comment
 # solution
 #+BEGIN_src bash :tangle ./rsc/wordpress-deploy.sh :shebang #!/usr/bin/env bash
-CLOUDINIT_END_RX="Cloud-init v\. .\+ finished"
 function wait_contextualization {
+  # Get the log
   local vm="$1"
   local console_log=$(openstack console log show --lines=20 "${vm}")
 
+  # Loop till cloud-init finished
+  local cloudinit_end_rx="Cloud-init v\. .\+ finished"
   echo "Waiting for cloud-init to finish..."
   echo "Current status is:"
-  while ! echo "${console_log}"|grep -q "${CLOUDINIT_END_RX}"
+  while ! echo "${console_log}"|grep -q "${cloudinit_end_rx}"
   do
       echo "${console_log}"
       sleep 5
-      console_log=$(openstack console log show --lines=20 "${vm}")
+
+      # Compute the new console log before clearing
+      # so the screen is not blank for two long.
+      local new_console_log=$(openstack console log show --lines=20 "${vm}")
 
       # Clear the screen (`cuu1` move cursor up by one line, `el`
       # clear the line)
       while read -r line; do
           tput cuu1; tput el
       done <<< "${console_log}"
+
+      console_log="${new_console_log}"
   done
 
   # cloud-init finished
@@ -1050,60 +1057,64 @@ Then, reach WordPress on [[http://localhost:8080/wp]].
 # solution
 #+END_do
 
-* COMMENT Automatize the deployment with Heat
-[[https://wiki.openstack.org/wiki/Heat][Heat]] is the OpenStack orchestrator: it eats templates (called HOT for
+* Automatize the deployment with Heat
+[[heat-doc][Heat]] is the OpenStack orchestrator: it eats templates (called HOT for
 Heat Orchestration Template - which are files written in YAML)
 describing the OpenStack infrastructure you want to deploy (e.g. VMs,
 networks, storages) as well as software configurations. Then the Heat
 engine is in charge of sending the appropriate requests to OpenStack
 to deploy the system described in your template (deployments are
-called ~stacks~ in Heat). In the following subsections, we are going
-to manipulate Heat to understand how to deploy applications on
-OpenStack. The following examples are extracted from the heat
-templates you can find under the ~rsc/heat-templates/~ directory.
+called ~stacks~ in Heat). This section manipulates Heat to understand
+how to deploy applications on OpenStack. Template snippets in the
+following are available under the ~rsc/heat-templates/~ directory. You
+may also find interesting examples in the [[heat-doc:template_guide/basic_resources.html][Heat documentation]], or on
+the [[https://github.com/openstack/heat-templates][heat-templates repository]].
 
-** Installation on microstack                                      :noexport:
-See https://docs.openstack.org/heat/train/install/install-ubuntu.html
+** Install Heat orchestration service on microstack
+The documentation to install Heat on Ubuntu is available [[heat-doc:install/install-ubuntu.html][online]]. The
+script file:install-heat.sh is based on that documentation and it
+installs Heat on top of microstack. Execute it with ~sudo~ before
+going any further.
 
-#+begin_src bash
-# Create heat database
+: sudo ./install-heat.sh
+
+*** Install script                                                 :noexport:
+#+BEGIN_src bash :tangle ./install-heat.sh :shebang #!/usr/bin/env bash
+set -o errexit
+set -o xtrace
+
+# Create the Heat database
 cat << EOSQL | sudo microstack.mysql
 CREATE DATABASE heat;
 GRANT ALL PRIVILEGES ON heat.* TO 'heat'@'localhost' IDENTIFIED BY 'HEAT_DBPASS';
 GRANT ALL PRIVILEGES ON heat.* TO 'heat'@'%' IDENTIFIED BY 'HEAT_DBPASS';
 EOSQL
 
-# Create the service credentials,
+# Create the service credentials
 microstack.openstack user create --domain default --password HEAT_PASS heat
 microstack.openstack role add --project service --user heat admin
 microstack.openstack service create --name heat --description "Orchestration" orchestration
-microstack.openstack endpoint create --region microstack \
-  orchestration public http://10.20.20.1:8004/v1/
-microstack.openstack endpoint create --region microstack \
-  orchestration internal http://10.20.20.1:8004/v1/
-microstack.openstack endpoint create --region microstack \
-  orchestration admin http://10.20.20.1:8004/v1/
-  # http://controller:8004/v1/%\(tenant_id\)s
-microstack.openstack endpoint create --region microstack \
-  cloudformation public http://10.20.20.1:8000/v1
-microstack.openstack endpoint create --region microstack \
-  cloudformation internal http://10.20.20.1:8000/v1
-microstack.openstack endpoint create --region microstack \
-  cloudformation admin http://10.20.20.1:8000/v1
+microstack.openstack endpoint create --region microstack orchestration public http://10.20.20.1:8004/v1/%\(tenant_id\)s
+microstack.openstack endpoint create --region microstack orchestration internal http://10.20.20.1:8004/v1/%\(tenant_id\)s
+microstack.openstack endpoint create --region microstack orchestration admin http://10.20.20.1:8004/v1/%\(tenant_id\)s
+microstack.openstack service create --name heat-cfn --description "Orchestration"  cloudformation
+microstack.openstack endpoint create --region microstack cloudformation public http://10.20.20.1:8000/v1
+microstack.openstack endpoint create --region microstack cloudformation internal http://10.20.20.1:8000/v1
+microstack.openstack endpoint create --region microstack cloudformation admin http://10.20.20.1:8000/v1
 
-# Create the heat domain
-microstack.openstack domain create --description "Stack projects and users" heat
+# Create the Heat domain
+microstack.openstack domain create heat
 microstack.openstack user create --domain heat --password HEAT_DOMAIN_PASS heat_domain_admin
 microstack.openstack role add --domain heat --user-domain heat --user heat_domain_admin admin
 microstack.openstack role create heat_stack_owner
-microstack.openstack role add --project admin --user demo heat_stack_owner
+microstack.openstack role add --project admin --user admin heat_stack_owner
 microstack.openstack role create heat_stack_user
 
-# Install OpenStack heat
+# Install OpenStack Heat
 apt update
-apt install heat-api heat-api-cfn heat-engine crudini
+apt install -y heat-api heat-api-cfn heat-engine crudini
 
-# Configure templates
+# Configure Heat template
 crudini --set /etc/heat/heat.conf database connection "mysql+pymysql://heat:HEAT_DBPASS@10.20.20.1/heat"
 crudini --set /etc/heat/heat.conf DEFAULT transport_url "rabbit://openstack:rabbitmq@10.20.20.1"
 crudini --set /etc/heat/heat.conf DEFAULT heat_metadata_server_url "http://10.20.20.1:8000"
@@ -1126,99 +1137,85 @@ crudini --set /etc/heat/heat.conf trustee username "heat"
 crudini --set /etc/heat/heat.conf trustee password "HEAT_PASS"
 crudini --set /etc/heat/heat.conf trustee user_domain_name "default"
 crudini --set /etc/heat/heat.conf clients_keystone auth_uri "http://10.20.20.1:5000"
-#+end_src
 
-** Preamble
-In this last part, the teacher has setup an OpenStack in a DataCenter
-(here, on top of Grid'5000) and created member account and project for
-each of you (not admin). As a preamble, you should:
-- Connect to the Grid'5000 VPN (see §[[#sec:assign-lab]]).
-- Go on the [[os-cloud][horizon dashbord]] of teacher's OpenStack and download the
-  "OpenStack RC File V3" (see §[[#sec:os-cli]]) on your own machine.
-  + user name: your Grid'5000 login
-  + password: ~os-imt~
-- [[https://github.com/openstack/python-openstackclient/tree/stable/rocky#getting-started][Install the OpenStack CLI]] and [[https://github.com/openstack/python-heatclient/tree/stable/rocky][Heat CLI]] on your own machine.
-  #+begin_src bash
-  sudo apt upgrade && sudo apt install pip -y
-  sudo pip install --upgrade pip
-  sudo pip install python-openstackclient python-heatclient
-  pip show python-openstackclient # note the location path. If the
-  # location path is in your $HOME, then
-  echo export 'PATH=$HOME/.local/bin:$PATH' >> $HOME/.bashrc
-  #+end_src
-  # : alias openstack="pipenv run openstack"
-- Source the "OpenStack RC File V3".
-- Reimport (or maybe recreate) your admin SSH key (see
-  §[[#sec:enc-trust]]).
-- Download the last version of the Lab resources (see §[[#sec:rscs-lab]]).
+# Populate the Heat database
+su -s /bin/sh -c "heat-manage db_sync" heat
 
-Resource names change a bit from previously. Do not hesitate to run
-some commands such as the following to know about new names.
-- ~openstack network list~
-- ~openstack image list~
-- ~openstack flavor list~
-- ...
+# Restart the Heat services
+systemctl restart heat-api heat-api-cfn heat-engine
+#+END_src
+
+*** Remove script                                                  :noexport:
+#+NAME: lst:remove-heat
+#+BEGIN_src bash
+sudo apt purge --yes --quiet --autoremove heat-api heat-api-cfn heat-engine
+#+END_src
 
 ** Boot a VM
-The simplest HOT template your can declare describes how to boot a VM:
-
+The simplest HOT template you can declare describes how to boot a VM.
 #+BEGIN_SRC yaml :tangle rsc/heat-templates/1_boot_vm.yaml
 # The following heat template version tag is mandatory:
 heat_template_version: 2017-09-01
 
 # Here we define a simple decription of the template (optional):
 description: >
-    Simply boot a VM!
+  Simply boot a VM!
 
 # Here we declare the resources to deploy.
 # Resources are defined by a name and a type which described many properties:
 resources:
-    # Name of my resource:
-    my_vm:
-        # Its type, here we want to define an OpenStack Nova server:
-        type: "OS::Nova::Server"
-        properties:
-            name: hello_world      # Name of the VM
-            image: debian-9        # Its image of the VM (must be available in Glance)
-            flavor: m1.mini        # Its flavor (must exist in Nova)
-            key_name: admin        # Name of the SSH Key (must exist in Nova)
-            networks:              # List of networks to connect to
-              - {network: private}
+  # Name of my resource:
+  heat-vm:
+    # Its type, here we want to define an OpenStack Nova server:
+    type: "OS::Nova::Server"
+    properties:
+      name: hello_world      # Name of the VM
+      image: debian-9        # Its image of the VM (must be available in Glance)
+      flavor: m1.mini        # Its flavor (must exist in Nova)
+      key_name: admin        # Name of the SSH Key (must exist in Nova)
+      networks:              # List of networks to connect to
+        - {network: test}
 #+END_SRC
 
 As depicted in this example, the different OpenStack resources can be
 declared using types. OpenStack resource types are listed in the
-[[https://docs.openstack.org/heat/pike/template_guide/openstack.html][documentation]], browsing this page, you can see that resources exist
+[[heat-doc:template_guide/openstack.html][documentation]], browsing this page, you can see that resources exist
 for most OpenStack services (e.g. Nova, Neutron, Glance, Cinder,
-Heat). Here, we declare a new resource called ~my_vm~ which is defined
-by the type ~OS::Nova::Server~ to declare a new virtual machine. A
-type defines different properties (some are mandatory, some are
-optional, see the documentation for more details). The
+Heat). Here, we declare a new resource called ~heat-vm~ which is
+defined by the type ~OS::Nova::Server~ to declare a new virtual
+machine. A type specifies different properties (some are mandatory,
+some are optional, [[heat-doc:template_guide/openstack.html][see the documentation]] for more details). The
 ~OS::Nova::Server~ properties should be familiar to you since it is
-the classical properties Nova requires to boot a VM (i.e. a name, an
-image, a flavor, a key name). Once you have written this template in a
-file, you can now deploy the stack as following:
-
+the classical properties Nova requires to boot a VM (i.e. name, image,
+flavor, key name). Once you have written this template in a file, you
+can now deploy the stack as following:
 #+BEGIN_SRC bash
 openstack stack create -t ./rsc/heat-templates/1_boot_vm.yaml hw1
 openstack stack list
 openstack stack show hw1
 watch openstack server list
-openstack stack delete hw1
+openstack stack delete --wait --yes hw1
 #+END_SRC
 
-This simple template is enough to run a virtual machine. However it is
-very static. In the next subsection, we are going to manipulate
+This simple template is enough to run a virtual machine. However, it
+is very static. In the next subsection, we are going to manipulate
 parameters to add flexibility.
 
-** Need more flexibility: let's add parameters!
-
+** Need more flexibility: let's add parameters
+:PROPERTIES:
+:CUSTOM_ID: sec:heat-params
+:END:
 Templates can be more flexible with parameters. To that end you can:
 - Declare a set of parameters to provide to your template.
-- Use the intrinsic function ~get_param~ to map those parameters in
+- Use the [[heat-doc:template_guide/hot_spec.html#hot-spec-intrinsic-functions][intrinsic function]] ~get_param~ to map those parameters in
   your resource declarations.
-Here's an example:
 
+The next template is an example with four parameters. The first one is
+related to the VM name and must be provided during the stack creation.
+The second one is the name of the VM image with a ~debian-9~ as
+default value. The third argument corresponds to the flavor and
+defaults to ~m1.small~. Finally, the last one defines the SSH key to
+use and defaults to ~admin~.
 #+begin_src yaml :tangle rsc/heat-templates/2_boot_vm_with_params.yaml
 heat_template_version: 2017-09-01
 
@@ -1228,213 +1225,266 @@ description: >
 # Here we define parameters
 # Parameters have a name, and a list of properties:
 parameters:
-    param_vm_name:
-        type: string                               # the type of the parameter (required)
-        description: Name of the server            # an optional description
-    param_image:
-        type: string
-        description: Image to use for servers
-        default: debian-9                          # an optional default value
-    param_flavor:
-        type: string
-        description: Flavor to use for servers
-        default: m1.small
-    param_key:
-        type: string
-        description: Key name to use for servers
-        default: admin
+  the_vm_name:
+    type: string                     # The type of the parameter (required)
+    description: Name of the server  # An optional description
+  the_image:
+    type: string
+    description: Image to use for servers
+    default: debian-9                # An optional default value
+  the_flavor:
+    type: string
+    description: Flavor to use for servers
+    default: m1.small
+  the_key:
+    type: string
+    description: Key name to use for servers
+    default: admin
 
 # Here we use intrinsic functions to get the parameters:
 resources:
-    my_vm:
-        type: "OS::Nova::Server"
-        properties:
-            name: { get_param: param_vm_name }
-            image: { get_param: param_image }
-            flavor: { get_param: param_flavor }
-            key_name: { get_param: param_key }
-            networks:
-              - {network: private}
+  heat-vm:
+    type: "OS::Nova::Server"
+    properties:
+      name:     { get_param: the_vm_name }
+      image:    { get_param: the_image }
+      flavor:   { get_param: the_flavor }
+      key_name: { get_param: the_key }
+      networks:
+        - {network: test}
 #+end_src
 
-
-In this example, we defined two parameters. While the first one
-related to the VM flavor has a default value (i.e. ~m1.small~), the
-second one, corresponding to the name of the key pair to use, must be
-provided. To deploy this stack, run the following command:
-
+To deploy this stack, run the next command. It deploys the VM by
+overriding the default flavor value ~m1.mini~ with ~m1.small~. This
+can be checked in ~openstack server list~.
 #+BEGIN_src bash
 openstack stack create -t ./rsc/heat-templates/2_boot_vm_with_params.yaml \
-  --parameter param_vm_name=hello_params \
-  --parameter param_flavor=m1.small \
+  --parameter the_vm_name=hello_params \
+  --parameter the_flavor=m1.small \
   hw2
 openstack server list
-openstack stack delete hw2
+openstack stack delete --wait --yes hw2
 #+END_src
 
-This command deploys our VM by overriding the default flavor value
-~m1.mini~ by ~m1.small~. This can be checked by typing: ~openstack
-server list~. The parameter ~param_vm_name~ is required and no default
-value is provided. As such, if you try to create a stack without
-providing this parameter, you end with the following error:
-
+The parameter ~the_vm_name~ is required as no default value is
+provided. If you try to create a stack without providing this
+parameter, you end with an error.
 #+BEGIN_SRC bash
 openstack stack create -t ./rsc/heat-templates/2_boot_vm_with_params.yaml \
-    --parameter param_flavor=m1.medium \
+    --parameter the_flavor=m1.medium \
     hw2_error
-ERROR: The Parameter (param_vm_name) was not provided.
+
+ERROR: The Parameter (the_vm_name) was not provided.
 #+END_SRC
 
-Parameters are the inputs of our templates. In the next subsection, we
-are going to see how templates can declare outputs, so that our stacks
-can return a set of attributes (e.g., the IP address of a deployed
-VM).
+Parameters are the inputs of templates. The next subsection, focuses
+on declaring outputs, so that a stack can return a set of
+attributes (e.g., the IP address of a deployed VM).
 
 ** Need our deployment to return values: let's use outputs!
+:PROPERTIES:
+:CUSTOM_ID: sec:heat-outputs
+:END:
 Templates can declare a set of attributes to return. For instance, you
-might need to know the IP address of a resource at run-time. To that
+might need to know the IP address of a resource at runtime. To that
 end, you can declare attributes in a new section called ~outputs~:
 
 #+begin_src yaml :tangle rsc/heat-templates/3_boot_vm_with_output.yaml
 heat_template_version: 2017-09-01
 
 description: >
-    Boot a VM and return its IP address!
+  Boot a VM and return its IP address!
 
 resources:
-    my_vm:
-        type: "OS::Nova::Server"
-        properties:
-            name: hello_outputs
-            image: debian-9
-            flavor: m1.mini
-            key_name: admin
-            networks:
-              - {network: private}
+  heat-vm:
+    type: "OS::Nova::Server"
+    properties:
+      name: hello_outputs
+      image: debian-9
+      flavor: m1.mini
+      key_name: admin
+      networks:
+        - {network: test}
 
 # We set here outputs (stack returned attributes).
 # Outputs are defined by a name, and a set of properties:
 outputs:
-    HOSTIP:
-        description: IP address of the created instance    # The name is optional
-        value: { get_attr: [my_vm, first_address] }        # The value of this attribute
+  HOSTIP:
+    # The description is optional
+    description: IP address of the created instance
+    # Use `get_attr` to find the value of `HOSTIP`. The `get_attr`
+    # function references an attribute of a resouces, here the
+    # `addresses.test[0].addr` of `heat-vm`.
+    #
+    # The following should be read:
+    # - on `heat-vm` resource (which is an object ...)
+    # - select the `addresses` attribute (which is an object ...)
+    # - select the `test` attribute (which is a list ...)
+    # - pick the element at indices `0` (which is an object ...)
+    # - select the `addr` attribute (which is a string)
+    value: { get_attr: [heat-vm, addresses, test, 0, addr] }
+  HOSTNAME:
+    description: Hostname of the created instance
+    value: { get_attr: [heat-vm, name] }
 #+end_src
 
-We declared here an output attribute called ~HOSTIP~ which stores the
-IP address of the VM resource. We used here another intrinsic function
-which is used to get the IP address from our VM: ~get_attr~. Output
-attributes can be exploited in two ways: it can be displayed from the
-CLI, or it can be fetched by other stack templates (we will see this
-last case latter):
+The template declares an output attribute called ~HOSTIP~ which stores
+the IP address of the VM resource. To find the IP address, it uses
+another [[heat-doc:template_guide/hot_spec.html#get-attr][intrinsic function]]: ~get_attr~. Same with the ~HOSTNAME~
+output. Output attributes can be exploited in two ways: they can be
+displayed from the CLI, or they can be fetched by other stack
+templates (we will see this last case latter):
 
-#+BEGIN_src bash
+#+begin_src bash
 openstack stack create -t ./rsc/heat-templates/3_boot_vm_with_output.yaml hw3
 openstack stack output list hw3
 openstack stack output show hw3 HOSTIP
-openstack stack delete hw3
-#+END_src
+openstack stack delete --wait --yes hw3
+#+end_src
+
+#+begin_note
+Once again, the Heat documentation is your friend to find out
+[[heat-doc:template_guide/openstack.html#OS::Nova::Server-attrs][attributes]]. As such, you can reference the IP address with the
+~network~ attribute.
+: get_attr: [heat-vm, networks, test, 0]
+
+The source code of Heat also list [[https://github.com/openstack/heat/blob/0703ca7bb19ca3bb06009c828a66bababf9970b8/heat/engine/resources/openstack/nova/server.py#L646-L736][extra attributes]] that lets you find
+the IP address such as ~first_address~, but that one is deprecated
+though.
+: get_attr: [heat-vm, networks, test, 0]
+: get_attr: [heat-vm, first_address]
+
+Finally, you can introspect all attributes of a resource with the
+following command at runtime:
+: python -c "import pprint; pprint.pprint($(openstack stack resource show hw3 heat-vm -c attributes -f value))"
+
+#+begin_src python
+{u'OS-DCF:diskConfig': u'MANUAL',
+ # ...
+ u'addresses': {u'test': [{u'OS-EXT-IPS-MAC:mac_addr': u'fa:16:3e:73:10:fe',
+                           u'OS-EXT-IPS:type': u'fixed',
+                           u'addr': u'192.168.222.84',
+                           u'version': 4}]},
+ # ...
+ u'image': {u'id': u'3c91bbf5-5d1f-4e72-bf77-6dbc19c8351c',
+            u'links': [{u'href': u'http://10.20.20.1:8774/images/3c91bbf5-5d1f-4e72-bf77-6dbc19c8351c',
+                        u'rel': u'bookmark'}]},
+ # ...
+ u'name': u'hello_outputs'}
+#+end_src
+#+end_note
 
 ** Integrate ~cloud-init~ in Heat
 It is possible to declare a post-installation script in the template
-with the user-data property:
-
+with the ~user_data~ property.
 #+begin_src yaml :tangle rsc/heat-templates/4_boot_vm_with_user-data.yaml
 heat_template_version: 2017-09-01
 
 description: >
-    Boot a VM with a post-installation script!
+  Boot a VM with a post-installation script!
 
 resources:
-    my_vm:
-        type: "OS::Nova::Server"
-        properties:
-            name: hello_cloud_init
-            image: debian-9
-            flavor: m1.mini
-            key_name: admin
-            networks:
-              - {network: private}
-            # We set here the user-data:
-            user_data: |
-                #!/usr/bin/env bash
-                apt-get update
-                apt-get install -y fortune fortunes cowsay lolcat
-                echo -e "#!/bin/bash\n\nfortune | cowsay -n | lolcat\necho" \
-                         > /etc/profile.d/cowsay.sh
+  heat-vm:
+    type: "OS::Nova::Server"
+    properties:
+      name: hello_cloud_init
+      image: debian-9
+      flavor: m1.mini
+      key_name: admin
+      networks:
+        - {network: test}
+      # We set here the user-data:
+      user_data: |
+        #!/usr/bin/env bash
+
+        # Fix DNS resolution
+        echo "" > /etc/resolv.conf
+        echo "nameserver 8.8.8.8" >> /etc/resolv.conf
+
+        # Install stuff and configure the MOTD
+        apt-get update
+        apt-get install -y fortune fortunes cowsay lolcat
+        echo "#!/usr/bin/env bash" > /etc/profile.d/cowsay.sh
+        echo "fortune | cowsay -n | lolcat" >> /etc/profile.d/cowsay.sh
 #+end_src
 
-#+BEGIN_src bash
-openstack stack create -t ./rsc/heat-templates/4_boot_vm_with_user-data.yaml hw4
-#+END_src
+: openstack stack create -t ./rsc/heat-templates/4_boot_vm_with_user-data.yaml hw4
 
 Associating a floating IP is a bit tricky with Heat, so let's do it
 manually for now. Then, wait for ~cloud-init~ to finish and finally,
-SSH on the VM.
+SSH on the VM (the ~wait_contextualization~ function comes from
+section [[#sec:cloud-init]]).
 
 #+begin_src bash
 openstack server add floating ip hello_cloud_init \
-  $(openstack floating ip create -c floating_ip_address -f value public)
+  $(openstack floating ip create -c floating_ip_address -f value external)
 wait_contextualization hello_cloud_init
 openstack server ssh --login debian --identity ./admin.pem hello_cloud_init
-openstack stack delete hw4
+openstack stack delete --wait --yes hw4
 #+end_src
 
+#+begin_note
+Find the ~user_data~ file executed on the VM by cloud-init at
+~/var/lib/heat-cfntools/cfn-userdata~. This path comes from the log of
+the VM boot (using ~openstack console log show hello_cloud_init~)
+right after the log ~Cloud-init v. ... running~.
+#+end_note
+
 ** Dynamic configuration with ~cloud-init~ and parameters
-Let's mix the capabilities we learned from the parameter and
-cloud-init templates to write a template with a flexible
-post-installation script. With Heat, it is possible to provide a
-parameter to your user-data at run-time by using a new function:
-~str_replace~!
+Let's mix parameters and cloud-init to write a template with a
+flexible post-installation script. With Heat, it is possible to
+provide a parameter to your user-data at run-time by using a new
+[[heat-doc:template_guide/hot_spec.html#str-replace][intrinsic function]]: ~str_replace~.
 
 #+begin_src yaml :tangle rsc/heat-templates/5_boot_vm_with_user-data2.yaml
 heat_template_version: 2017-09-01
 
 description: >
-    Boot a VM by installing a set of packages given as parameters!
+  Boot a VM by installing a set of packages given as parameters!
 
 parameters:
-    PackageName:
-        label: List of packages to install
-        type: string
+  package-names:
+    label: List of packages to install
+    type: string
 
 resources:
-    my_vm:
-        type: "OS::Nova::Server"
-        properties:
-            name: hello_cloud_init_params
-            image: debian-9
-            flavor: m1.mini
-            key_name: admin
-            networks:
-              - {network: private}
-            user_data:
-                # This intrinsic function can replace strings in user-data:
-                str_replace:
-                    # We define here the parameters for our script
-                    params:
-                        ${PACKAGE_NAME}: { get_param: PackageName }
-                    # We define here the script
-                    template: |
-                        #!/usr/bin/env bash
-                        apt-get update
-                        apt-get install -y ${PACKAGE_NAME}
+  heat-vm:
+    type: "OS::Nova::Server"
+    properties:
+      name: hello_cloud_init_params
+      image: debian-9
+      flavor: m1.mini
+      key_name: admin
+      networks:
+        - {network: test}
+      user_data:
+        # This intrinsic function can replace strings in a template
+        str_replace:
+          # We define here the script
+          template: |
+              #!/usr/bin/env bash
+              apt-get update
+              apt-get install -y ${PKG-NAMES}
+          # We define here the parameters for our script
+          params:
+            ${PKG-NAMES}: { get_param: package-names }
 #+end_src
 
-We used here the new intrinsic function ~str_replace~ to replace
-strings in our user-data. In this example, the parameter should be a
-string containing a set of packages to install in the VM. You can
-deploy the stack as follow:
-
+The template uses ~str_replace~ to instantiate variables in the
+template. In this example, the parameter should be a string containing
+a set of packages to install in the VM. You can deploy the stack as
+follow:
 #+BEGIN_SRC bash
 openstack stack create \
     -t ./rsc/heat-templates/5_boot_vm_with_user-data2.yaml \
-    --parameter PackageName="vim cowsay fortune fortunes lolcat" \
+    --parameter package-names="vim cowsay fortune fortunes lolcat" \
    hw5
+openstack stack delete --wait --yes hw5
 #+END_SRC
 
 This mechanism is crucial to dynamically configure our services during
-the deployment. For instance, ~service_A~ might require an IP address
-in its configuration file to access ~service_B~, which runs on another
+the deployment. For instance, ~service-A~ might require an IP address
+in its configuration file to access ~service-B~, which runs on another
 VM. This IP address is only known at run-time, so it must be
 represented by a variable managed in Heat templates. In the next
 subsections, we are going to study how to declare such variable, so
@@ -1444,91 +1494,98 @@ that Heat resources can exchange information.
 :PROPERTIES:
 :CUSTOM_ID: sec:data-deps-rscs
 :END:
-Let's declare a template with two VMs: ~provider~ and ~user~. The idea is to
-configure user's static lookup table for hostnames (more information can be
-found by typing: ~man hosts~), so that user can target provider from its
-hostname rather than from its IP address. To that end, we will use the user-data
-mechanism to edit the ~/etc/hosts~ file on user, and map the IP address of
-provider with its hostname:
+Let's declare a template with two VMs: ~user~ and ~provider~. The idea
+is to configure ~user~'s static lookup table for hostnames (more
+information can be found by typing: ~man hosts~), so that user can
+target ~provider~ from its hostname rather than its IP address. To
+that end, the template uses the ~user_data~ property together with the
+~get_attr~ function to edit the ~/etc/hosts~ file on ~user~, and map
+the IP address of ~provider~ with its hostname.
 
 #+begin_src yaml :tangle rsc/heat-templates/6_boot_vms_with_exchange.yaml
 heat_template_version: 2017-09-01
 
 description: >
-    Boot two VMs and ease the access from user to provider!
+  Boot two VMs and ease the access from user to provider!
 
 resources:
-    my_provider_vm:
-        type: "OS::Nova::Server"
-        properties:
-            name: provider
-            image: debian-9
-            flavor: m1.mini
-            key_name: admin
-            networks:
-              - {network: private}
-    my_user_vm:
-        type: "OS::Nova::Server"
-        properties:
-            name: user
-            image: debian-9
-            flavor: m1.mini
-            key_name: admin
-            networks:
-              - {network: private}
-            user_data:
-                str_replace:
-                    params:
-                        ${IP_ADDRESS}: { get_attr: [my_provider_vm, first_address] }
-                    template: |
-                        #!/usr/bin/env bash
-                        # With the following line, provider is reachable from its hostname
-                        echo "${IP_ADDRESS} provider" >> /etc/hosts
+  user-vm:
+    type: "OS::Nova::Server"
+    properties:
+      name: user
+      image: debian-9
+      flavor: m1.mini
+      key_name: admin
+      networks:
+        - {network: test}
+      user_data:
+        str_replace:
+          template: |
+            #!/usr/bin/env bash
+            # With the following line, provider is reachable from its hostname
+            echo "${IP_ADDRESS} provider" >> /etc/hosts
+          params:
+            # `get_attr` references the following `provider-vm` resource.
+            ${IP_ADDRESS}: { get_attr: [provider-vm, addresses, test, 0, addr] }
+
+  provider-vm:
+    type: "OS::Nova::Server"
+    properties:
+      name: provider
+      image: debian-9
+      flavor: m1.mini
+      key_name: admin
+      networks:
+        - {network: test}
 #+end_src
 
 In this example, ~user~ requires the IP address of ~provider~ to boot.
 The Heat engine is in charge of managing dependencies between
 resources. Take a look during the deployment, and check that
-~provider~ is deployed prior ~user~:
+~provider~ is deployed prior to ~user~.
 
-#+BEGIN_src bash
+#+BEGIN_EXAMPLE
 openstack stack create -t ./rsc/heat-templates/6_boot_vms_with_exchange.yaml hw6 \
   && watch openstack server list
 openstack server add floating ip user \
-  $(openstack floating ip create -c floating_ip_address -f value public)
+  $(openstack floating ip create -c floating_ip_address -f value external)
 openstack server ssh --login debian --identity ./admin.pem --address-type public user
-debian@user:~$ ping provider
+debian@user:~$ ping provider -c 2
+PING provider-vm (192.168.222.238) 56(84) bytes of data.
+64 bytes from provider (192.168.222.238): icmp_seq=1 ttl=64 time=1.27 ms
+64 bytes from provider (192.168.222.238): icmp_seq=2 ttl=64 time=3.07 ms
+
 debian@user:~$ exit
-openstack stack delete hw6
-#+END_SRC
+openstack stack delete --wait --yes hw6
+#+END_EXAMPLE
 
 ** Nested templates
 Heat is able to compose templates to keep human-readable files, using
 nested templates. For instance, we can use a first template that
 describes a virtual machine, and a second template which deploys
 multiple VMs by referencing the first one. Rather than create the
-first template, we can re-use
-[[cdn-url:2019/os-imt/rsc/heat-templates/2_boot_wm_with_params.yaml][~rsc/heat-templates/2_boot_vm_with_params.yaml~]]:
+first template, we can re-use the one from section [[#sec:heat-params]].
 
 #+begin_src yaml :tangle rsc/heat-templates/7_nested_template.yaml
 heat_template_version: 2017-09-01
 
 description: >
-    Boot two different VMs by exploiting nested templates!
+  Boot two different VMs by exploiting nested templates!
 
 resources:
-    my_provider_vm:
-        # Template can be provided as resource type (relatively to
-        # that template)
-        type: ./2_boot_vm_with_params.yaml
-        # The related properties are given as template's parameters:
-        properties:
-            param_vm_name: provider
-            param_flavor: m1.medium
-    my_user_vm:
-        type: ./2_boot_vm_with_params.yaml
-        properties:
-            param_vm_name: user
+  provider-vm:
+    # Template can be provided as resource type (relatively to
+    # that template)
+    type: ./2_boot_vm_with_params.yaml
+    # The related properties are given as template's parameters:
+    properties:
+      the_vm_name: provider
+      the_flavor: m1.mini
+
+  user-vm:
+    type: ./2_boot_vm_with_params.yaml
+    properties:
+      the_vm_name: user
 #+end_src
 
 To compose template, a new resource can be defined by specifying its
@@ -1538,111 +1595,143 @@ provided to the nested template and will be interpreted as parameters.
 #+BEGIN_src bash
 openstack stack create -t ./rsc/heat-templates/7_nested_template.yaml hw7 \
   && watch openstack server list
-openstack stack delete hw7
+openstack stack delete --wait --yes hw7
 #+END_SRC
 
 Nested templates are very convenient to keep your code clean and
-re-use templates. We are now reaching the last subsection, where we
-are going to extend nested templates with data dependency.
+re-use templates. Next section extends nested templates with data
+dependency.
 
 ** Nested templates with data dependency
-Let's describe the same deployment as in [[#sec:data-deps-rscs][Data dependency between
-resources]] by using nested templates. For that we need a new template:
+Let's describe the same deployment as in section [[#sec:data-deps-rscs]]
+by using nested templates. For that we need a new template:
 
 #+begin_src yaml :tangle rsc/heat-templates/8_nested_template_boot_vm.yaml
 heat_template_version: 2017-09-01
 
 description: >
-    Boot a VM, ease access to a remote host and return its IP address!
+  Boot a VM, ease access to a remote host and return its IP address!
 
 parameters:
-    param_vm_name:
-        type: string
-        description: Name of the server
-    param_image:
-        type: string
-        description: Image to use for servers
-        default: debian-9
-    param_flavor:
-        type: string
-        description: Flavor to use for servers
-        default: m1.small
-    param_key:
-        type: string
-        description: Key name to use for servers
-        default: admin
-    param_remote_hostname:
-        type: string
-        description: Host name of the remote host
-        default: provider
-    param_remote_ip:
-        type: string
-        description: IP address of the remote host
+  the_vm_name:
+    type: string
+    description: Name of the server
+  the_remote_hostname:
+    type: string
+    description: Host name of the remote host
+    default: provider
+  the_remote_ip:
+    type: string
+    description: IP address of the remote host
 
 resources:
-    my_vm:
-        type: "OS::Nova::Server"
-        properties:
-            name: { get_param: param_vm_name }
-            image: { get_param: param_image }
-            flavor: { get_param: param_flavor }
-            key_name: { get_param: param_key }
-            networks:
-              - {network: private}
-            user_data:
-                str_replace:
-                    params:
-                        ${HOSTNAME}: { get_param: param_remote_hostname }
-                        ${IP_ADDRESS}: { get_param: param_remote_ip }
-                    template: |
-                        #!/bin/bash
-                        # With the following line, the remote host is reachable from its hostname
-                        echo "${IP_ADDRESS} ${HOSTNAME}" >> /etc/hosts
+  hostname-vm:
+    type: "OS::Nova::Server"
+    properties:
+      name:     { get_param: the_vm_name }
+      image:    debian-9
+      flavor:   m1.mini
+      key_name: admin
+      networks:
+        - {network: test}
+      user_data:
+        str_replace:
+          params:
+            ${HOSTNAME}: { get_param: the_remote_hostname }
+            ${IP_ADDRESS}: { get_param: the_remote_ip }
+          template: |
+            #!/usr/bin/env bash
+            # With the following line, the remote host is reachable from its hostname
+            echo "${IP_ADDRESS} ${HOSTNAME}" >> /etc/hosts
 
 outputs:
-    HOSTNAME:
-        description: IP address of the created instance
-        value: { get_attr: [my_vm, hostname] }
-    HOSTIP:
-        description: IP address of the created instance
-        value: { get_attr: [my_vm, first_address] }
+  HOSTIP:
+    description: IP address of the created instance
+    value: { get_attr: [hostname-vm, networks, test, 0] }
 #+end_src
 
 We can now declare the main template. While it defines three VMs, this
 template is easy to read since it points to the template created
-previously, and ~3_boot_vm_with_output.yaml~:
-
+previously and template in section [[#sec:heat-outputs]].
 #+begin_src yaml :tangle rsc/heat-templates/8_nested_template_exchange.yaml
 heat_template_version: 2017-09-01
 
 description: >
-    Boot three VMs and ease the access to provider using nested
-    templates!
+  Boot three VMs and ease the access to provider using nested
+  templates!
 
 resources:
-    my_provider_vm:
-        type: ./3_boot_vm_with_output.yaml
-        properties:
-            param_vm_name: provider
+  provider-vm:
+    type: ./3_boot_vm_with_output.yaml
 
-    my_user_vm1:
-        type: ./8_nested_template_boot_vm.yaml
-        properties:
-            param_vm_name: user1
-            param_remote_ip: { get_attr: [my_provider_vm, HOSTIP] }
+  user-vm1:
+    type: ./8_nested_template_boot_vm.yaml
+    properties:
+      the_vm_name: user1
+      the_remote_ip: { get_attr: [provider-vm, HOSTIP] }
+      the_remote_hostname: { get_attr: [provider-vm, HOSTNAME] }
 
-    my_user_vm2:
-        type: ./8_nested_template_boot_vm.yaml
-        properties:
-            param_vm_name: user2
-            param_remote_ip: { get_attr: [my_provider_vm, HOSTIP] }
+  user-vm2:
+    type: ./8_nested_template_boot_vm.yaml
+    properties:
+      the_vm_name: user2
+      the_remote_ip: { get_attr: [provider-vm, HOSTIP] }
+      the_remote_hostname: { get_attr: [provider-vm, HOSTNAME] }
 #+end_src
 
-** TODO COMMENT Other type of resources
-Add an new template that require a floating ip as in the WordPress
-solution ~web-vm.yml~.
+# FIXME: At some point, something like that should prevenet me to add
+# a HOSTNAME in [[#sec:heat-outputs]] template. I have to look at it next
+# time.
+# : the_remote_hostname: { get_attr: [provider-vm, resources.heat-vm, name] }
 
-* COMMENT Deploy a WordPress as a Service (as a Heat DevOps)
+
+# openstack stack create -t ./rsc/heat-templates/8_nested_template_exchange.yaml hw8 \
+#   && watch openstack server list
+
+** Other type of resources: floating IP
+It's Floating IP time!
+
+#+BEGIN_SRC yaml :tangle rsc/heat-templates/9_floating_ip.yaml
+heat_template_version: 2017-09-01
+
+# Here we define a simple decription of the template (optional):
+description: >
+  Boot a VM and associate a floating IP.
+
+resources:
+  server:
+    type: OS::Nova::Server
+    properties:
+      name: hello_fip
+      image: debian-9
+      flavor: m1.mini
+      key_name: admin
+      networks:
+        - {network: test}
+
+  floating-ip:
+    type: OS::Neutron::FloatingIP
+    properties:
+      floating_network: external
+
+  association:
+    type: OS::Neutron::FloatingIPAssociation
+    properties:
+      floatingip_id: { get_resource: floating-ip }
+      port_id: { get_attr: [server, addresses, test, 0, port]}
+#+END_SRC
+
+: openstack stack create -t ./rsc/heat-templates/9_floating_ip.yaml --wait hw9
+
+You may find the floating IP by listing servers.
+: openstack server list
+Or by asking Heat about attributes of the ~floating-ip~ resource.
+#+BEGIN_src bash
+FIP_RSC_ATTRIBUTES=$(openstack stack resource show -c attributes -f value hw123 floating-ip)
+python -c "print('floating ip is %s' % ${FIP_RSC_ATTRIBUTES}['floating_ip_address'])"
+#+END_src
+
+* Deploy a WordPress as a Service (as a Heat DevOps)
 As a DevOps at {{{co}}} -- {{{c5o}}} -- you are now in charge of the
 automation process of deploying WordPress instances for clients.
 Congratulation! To that end, you have to use what you learned from the
@@ -1680,7 +1769,7 @@ Find the solution in the [[cdn-url:2019/os-imt/rsc/heat-templates/wordpress/][~r
 # Install and configure MariaDB for Debian 9.
 
 # Fix DNS resolution
-echo "" >> /etc/resolv.conf
+echo "" > /etc/resolv.conf
 echo "nameserver 8.8.8.8" >> /etc/resolv.conf
 
 # Parameters
@@ -1721,7 +1810,7 @@ EOSQL
 # Install and configure Apache to serve Wordpress for Debian 9.
 
 # Fix DNS resolution
-echo "" >> /etc/resolv.conf
+echo "" > /etc/resolv.conf
 echo "nameserver 8.8.8.8" >> /etc/resolv.conf
 
 # Parameters

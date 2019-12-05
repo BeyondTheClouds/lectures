@@ -3,7 +3,7 @@ set -o errexit
 set -o xtrace
 
 # Install the bare necessities
-apt install -y curl tcpdump kmod
+apt install --yes --quiet curl tcpdump kmod
 snap install openstackclients --classic --candidate
 
 # Initialize  OpenStack
@@ -25,19 +25,6 @@ for id in $(microstack.openstack endpoint list --service identity -c ID -f value
 do
     microstack.openstack endpoint set --region microstack "${id}"
 done
-
-# Identity endpoint is unavailable after init for whatever reason.
-# > microstack.openstack endpoint list
-# endpoint for identity service in microstack region not found
-# microstack.keystone-manage bootstrap \
-#         --bootstrap-username admin \
-#         --bootstrap-password keystone \
-#         --bootstrap-project-name admin \
-#         --bootstrap-role-name admin \
-#         --bootstrap-service-name keystone \
-#         --bootstrap-region-id microstack \
-#         --bootstrap-admin-url "http://10.20.20.1:5000/v3/" \
-#         --bootstrap-public-url "http://10.20.20.1:5000/v3/"
 
 # Make nova use qemu instead of qemu-kvm
 # i.e,:
