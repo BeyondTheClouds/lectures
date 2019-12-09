@@ -1,0 +1,35 @@
+heat_template_version: 2017-09-01
+
+description: >
+    Simply boot a VM with params!
+
+# Here we define parameters
+# Parameters have a name, and a list of properties:
+parameters:
+  the_vm_name:
+    type: string                     # The type of the parameter (required)
+    description: Name of the server  # An optional description
+  the_image:
+    type: string
+    description: Image to use for servers
+    default: debian-9                # An optional default value
+  the_flavor:
+    type: string
+    description: Flavor to use for servers
+    default: m1.small
+  the_key:
+    type: string
+    description: Key name to use for servers
+    default: admin
+
+# Here we use intrinsic functions to get the parameters:
+resources:
+  heat-vm:
+    type: "OS::Nova::Server"
+    properties:
+      name:     { get_param: the_vm_name }
+      image:    { get_param: the_image }
+      flavor:   { get_param: the_flavor }
+      key_name: { get_param: the_key }
+      networks:
+        - {network: test}

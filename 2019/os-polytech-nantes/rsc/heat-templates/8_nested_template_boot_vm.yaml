@@ -1,0 +1,41 @@
+heat_template_version: 2017-09-01
+
+description: >
+  Boot a VM, ease access to a remote host and return its IP address!
+
+parameters:
+  the_vm_name:
+    type: string
+    description: Name of the server
+  the_remote_hostname:
+    type: string
+    description: Host name of the remote host
+    default: provider
+  the_remote_ip:
+    type: string
+    description: IP address of the remote host
+
+resources:
+  hostname-vm:
+    type: "OS::Nova::Server"
+    properties:
+      name:     { get_param: the_vm_name }
+      image:    debian-9
+      flavor:   m1.mini
+      key_name: admin
+      networks:
+        - {network: test}
+      user_data:
+        str_replace:
+          params:
+            ${HOSTNAME}: { get_param: the_remote_hostname }
+            ${IP_ADDRESS}: { get_param: the_remote_ip }
+          template: |
+            #!/usr/bin/env bash
+            # With the following line, the remote host is reachable from its hostname
+            echo "${IP_ADDRESS} ${HOSTNAME}" >> /etc/hosts
+
+outputs:
+  HOSTIP:
+    description: IP address of the created instance
+    value: { get_attr: [hostname-vm, networks, test, 0] }

@@ -1,0 +1,23 @@
+heat_template_version: 2017-09-01
+
+description: >
+  Boot three VMs and ease the access to provider using nested
+  templates!
+
+resources:
+  provider-vm:
+    type: ./3_boot_vm_with_output.yaml
+
+  user-vm1:
+    type: ./8_nested_template_boot_vm.yaml
+    properties:
+      the_vm_name: user1
+      the_remote_ip: { get_attr: [provider-vm, HOSTIP] }
+      the_remote_hostname: { get_attr: [provider-vm, HOSTNAME] }
+
+  user-vm2:
+    type: ./8_nested_template_boot_vm.yaml
+    properties:
+      the_vm_name: user2
+      the_remote_ip: { get_attr: [provider-vm, HOSTIP] }
+      the_remote_hostname: { get_attr: [provider-vm, HOSTNAME] }

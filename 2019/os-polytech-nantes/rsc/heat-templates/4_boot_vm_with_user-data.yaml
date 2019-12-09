@@ -1,0 +1,28 @@
+heat_template_version: 2017-09-01
+
+description: >
+  Boot a VM with a post-installation script!
+
+resources:
+  heat-vm:
+    type: "OS::Nova::Server"
+    properties:
+      name: hello_cloud_init
+      image: debian-9
+      flavor: m1.mini
+      key_name: admin
+      networks:
+        - {network: test}
+      # We set here the user-data:
+      user_data: |
+        #!/usr/bin/env bash
+
+        # Fix DNS resolution
+        echo "" > /etc/resolv.conf
+        echo "nameserver 8.8.8.8" >> /etc/resolv.conf
+
+        # Install stuff and configure the MOTD
+        apt-get update
+        apt-get install -y fortune fortunes cowsay lolcat
+        echo "#!/usr/bin/env bash" > /etc/profile.d/cowsay.sh
+        echo "fortune | cowsay -n | lolcat" >> /etc/profile.d/cowsay.sh

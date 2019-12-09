@@ -1,0 +1,55 @@
+heat_template_version: 2017-09-01
+
+description: >
+  Deploy an HTTP server that serves WordPress. Requires an SQL
+  database, whose IP address must be provided as a parameter.
+
+parameters:
+  ServerKeyName:
+    label: Name of the SSH key to provide to cloud-init
+    type: string
+    default: admin
+
+  # Parameters used in the cloud-init script to install & configure
+  # the WordPress app.
+  DBName:
+    label: Name of the database to use
+    type: string
+  DBUser:
+    label: Name of the database user
+    type: string
+  DBPassword:
+    label: Password to access the database
+    type: string
+  DBHost:
+    label: IP address of the SQL server
+    type: string
+
+resources:
+  wp-vm:
+    type: OS::Nova::Server
+    properties:
+      key_name: { get_param: ServerKeyName }
+      image: debian-9
+      flavor: m1.mini
+      networks:
+        - {network: test}
+      user_data:
+        str_replace:
+          template: { get_file: ../../install-wp.sh }
+          params:
+            ${DB_NAME}:     { get_param: DBName }
+            ${DB_USER}:     { get_param: DBUser }
+            ${DB_PASSWORD}: { get_param: DBPassword }
+            ${DB_HOST}:     { get_param: DBHost }
+
+  floating-ip:
+    type: OS::Neutron::FloatingIP
+    properties:
+      floating_network: external
+
+  association:
+    type: OS::Neutron::FloatingIPAssociation
+    properties:
+      floatingip_id: { get_resource: floating-ip }
+      port_id: { get_attr: [wp-vm, addresses, test, 0, port]}

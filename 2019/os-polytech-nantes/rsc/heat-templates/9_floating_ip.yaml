@@ -1,0 +1,27 @@
+heat_template_version: 2017-09-01
+
+# Here we define a simple decription of the template (optional):
+description: >
+  Boot a VM and associate a floating IP.
+
+resources:
+  server:
+    type: OS::Nova::Server
+    properties:
+      name: hello_fip
+      image: debian-9
+      flavor: m1.mini
+      key_name: admin
+      networks:
+        - {network: test}
+
+  floating-ip:
+    type: OS::Neutron::FloatingIP
+    properties:
+      floating_network: external
+
+  association:
+    type: OS::Neutron::FloatingIPAssociation
+    properties:
+      floatingip_id: { get_resource: floating-ip }
+      port_id: { get_attr: [server, addresses, test, 0, port]}

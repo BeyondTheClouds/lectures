@@ -1,0 +1,31 @@
+heat_template_version: 2017-09-01
+
+description: >
+  Boot a VM by installing a set of packages given as parameters!
+
+parameters:
+  package-names:
+    label: List of packages to install
+    type: string
+
+resources:
+  heat-vm:
+    type: "OS::Nova::Server"
+    properties:
+      name: hello_cloud_init_params
+      image: debian-9
+      flavor: m1.mini
+      key_name: admin
+      networks:
+        - {network: test}
+      user_data:
+        # This intrinsic function can replace strings in a template
+        str_replace:
+          # We define here the script
+          template: |
+              #!/usr/bin/env bash
+              apt-get update
+              apt-get install -y ${PKG-NAMES}
+          # We define here the parameters for our script
+          params:
+            ${PKG-NAMES}: { get_param: package-names }

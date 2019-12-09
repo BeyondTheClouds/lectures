@@ -1,0 +1,47 @@
+heat_template_version: 2017-09-01
+
+description: >
+  Deploy an MariaDB server, outputs its IP address.
+
+parameters:
+  ServerKeyName:
+    label: Name of the SSH key to provide to cloud-init
+    type: string
+    default: admin
+
+  # Parameters used in the cloud-init script to install & configure
+  # MariaDB.
+  DBRootPassword:
+    label: Value of the password to manage the database
+    type: string
+  DBName:
+    label: Name of the database to create
+    type: string
+  DBUser:
+    label: Name of the database user
+    type: string
+  DBPassword:
+    label: Password to access the database
+    type: string
+
+resources:
+  db-vm:
+    type: OS::Nova::Server
+    properties:
+      key_name: { get_param: ServerKeyName }
+      image: debian-9
+      flavor: m1.mini
+      networks:
+        - {network: test}
+      user_data:
+        str_replace:
+          template: { get_file: ../../install-mariadb.sh }
+          params:
+            ${DB_ROOTPASSWORD}: { get_param: DBRootPassword }
+            ${DB_NAME}: { get_param: DBName }
+            ${DB_USER}: { get_param: DBUser }
+            ${DB_PASSWORD}: { get_param: DBPassword }
+outputs:
+  DBHost:
+    description: IP address of the created instance running MariaDB
+    value: { get_attr: [db-vm, networks, test, 0] }

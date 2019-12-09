@@ -10,12 +10,12 @@
 #+PROPERTY: header-args :mkdirp yes
 #+MACRO: co  OPH
 #+MACRO: c5o Online Polytech Hosting
-#+LINK: cdn-url  https://raw.githubusercontent.com/BeyondTheClouds/lectures/master/%s
+#+LINK: cdn-url  https://raw.githubusercontent.com/BeyondTheClouds/lectures/master/2019/os-polytech-nantes/%s
 #+LINK: heat-doc   https://docs.openstack.org/heat/train/%s
 #+LINK: horizon-url  http://localhost/%s
 
 # -- HTML specific options
-#+OPTIONS: html-link-use-abs-url:nil html-postamble:auto html-preamble:t html-scripts:t html-style:t html5-fancy:t tex:t
+#+OPTIONS: html-link-use-abs-url:nil html-preamble:t html-scripts:t html-style:t html5-fancy:t tex:t
 #+HTML_DOCTYPE: html5
 #+HTML_CONTAINER: div
 # #+HTML_LINK_HOME: ../index.html
@@ -23,11 +23,9 @@
 #+HTML_HEAD: <link rel="stylesheet" type="text/css" href="../../../rsc/org.css" />
 #+HTML_HEAD: <link rel="stylesheet" type="text/css" href="../../rsc/org.css" />
 #+HTML_HEAD: <style>#table-of-contents .tag {display: none;}</style>
-#+HTML_HEAD_EXTRA:
-#+CREATOR: <a href="https://www.gnu.org/software/emacs/">Emacs</a> 26.1 (<a href="https://orgmode.org">Org</a> mode 9.2) - theme by <a href=\"http://gongzhitaao.org/orgcss\">http://gongzhitaao.org/orgcss</a>
 
 #+EXCLUDE_TAGS: noexport
-#+EXCLUDE_TAGS: solution
+# #+EXCLUDE_TAGS: solution
 
 #+BEGIN_abstract
 OpenStack has become the de-facto solution to operate compute, network
@@ -40,9 +38,8 @@ are going to:
 - Automatize all the stuff with the Heat template engine (i.e., manage
   your cloud from your sofa!).
 
-Find the slides of the lecture [[cdn-url:2018/os-polytech/docs/CloudFogEdgeIntro.pdf][here]] and [[cdn-url:2018/os-polytech/docs/openstack-slides.pdf][there]].
-# This document is an [[https://orgmode.org/][Org
-# mode]] document, you can find its source [[cdn-url:2019/os-polytech-laroche/index.org][here]].
+Find the slides of the lecture [[https://raw.githubusercontent.com/BeyondTheClouds/lectures/master/2018/os-polytech/docs/CloudFogEdgeIntro.pdf][here]] and [[https://raw.githubusercontent.com/BeyondTheClouds/lectures/master/2018/os-polytech/docs/openstack-slides.pdf][there]]. This document is an [[https://orgmode.org/][Org
+mode]] document, you can find its source [[cdn-url:index.org][here]].
 #+END_abstract
 
 #+TOC: headlines 2
@@ -53,26 +50,31 @@ Find the slides of the lecture [[cdn-url:2018/os-polytech/docs/CloudFogEdgeIntro
   - [[#resources-of-the-lab][Resources of the Lab]]
   - [[#setup-openstack][Setup OpenStack]]
 - [[#play-with-openstack-as-an-admin][Play with OpenStack (as an Admin)]]
-  - [[#openstack-horizon-dashboard][OpenStack Horizon Dashboard]]
-  - [[#unleash-the-operator-in-you][Unleash the Operator in You]]
-  - [[#in-encryption-we-trust][In Encryption We Trust]]
-  - [[#the-art-of-contextualizing-a-vm][The Art of Contextualizing a VM]]
+  - [[#openstack-horizon-dashboard][OpenStack Horizon dashboard]]
+  - [[#unleash-the-operator-in-you][Unleash the operator in you]]
+    - [[#make-the-world-reaches-the-vm][Make the world reaches the VM]]
+    - [[#make-the-vm-reaches-the-world][Make the VM reaches the world]]
+  - [[#in-encryption-we-trust][In encryption we trust]]
+  - [[#the-art-of-contextualizing-a-vm][The art of contextualizing a VM]]
     - [[#debian-9-ftw][Debian 9 FTW]]
     - [[#cloud-init-in-action][~cloud-init~ in Action]]
-  - [[#run-vms-at-near-native-speed][Run VMs at (near-)Native Speed]]
+  - [[#run-vms-at-near-native-speed][Run VMs at (near-)native speed]]
 - [[#deploy-a-wordpress-as-a-service-as-a-devops][Deploy a WordPress as a Service (as a DevOps)]]
 - [[#automatize-the-deployment-with-heat][Automatize the deployment with Heat]]
-  - [[#install-heat-orchestration-service-on-microstack][Install Heat orchestration service on microstack]]
+  - [[#install-the-heat-orchestration-service-on-microstack][Install the Heat orchestration service on microstack]]
   - [[#boot-a-vm][Boot a VM]]
   - [[#need-more-flexibility-lets-add-parameters][Need more flexibility: let's add parameters]]
-  - [[#need-our-deployment-to-return-values-lets-use-outputs][Need our deployment to return values: let's use outputs!]]
-  - [[#integrate-cloud-init-in-heat][Integrate ~cloud-init~ in Heat]]
+  - [[#need-to-return-values-lets-use-outputs][Need to return values: let's use outputs!]]
+  - [[#integrate-cloud-init][Integrate ~cloud-init~]]
   - [[#dynamic-configuration-with-cloud-init-and-parameters][Dynamic configuration with ~cloud-init~ and parameters]]
   - [[#data-dependency-between-resources][Data dependency between resources]]
   - [[#nested-templates][Nested templates]]
   - [[#nested-templates-with-data-dependency][Nested templates with data dependency]]
   - [[#other-type-of-resources-floating-ip][Other type of resources: floating IP]]
 - [[#deploy-a-wordpress-as-a-service-as-a-heat-devops][Deploy a WordPress as a Service (as a Heat DevOps)]]
+  - [[#database-vm-template][Database VM template]]
+  - [[#web-vm-template][Web VM template]]
+  - [[#wordpress-application-template][Wordpress application template]]
 - [[#appendix][Appendix]]
   - [[#install-mariadb-on-debian-9][Install MariaDB on Debian 9]]
   - [[#install-wordpress-application-on-debian-9][Install Wordpress application on Debian 9]]
@@ -112,10 +114,10 @@ the one in
   (when (file-directory-p export-dir)
     (delete-directory export-dir t))
 
-  ;; Create os-imt directory and copy index files
+  ;; Create directory and copy index files
   (make-directory export-dir)
   (shell-command (format "cp -r index.html %s" export-dir))
-  (shell-command (format "cp -r rsc %s" export-dir))
+  ;; (shell-command (format "cp -r rsc %s" export-dir))
 )
 #+END_SRC
 
@@ -169,7 +171,7 @@ minutes for other options).
 :PROPERTIES:
 :CUSTOM_ID: sec:rscs-lab
 :END:
-Get the resources of the lab at [[cdn-url:2019/os-polytech-nantes/tp.tar.gz]].
+Get the resources of the lab at [[cdn-url:tp.tar.gz]].
 
 #+BEGIN_SRC bash
 curl -O https://raw.githubusercontent.com/BeyondTheClouds/lectures/master/2019/os-polytech-nantes/tp.tar.gz
@@ -216,7 +218,7 @@ status? What is the purpose of each service?
 #+END_solution
 #+END_do
 
-*** Install script                                                 :noexport:
+*** Installation script                                            :noexport:
 #+BEGIN_SRC bash :noweb tangle :tangle ./setup.sh :shebang #!/usr/bin/env bash
 set -o errexit
 set -o xtrace
@@ -287,7 +289,7 @@ sudo snap remove --purge microstack
 :PROPERTIES:
 :CUSTOM_ID: sec:play-with-os
 :END:
-** OpenStack Horizon Dashboard
+** OpenStack Horizon dashboard
 One service deployed is the OpenStack dashboard (Horizon). On your own
 machine, horizon is reachable from the web browser at
 [[http://<ip-of-your-Lab-machine>]] with the following credentials:
@@ -317,7 +319,7 @@ Unfortunately this feature is disabled with Snap microstack. However,
 as a /real DevOps/, you will prefer to access to your VM by the
 command line interface ...
 
-** Unleash the Operator in You
+** Unleash the operator in you
 :PROPERTIES:
 :CUSTOM_ID: sec:os-cli
 :END:
@@ -413,6 +415,7 @@ login as 'cirros' user. default password: 'gocubsgo'. use 'sudo' for root.
 cli-vm login:
 #+END_EXAMPLE
 
+*** Make the world reaches the VM
 With the previous ~openstack server create~ command, the VM boots with
 a private IP. Private IPs are used for communication between VMs,
 meaning you cannot ping your VM from an external network (e.g., the
@@ -427,7 +430,6 @@ openstack server add floating ip cli-vm "${ALLOCATED_FIP}"
 
 Then, ask again for the status of your VM and its IPs.
 : openstack server show cli-vm -c status -c addresses
-
 
 #+BEGIN_comment
 *Note for the teacher:* The [[lst:undo-icmp/ssh-sec-groups]] code undoes
@@ -479,16 +481,16 @@ $ openstack security group rule list -c ID -c "IP Protocol" -c "IP Range" $SECGR
 #+END_src
 #+END_solution
 
-Then, make it work. See examples of security groups rules in the [[https://docs.openstack.org/neutron/latest/admin/deploy-lb-selfservice.html#verify-network-operation][neutron
-doc]].
+Then, make it work for ~10.20.20.0/24~ network. See examples of
+security groups rules in the [[https://docs.openstack.org/neutron/latest/admin/deploy-lb-selfservice.html#verify-network-operation][neutron doc]].
 
 #+BEGIN_solution
 To make it work, you have to setup new rules in the security group of
 the ~admin~ project. The following rules allow ICMP packets (for ping)
 and TCP on port 22 (for SSH connection) on the VM.
 #+BEGIN_src bash
-openstack security group rule create $SECGROUP_ID --proto icmp --remote-ip 0.0.0.0/0
-openstack security group rule create $SECGROUP_ID --proto tcp --remote-ip 0.0.0.0/0 \
+openstack security group rule create $SECGROUP_ID --proto icmp --remote-ip 10.20.20.0/24
+openstack security group rule create $SECGROUP_ID --proto tcp --remote-ip 10.20.20.0/24 \
   --dst-port 22
 #+END_src
 #+END_solution
@@ -497,6 +499,7 @@ openstack security group rule create $SECGROUP_ID --proto tcp --remote-ip 0.0.0.
 Once you succeed to ping the vm, you should also be able to SSH on it.
 : ssh -l cirros "$ALLOCATED_FIP"
 
+*** Make the VM reaches the world
 #+BEGIN_comment
 *Note for the teacher:* The [[lst:undo-extnet-setup]] code undoes the
 [[https://opendev.org/x/microstack/src/commit/1a25e50a172db7331edf2f836f3c2005222bb4c5/snap-overlay/bin/setup-br-ex#L21-L22][microstack network setup]], so students have to resolve the next
@@ -512,51 +515,46 @@ extcidr=10.20.20.0/24  # find it with `sudo iptables -t nat -L`
 iptables -w -t nat -D POSTROUTING -s $extcidr ! -d $extcidr -j MASQUERADE > /dev/null
 #+end_src
 
-#+BEGIN_do
 From the cirros, ping the outside world.
 : ping 8.8.8.8  # GOOGLE could you HEAR me?!
 
+#+BEGIN_do
 Does it work? Why? To help you in your diagnosis, here is a list of
 hints to check:
-- Ping Google and the VM from the Lab machine. Does it work?
-  #+BEGIN_
-# solution
+- Ping Google and the VM *from the Lab machine*. The ping should work
+  for both. What does it mean for the Lab machine regarding
+  communications between VMs and the Internet?
+  #+BEGIN_solution
   : ping -c 2 8.8.8.8; ping -c 2 $ALLOCATED_FIP
   The ping from the Lab machine works for both Google and the VM.
   Thus, the Lab machine /could be a gateway/ between VMs and the
   Internet.
-  #+END_comment
-# solution
+  #+END_solution
 
 - Note the IP address of ~$ALLOCATED_FIP~. From which network this IP
   comes? Which NIC serves that network on the Lab machine?
-  #+BEGIN_comment
-# solution
+  #+BEGIN_solution
   : echo "$ALLOCATED_FIP"
   : openstack subnet show external-subnet -c cidr -c allocation_pools
   : ip address | fgrep -B 2 10.20.20
   The IP of the VM comes from the network 10.20.20.0/24, which is
   served on the Lab machine by ~br-ex~.
-  #+END_comment
-# solution
+  #+END_solution
 
 - Do a ~tcpdump~ on that NIC. Do you see the ICMP packets from
   ~$ALLOCATED_FIP~ that flow over that NIC?
-  #+BEGIN_comment
-# solution
+  #+BEGIN_solution
   : sudo tcpdump -nni br-ex icmp
   The ~tcpdump~ on ~br-ex~ shows ping ~echo request~ packets, but no
   ~echo reply~. So the packets are lost somewhere.... In other words,
   the Lab machine does not play its role of gateway between VMs and
   the Internet.
-  #+END_comment
-# solution
+  #+END_solution
 
 - Find the route that forward packets to the Internet on Lab machine.
   Do a ~tcpdump~ on the NIC that servers that route. Do you see the
   ICMP packets flow over that NIC?
-  #+BEGIN_comment
-# solution
+  #+BEGIN_solution
   To ensure that something is wrong on the Lab machine regarding its
   role of gateway between VMs and the Internet, let's find the route
   that forwards Google packets out of the Lab machine.
@@ -583,13 +581,23 @@ hints to check:
   set up with the next command (or ~echo 1 >
   /proc/sys/net/ipv4/ip_forward~).
   : sudo sysctl -w net.ipv4.ip_forward=1
-  #+END_comment
-# solution
+
+  #+BEGIN_note
+  Sometimes activating the kernel IP forwarding is not enough,
+  [[http://www.microhowto.info/howto/enable_forwarding_of_ipv4_packets.html#idp17360][especially in case of firewalling]]. A common place to perform packet
+  filtering of routed traffic is in the ~FORWARD~ chain of the filter
+  table.
+  : sudo iptabes -t filter -L FORWARD -n
+
+  If a rule drops packet, then it is mandatory to accept them with a
+  new rule.
+  : iptables -A FORWARD -j ACCEPT
+  #+END_note
+  #+END_solution
 
 - After making the packets flow on the second NIC, is everything OK
   with the IP address of the source in the ~tcpdump~ on ~eth0~?
-  #+BEGIN_comment
-# solution
+  #+BEGIN_solution
   From now, the ping of Google from the VM reaches Internet via ~eth0~
   (as seen by ~tcpdump -nni eth0 icmp~). Unfortunately, it still
   doesn't do the trick, because the packet goes out with the
@@ -606,11 +614,15 @@ hints to check:
   it with ~iptables~ (see,
   https://www.systutorials.com/1372/setting-up-gateway-using-iptables-and-route-on-linux/).
 
-  Set up the SNAT with ~iptables~.
+  Set up the SNAT with ~iptables~. The following rule should be read
+  "In the ~nat~ table, for packets that leave the machine (~-A
+  POSTROUTING~) and incoming from network ~10.20.20.0/24~ (~-s~) and
+  not at destination of the network ~10.20.20.0/24~ (~! -d~), then
+  replace the sender's address by the router's address (~-j
+  MASQUERADE~)."
   # : sudo iptables -t nat -A POSTROUTING ! -d 10.20.20.0/24 -o <NIC-of-your-Lab-machine> -j SNAT --to-source <ip-of-your-Lab-machine>
   : sudo iptables -t nat -A POSTROUTING -s 10.20.20.0/24 ! -d 10.20.20.0/24 -j MASQUERADE
-  #+END_comment
-# solution
+  #+END_solution
 #+END_do
 
 Go on, and play with the ~openstack~ cli. For instance, list all
@@ -622,8 +634,7 @@ figure out how to:
 4. Boot a new machine ~cli-vm-clone~ from the snapshot.
 5. Delete ~cli-vm-clone~;
 
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 #+BEGIN_SRC bash
 # 1.
 openstack server ssh cli-vm -l cirros
@@ -639,10 +650,9 @@ openstack server create --wait --flavor m1.tiny \
 # 5.
 openstack server delete cli-vm-clone
 #+END_SRC
-#+END_comment
-# solution
+#+END_solution
 
-** In Encryption We Trust
+** In encryption we trust
 :PROPERTIES:
 :CUSTOM_ID: sec:enc-trust
 :END:
@@ -692,7 +702,7 @@ according to your network cidr.
 : openstack server show cli-vm-adminkey -c addresses -f value | sed  -Er 's/test=.+ (10\.20\.20\.[0-9]+).*/\1/g'
 #+END_note
 
-** The Art of Contextualizing a VM
+** The art of contextualizing a VM
 Contextualizing is the process that automatically installs software,
 alters configurations, and does more on a machine as part of its boot
 process. On OpenStack, contextualizing is achieved thanks to
@@ -749,29 +759,25 @@ curl -L -o /tmp/debian-9.qcow2 \
 Import the image into Glance; name it ~debian-9~. Use ~openstack image
 create --help~ for creation arguments. Find values example with
 ~openstack image show cirros~.
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 #+BEGIN_SRC bash
 openstack image create --disk-format=qcow2 \
   --container-format=bare --property architecture=x86_64 \
   --public --file /tmp/debian-9.qcow2 \
   debian-9
 #+END_SRC
-#+END_comment
-# solution
+#+END_solution
 
 And, create a new ~m1.mini~ flavor with 5 Go of Disk, 2 Go of RAM, 2
 VCPU and 1 Go of swap. Use ~openstack flavor create --help~ for
 creation arguments.
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 #+BEGIN_SRC bash
 openstack flavor create --ram 2048 \
   --disk 5 --vcpus 2 --swap 1024 \
   --public m1.mini
 #+END_SRC
-#+END_comment
-# solution
+#+END_solution
 #+END_do
 
 *** ~cloud-init~ in Action
@@ -785,10 +791,10 @@ extra argument to the regular ~openstack server create~ command.
 #+BEGIN_do
 Start a new VM named ~art-vm~ based on the ~debian-9~ image and the
 ~m1.mini~ flavor. The VM should load and execute the script [[lst:art.sh]]
--- available under [[cdn-url:2019/os-imt/rsc/art.sh][~rsc/art.sh~]] -- that installs the [[https://github.com/cmatsuoka/figlet][~figlet~]] and
+-- available under [[cdn-url:rsc/art.sh][~rsc/art.sh~]] -- that installs the [[https://github.com/cmatsuoka/figlet][~figlet~]] and
 [[https://github.com/busyloop/lolcat][~lolcat~]] softwares on the VM.
 
-#+CAPTION: ~cloud-init~ script available under [[cdn-url:2019/os-imt/rsc/art.sh][~rsc/art.sh~]]
+#+CAPTION: ~cloud-init~ script available under [[cdn-url:rsc/art.sh][~rsc/art.sh~]]
 #+NAME: lst:art.sh
 #+BEGIN_SRC bash :tangle ./rsc/art.sh
 #!/usr/bin/env bash
@@ -801,8 +807,7 @@ apt update
 apt install -y figlet lolcat
 #+END_SRC
 
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 #+BEGIN_SRC bash
 openstack server create --wait --image debian-9 \
   --flavor m1.mini --network test \
@@ -810,16 +815,14 @@ openstack server create --wait --image debian-9 \
   --user-data ./rsc/art.sh \
   art-vm
 #+END_SRC
-#+END_comment
-# solution
+#+END_solution
 
 You can follow the correct installation of software with:
 : watch openstack console log show --lines=20 art-vm
 
 Could you notice /when/ the VM has finished to boot based on the
 ~console log~ output?
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 #+BEGIN_src bash :tangle ./rsc/wordpress-deploy.sh :shebang #!/usr/bin/env bash
 function wait_contextualization {
   # Get the log
@@ -855,8 +858,7 @@ function wait_contextualization {
 
 Then use it as the following.
 : wait_contextualization art-vm
-#+END_comment
-# solution
+#+END_solution
 #+END_do
 
 Then, attach it a floating IP.
@@ -880,7 +882,7 @@ Are you sure you want to continue connecting (yes/no)? yes
 debian@art-vm:~$ figlet "The Art of Contextualizing a VM" | lolcat
 #+END_example
 
-** Run VMs at (near-)Native Speed
+** Run VMs at (near-)native speed
 Every time you do an ~openstack server create ...~, your request hits,
 at some point, the ~nova~ services. It starts by the ~nova-api~ that
 processes the REST request. The API, in turns, calls the
@@ -906,8 +908,7 @@ help.
 
 #+BEGIN_do
 - Check that the KVM kernel module is loaded, and load it otherwise.
-  #+BEGIN_comment
-# solution
+  #+BEGIN_solution
   /From the [[https://docs.openstack.org/nova/stein/admin/configuration/hypervisor-kvm.html#for-x86-based-systems][Nova documentation]]:/ Do the following command to list the
   loaded kernel modules and verify that the KVM modules are loaded.
   : lsmod|fgrep kvm
@@ -920,20 +921,17 @@ help.
   : modprobe -a kvm
   : modprobe -a kvm-intel  # for Intel
   : modprobe -a kvm-amd    # for amd
-  #+END_comment
-# solution
+  #+END_solution
 
 - Change the configuration of ~nova-compute~ hypervisor (file
   ~/var/snap/microstack/common/etc/nova/nova.conf.d/hypervisor.conf~)
   to support KVM and restart it.
-  #+BEGIN_comment
-# solution
+  #+BEGIN_solution
   : NOVA_HYPERV_CONF=/var/snap/microstack/common/etc/nova/nova.conf.d/hypervisor.conf
   : sudo sed -i 's|virt_type.\+|virt_type = kvm|' $NOVA_HYPERV_CONF
   : sudo sed -i 's|cpu_mode.\+|cpu_mode = host-passthrough|' $NOVA_HYPERV_CONF
   : sudo snap restart microstack.nova-compute
-  #+END_comment
-# solution
+  #+END_solution
 #+END_do
 
 Finally, create a new VM such as in the [[#sec:cloud-init][previous section]] and
@@ -978,13 +976,12 @@ make a bash script that:
 
 The ~rsc~ directory provides bash scripts to deploy the MariaDB
 database and web server of WordPress (also in [[*Appendix][Appendix]]). Review it
-before going further (spot the *TODO*).
+before going any further (spot the *TODO*).
 
 Also, remind to [[#sec:debian9-ftw][clean your environment]].
 
-#+BEGIN_comment
-# solution
-Find the solution in the [[file:rsc/wordpress-deploy.sh][~rsc/wordpress-deploy.sh~]] script.
+#+BEGIN_solution
+Find the solution in the [[cdn-url:rsc/wordpress-deploy.sh][~rsc/wordpress-deploy.sh~]] script.
 
 First thing first, enable HTTP connections.
 #+BEGIN_SRC bash
@@ -995,7 +992,7 @@ openstack security group rule create $SECGROUP_ID \
 
 Then start a VM with the ~wordpress-db~ name, ~debian-9~ image,
 ~m1.mini~ flavor, ~test~ network and ~admin~ key-pair. Also,
-contextualize your VM with the [[file:rsc/install-mariadb.sh][~rsc/install-mariadb.sh~]] script thanks
+contextualize your VM with the [[cdn-url:rsc/install-mariadb.sh][~rsc/install-mariadb.sh~]] script thanks
 to the ~--user-data ./rsc/install-mariadb.sh~ option.
 
 #+BEGIN_SRC bash :tangle ./rsc/wordpress-deploy.sh
@@ -1010,7 +1007,7 @@ wait_contextualization wordpress-db
 
 Next, start a VM with ~wordpress-app~ name, ~debian-9~ image,
 ~m1.mini~ flavor, ~test~ network and ~admin~ key-pair. Also,
-contextualize your VM with the [[file:rsc/install-wp.sh][~rsc/install-wp.sh~]] script thanks to
+contextualize your VM with the [[cdn-url:rsc/install-wp.sh][~rsc/install-wp.sh~]] script thanks to
 the ~--user-data ./rsc/install-wp.sh~ option. Note that you need to
 provide the IP address of the ~wordpress-db~ to this script before
 running it.
@@ -1053,8 +1050,7 @@ from your own machine.
 
 Then, reach WordPress on [[http://localhost:8080/wp]].
 #+END_note
-#+END_comment
-# solution
+#+END_solution
 #+END_do
 
 * Automatize the deployment with Heat
@@ -1070,7 +1066,7 @@ following are available under the ~rsc/heat-templates/~ directory. You
 may also find interesting examples in the [[heat-doc:template_guide/basic_resources.html][Heat documentation]], or on
 the [[https://github.com/openstack/heat-templates][heat-templates repository]].
 
-** Install Heat orchestration service on microstack
+** Install the Heat orchestration service on microstack
 The documentation to install Heat on Ubuntu is available [[heat-doc:install/install-ubuntu.html][online]]. The
 script file:install-heat.sh is based on that documentation and it
 installs Heat on top of microstack. Execute it with ~sudo~ before
@@ -1281,7 +1277,7 @@ Parameters are the inputs of templates. The next subsection, focuses
 on declaring outputs, so that a stack can return a set of
 attributes (e.g., the IP address of a deployed VM).
 
-** Need our deployment to return values: let's use outputs!
+** Need to return values: let's use outputs!
 :PROPERTIES:
 :CUSTOM_ID: sec:heat-outputs
 :END:
@@ -1374,7 +1370,7 @@ following command at runtime:
 #+end_src
 #+end_note
 
-** Integrate ~cloud-init~ in Heat
+** Integrate ~cloud-init~
 It is possible to declare a post-installation script in the template
 with the ~user_data~ property.
 #+begin_src yaml :tangle rsc/heat-templates/4_boot_vm_with_user-data.yaml
@@ -1746,20 +1742,183 @@ database:
 #+BEGIN_do
 Create three HOT files:
 
-- ~sql-vm.yml~: containing the description of the VM running MariaDB;
-- ~web-vm.yml~: containing the description of the VM running the Web server;
-- ~wp-app.yml~: containing the description of the WordPress application
-  (~sql-vm.yml~ + ~web-vm.yml~ as nested templates).
+- ~db-vm.yml~  :: Contains the description of the VM running MariaDB.
+- ~wp-vm.yml~  :: Contains the description of the VM running the Web
+                  server and serving Wordpress ;
+- ~wp-app.yml~ :: Contains the description of the WordPress
+                  application (glues the ~db-vm.yml~ and ~web-vm.yml~
+                  together).
 
 Once it is deployed, you should be able to reach the wordpress service by
-going on [[http://<web-server-ip-address>/wp]].
+going on [[http://<web-server-fip-address>/wp]].
 
-#+BEGIN_comment
-# solution
-Find the solution in the [[cdn-url:2019/os-imt/rsc/heat-templates/wordpress/][~rsc/heat-templates/wordpress/~]] directory.
-#+END_comment
-# solution
+#+BEGIN_solution
+Find the solution in the [[cdn-url:rsc/heat-templates/wordpress/][~rsc/heat-templates/wordpress/~]] directory.
+#+END_solution
 #+END_do
+
+** Database VM template                                            :solution:
+#+BEGIN_src yaml :tangle rsc/heat-templates/wordpress/db-vm.yaml
+heat_template_version: 2017-09-01
+
+description: >
+  Deploy an MariaDB server, outputs its IP address.
+
+parameters:
+  ServerKeyName:
+    label: Name of the SSH key to provide to cloud-init
+    type: string
+    default: admin
+
+  # Parameters used in the cloud-init script to install & configure
+  # MariaDB.
+  DBRootPassword:
+    label: Value of the password to manage the database
+    type: string
+  DBName:
+    label: Name of the database to create
+    type: string
+  DBUser:
+    label: Name of the database user
+    type: string
+  DBPassword:
+    label: Password to access the database
+    type: string
+
+resources:
+  db-vm:
+    type: OS::Nova::Server
+    properties:
+      key_name: { get_param: ServerKeyName }
+      image: debian-9
+      flavor: m1.mini
+      networks:
+        - {network: test}
+      user_data:
+        str_replace:
+          template: { get_file: ../../install-mariadb.sh }
+          params:
+            ${DB_ROOTPASSWORD}: { get_param: DBRootPassword }
+            ${DB_NAME}: { get_param: DBName }
+            ${DB_USER}: { get_param: DBUser }
+            ${DB_PASSWORD}: { get_param: DBPassword }
+outputs:
+  DBHost:
+    description: IP address of the created instance running MariaDB
+    value: { get_attr: [db-vm, networks, test, 0] }
+#+END_src
+
+** Web VM template                                                 :solution:
+#+BEGIN_src yaml :tangle rsc/heat-templates/wordpress/wp-vm.yaml
+heat_template_version: 2017-09-01
+
+description: >
+  Deploy an HTTP server that serves WordPress. Requires an SQL
+  database, whose IP address must be provided as a parameter.
+
+parameters:
+  ServerKeyName:
+    label: Name of the SSH key to provide to cloud-init
+    type: string
+    default: admin
+
+  # Parameters used in the cloud-init script to install & configure
+  # the WordPress app.
+  DBName:
+    label: Name of the database to use
+    type: string
+  DBUser:
+    label: Name of the database user
+    type: string
+  DBPassword:
+    label: Password to access the database
+    type: string
+  DBHost:
+    label: IP address of the SQL server
+    type: string
+
+resources:
+  wp-vm:
+    type: OS::Nova::Server
+    properties:
+      key_name: { get_param: ServerKeyName }
+      image: debian-9
+      flavor: m1.mini
+      networks:
+        - {network: test}
+      user_data:
+        str_replace:
+          template: { get_file: ../../install-wp.sh }
+          params:
+            ${DB_NAME}:     { get_param: DBName }
+            ${DB_USER}:     { get_param: DBUser }
+            ${DB_PASSWORD}: { get_param: DBPassword }
+            ${DB_HOST}:     { get_param: DBHost }
+
+  floating-ip:
+    type: OS::Neutron::FloatingIP
+    properties:
+      floating_network: external
+
+  association:
+    type: OS::Neutron::FloatingIPAssociation
+    properties:
+      floatingip_id: { get_resource: floating-ip }
+      port_id: { get_attr: [wp-vm, addresses, test, 0, port]}
+#+END_src
+
+** Wordpress application template                                  :solution:
+#+BEGIN_src yaml :tangle rsc/heat-templates/wordpress/wp-app.yaml
+heat_template_version: 2017-09-01
+
+description: >
+  Deploy a WordPress application, composed of an SQL
+  instance and an HTTP instance that serves WordPress.
+
+
+parameters:
+  ServerKeyName:
+    label: Name of the SSH key to provide to cloud-init
+    type: string
+    default: admin
+
+  # Parameters used in the cloud-init script to install & configure
+  # MariaDB
+  DBRootPassword:
+    label: Value of the password to manage the database
+    type: string
+    default: 0p3nSt4cK
+  DBName:
+    label: Name of the database to create
+    type: string
+    default: wordpress
+  DBUser:
+    label: Name of the database user
+    type: string
+    default: donatello
+  DBPassword:
+    label: Password to access the database
+    type: string
+    default: leonardo
+
+resources:
+  database:
+    type: ./db-vm.yaml
+    properties:
+      ServerKeyName: { get_param: ServerKeyName }
+      DBRootPassword: { get_param: DBRootPassword }
+      DBName: { get_param: DBName }
+      DBUser: { get_param: DBUser }
+      DBPassword: { get_param: DBPassword }
+  wordpress:
+    type: ./wp-vm.yaml
+    properties:
+      ServerKeyName: { get_param: ServerKeyName }
+      DBName: { get_param: DBName }
+      DBUser: { get_param: DBUser }
+      DBPassword: { get_param: DBPassword }
+      DBHost: { get_attr: [database, DBHost] }
+#+END_src
 
 * Appendix
 ** Install MariaDB on Debian 9
@@ -1853,3 +2012,13 @@ EOF
 #+END_src
 # This is not needed anymore (at least, with SSH tunneling)
 # define('WP_SITEURL', 'http://' . $_SERVER['HTTP_HOST'] . '/wp');
+* Local Variables                                                  :noexport:
+# Local Variables:
+# org-html-postamble: "<p class=\"author\">Author: %a</p>
+# <p class=\"email\">Email: %e</p>
+# <p class=\"github\">Find a typo, wanna make a proposition:
+#  <a href=\"https://github.com/BeyondTheClouds/lectures/issues/new?title=[os-polytech-19]\">open an issue</a></p>
+# <p class=\"date\">Last modification: %C</p>
+# <p class=\"license\">This work is licensed under a <a rel=\"license\" href=\"http://creativecommons.org/licenses/by-sa/4.0/\">Creative Commons Attribution-ShareAlike 4.0 International License</a>.</p>
+# <p class=\"creator\">%c – <a href=\"http://gongzhitaao.org/orgcss\">Zhitao Gong</a> customized theme</p>"
+# End:
