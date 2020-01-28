@@ -2,7 +2,10 @@
 import logging
 import socket
 
-from enoslib.infra.enos_g5k import api
+from typing import List
+from enoslib.types import Host, Roles
+
+from enoslib.api import (play_on, ensure_python3)
 from enoslib.infra.enos_g5k.provider import G5k
 from enoslib.infra.enos_g5k.configuration import (Configuration,
                                                   NetworkConfiguration,
@@ -28,12 +31,28 @@ TEAMS = [
 ]
 
 
+def get_addr(h: Host) -> str:
+    'Returns the address of a Host `h`'
+    try:
+        return socket.gethostbyname(h.address)
+    except socket.gaierror:
+        return h.address
+
+
+# Get node on funk, for a specific set on ecotype nodes:
+# funk -m date -s "2020-02-03 12:01:00" -r ecotype:15 -w 60:00:00 -o "-t deploy -p \"host in (
+#   'ecotype-1.nantes.grid5000.fr', 'ecotype-2.nantes.grid5000.fr', 'ecotype-3.nantes.grid5000.fr',
+#   'ecotype-4.nantes.grid5000.fr', 'ecotype-5.nantes.grid5000.fr', 'ecotype-6.nantes.grid5000.fr',
+#   'ecotype-7.nantes.grid5000.fr', 'ecotype-8.nantes.grid5000.fr', 'ecotype-9.nantes.grid5000.fr',
+#   'ecotype-10.nantes.grid5000.fr', 'ecotype-11.nantes.grid5000.fr', 'ecotype-12.nantes.grid5000.fr',
+#   'ecotype-13.nantes.grid5000.fr', 'ecotype-14.nantes.grid5000.fr', 'ecotype-15.nantes.grid5000.fr',
+#   'ecotype-16.nantes.grid5000.fr', 'ecotype-17.nantes.grid5000.fr')\"" -j "os-imt-aio" --yes
 def make_conf(testing=True):
     prod_net = NetworkConfiguration(
         id="net", type="prod", roles=["net"], site="nantes")
 
     os = MachineConfiguration(
-        roles=["openstack"],
+        roles=["OpenStack"],
         cluster="ecotype",
         nodes=2 if testing else 15,
         primary_network=prod_net)
@@ -41,10 +60,9 @@ def make_conf(testing=True):
     conf = None
     if testing:
         conf = (Configuration.from_settings(
-                    walltime="60:00:00",
+                    walltime="1:00:00",
                     job_name="os-imt-aio-test",
-                    env_name="ubuntu1804-x64-min",
-                    oar_site="nantes")
+                    env_name="ubuntu1804-x64-min")
                 .add_network_conf(prod_net)
                 .add_machine(**os.__dict__))
     else:
@@ -52,8 +70,7 @@ def make_conf(testing=True):
                     reservation="2020-02-03 12:00:01",
                     walltime="59:59:58",
                     job_name="os-imt-aio",
-                    env_name="ubuntu1804-x64-min",
-                    oar_site="nantes")
+                    env_name="ubuntu1804-x64-min")
                 .add_network_conf(prod_net)
                 .add_machine(**os.__dict__))
 
@@ -61,42 +78,38 @@ def make_conf(testing=True):
     return conf
 
 
-def get_nodes(roles):
-    return sorted(set([n.address for nodes in roles.values()
-                                 for n in nodes]))
+def bootstrap(rs: Roles):
+    ensure_python3(roles=rs)
+    with play_on(roles=rs, pattern_hosts="OpenStack") as p:
+        # Install the bare necessities
+        p.apt(pkg=['silversearcher-ag', 'curl', 'htop', 'tcpdump', 'vim',
+                   'kmod'])
+
+        # Setup ssh for root w/ password
+        p.raw('echo "root:os-imt" | chpasswd')
+        p.blockinfile(path='/etc/ssh/sshd_config',
+                      block='''
+                      PasswordAuthentication yes
+                      PermitRootLogin yes
+                      ''')
+        p.systemd(name='ssh', state='restarted')
+
+        # Put /snap/bin in PATH
+        p.lineinfile(path='/root/.bashrc',
+                     line='export PATH=/snap/bin:${PATH}')
 
 
-def bootstrap(roles):
-    nodes = get_nodes(roles)
+# Claim the resources
+infra = G5k(make_conf(testing=True))
+roles, networks = infra.init(force_deploy=False)
 
-    def cmd(cmd):
-        api.exec_command_on_nodes(nodes, cmd, cmd)
-
-    # Install the bare necessities
-    packages = ['ripgrep', 'curl', 'htop', 'python', 'tcpdump', 'vim']
-    cmd('apt update')
-    cmd("apt install -y --force-yes %s" % ' '.join(packages))
-
-    # Setup ssh for root w/ password
-    cmd('echo "root:os-imt" | chpasswd')
-    cmd('echo "PasswordAuthentication yes" >> /etc/ssh/sshd_config')
-    cmd('echo "PermitRootLogin yes"        >> /etc/ssh/sshd_config')
-    cmd('systemctl restart ssh')
-
-    # Put /snap/bin in PATH
-    cmd('echo "export PATH=/snap/bin:${PATH}" >> /root/.bashrc')
-
-    # Disable ip forwarding (for pedagogical purpose)
-    cmd('sudo sysctl -w net.ipv4.ip_forward=0')
-
-    return nodes
-
-
-# Claim the resources and do the scaffolding
-roles, networks = G5k(make_conf(testing=False)).init(force_deploy=False)
-nodes = bootstrap(roles)
-addrs = map(socket.gethostbyname, nodes)
+# Do the scaffolding and assign machines
+bootstrap(roles)
+addrs = map(get_addr, roles["OpenStack"])
 
 print("Lab machine assignations:")
 for (team, addr) in zip(TEAMS, addrs):
-    print("- %s :: ~%s~" % (', '.join(p for p in team), addr))
+    team_members_str = ', '.join(m for m in team)
+    print(f"- {team_members_str} :: ~{addr}~")
+
+infra.destroy()  # Destroy
