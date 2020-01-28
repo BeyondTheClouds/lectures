@@ -181,10 +181,10 @@ First thing first, you have to connect to the Lab machine.
 Unfortunately, the Lab machine isn't available publicly, but hides
 behind the Grid'5000 private network. One solution, as explained in
 the [[https://www.grid5000.fr/mediawiki/index.php/Getting_Started#Connecting_for_the_first_time][official tutorial]], consists in opening an SSH connection to the
-publicly available ~access.grid5000.fr~ machine, and from there, doing
-a second SSH connection to the Lab machine. But this solution is
-fairly limited since it doesn't give an access to services from your
-own machine[fn:g5k-tunnel].
+publicly available ~access.grid5000.fr~ machine, and from there, do a
+second SSH connection to the Lab machine. But this solution is fairly
+limited since it doesn't give an access to services from your own
+machine[fn:g5k-tunnel].
 
 To ease the interaction between your own machine and the Lab one, you
 should setup the Grid'5000 [[https://en.wikipedia.org/wiki/Virtual_private_network][VPN]]. The Grid'5000 VPN gives you access to
@@ -906,6 +906,14 @@ each of you (not admin). As a preamble, you should:
   + user name: your Grid'5000 login
   + password: ~os-imt~
 - [[https://github.com/openstack/python-openstackclient/tree/stable/rocky#getting-started][Install the OpenStack CLI]] and [[https://github.com/openstack/python-heatclient/tree/stable/rocky][Heat CLI]] on your own machine.
+  #+begin_src bash
+  sudo apt upgrade && sudo apt install pip -y
+  sudo pip install --upgrade pip
+  sudo pip install python-openstackclient python-heatclient
+  pip show python-openstackclient # note the location path. If the
+  # location path is in your $HOME, then
+  echo export 'PATH=$HOME/.local/bin:$PATH' >> $HOME/.bashrc
+  #+end_src
   # : alias openstack="pipenv run openstack"
 - Source the "OpenStack RC File V3".
 - Reimport (or maybe recreate) your admin SSH key (see
@@ -1397,6 +1405,10 @@ resources:
             param_vm_name: user2
             param_remote_ip: { get_attr: [my_provider_vm, HOSTIP] }
 #+end_src
+
+** TODO COMMENT Other type of resources
+Add an new template that require a floating ip as in the WordPress
+solution ~web-vm.yml~.
 
 * Deploy a WordPress as a Service (as a Heat DevOps)
 As a DevOps at {{{co}}} -- {{{c5o}}} -- you are now in charge of the
