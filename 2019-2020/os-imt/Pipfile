@@ -1,0 +1,18 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[requires]
+python_version = "3.7"
+
+[scripts]
+setup-aio  = "python ./setup-aio.py"
+setup-heat = "python ./setup-heat.py"
+setup-cloud = "python ./setup-cloud.py"
+
+[packages]
+enoslib = "==4.10.1"
+openstacksdk = "==0.40.0"
+python-openstackclient = "==4.0.0"
+python-heatclient = "==1.18.0"
