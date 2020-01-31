@@ -7,12 +7,10 @@ verify_ssl = true
 python_version = "3.7"
 
 [scripts]
-setup-aio  = "python ./setup-aio.py"
-setup-heat = "python ./setup-heat.py"
-setup-cloud = "python ./setup-cloud.py"
+setup  = "python ./setup.py"
 
 [packages]
-enoslib = "==4.10.1"
+enos = "==6.0.1"
 openstacksdk = "==0.40.0"
 python-openstackclient = "==4.0.0"
 python-heatclient = "==1.18.0"

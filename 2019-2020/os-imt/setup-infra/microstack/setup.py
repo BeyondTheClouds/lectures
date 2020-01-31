@@ -1,8 +1,7 @@
-# $ pipenv run setup-aio  # thanks to Pipfile > scripts > setup-aio
+# $ pipenv run python setup.py  # thanks to Pipfile > scripts > setup-aio
 import logging
 import socket
 
-from typing import List
 from enoslib.types import Host, Roles
 
 from enoslib.api import (play_on, ensure_python3)
@@ -59,10 +58,14 @@ def make_conf(testing=True):
 
     conf = None
     if testing:
+        os.cluster = "econome"
         conf = (Configuration.from_settings(
-                    walltime="1:00:00",
+                    walltime="9:00:00",
                     job_name="os-imt-aio-test",
-                    env_name="ubuntu1804-x64-min")
+                    env_name="ubuntu1804-x64-min",
+                    # You can specify a jobid with
+                    # oargrid_jobids=[["nantes", "189621"]]
+                )
                 .add_network_conf(prod_net)
                 .add_machine(**os.__dict__))
     else:
@@ -80,6 +83,7 @@ def make_conf(testing=True):
 
 def bootstrap(rs: Roles):
     ensure_python3(roles=rs)
+
     with play_on(roles=rs, pattern_hosts="OpenStack") as p:
         # Install the bare necessities
         p.apt(pkg=['silversearcher-ag', 'curl', 'htop', 'tcpdump', 'vim',
@@ -112,4 +116,4 @@ for (team, addr) in zip(TEAMS, addrs):
     team_members_str = ', '.join(m for m in team)
     print(f"- {team_members_str} :: ~{addr}~")
 
-infra.destroy()  # Destroy
+# infra.destroy()  # Destroy

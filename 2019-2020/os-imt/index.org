@@ -217,7 +217,7 @@ your own in case of troubles.
    it with ~sudo apt install unzip~.
    : unzip <g5k_login>_vpnclient.zip -d g5k_vpnclient
 6. Run OpenVPN client with sudo
-   : sudo openvpn --config g5k_vpnclient/Grid5000_VPN.ovpn
+   : cd g5k_vpnclient; sudo openvpn Grid5000_VPN.ovpn
 7. Use password of step 4 to the question ~Enter Private Key
    Password:~.
 
@@ -266,7 +266,7 @@ Install snap.
 : sudo apt install snapd
 
 Install OpenStack directly from the snap store.
-: sudo snap install microstack --classic --candidate
+: sudo snap install microstack --classic --edge
 
 Execute the ~setup.sh~ file with sudo to initialize OpenStack (setup
 networks, flavors, images, ...).
@@ -278,7 +278,7 @@ snap command that lists microstack OpenStack services and there
 status? What is the purpose of each service?
 
 #+BEGIN_solution
-: snap services microstack
+: snap services microstack|sort
 
 - glance-* :: Glance to manage VM images: ~openstack image --help~.
 - horizon-* :: OpenStack Web dashboard: [[http://<ip-of-your-Lab-machine>]].
@@ -354,7 +354,7 @@ set -o xtrace
 <<lst:undo-extnet-setup>>
 
 sudo snap remove --purge openstackclients
-sudo snap remove --purge microstack
+sudo microstack.remove --auto --purge
 #+END_SRC
 
 * Play with OpenStack (as an Admin)
@@ -546,9 +546,9 @@ $ openstack security group rule list -c ID -c "IP Protocol" -c "IP Range" $SECGR
 | ID                                   | IP Protocol | IP Range  |
 +--------------------------------------+-------------+-----------+
 | 473c2c5e-bd23-4b56-9d33-2276e483ac33 | None        | 0.0.0.0/0 |
+| ecd3aa5a-acde-4e9f-9738-14945bcee258 | None        | 0.0.0.0/0 |
 | 5b08ae18-ed18-4a82-8382-aa1cfc3effff | None        | ::/0      |
 | 9b104d51-61d2-4a0f-bac4-36b5803ac721 | None        | ::/0      |
-| ecd3aa5a-acde-4e9f-9738-14945bcee258 | None        | 0.0.0.0/0 |
 +--------------------------------------+-------------+-----------+
 #+END_src
 #+END_solution
@@ -593,12 +593,12 @@ From the cirros, ping the outside world.
 #+BEGIN_do
 Does it work? Why? To help you in your diagnosis, here is a list of
 hints to check:
-- Ping Google and the VM *from the Lab machine*. The ping should work
+- Ping the VM and Google *from the Lab machine*. The ping should work
   for both. What does it mean for the Lab machine regarding
   communications between VMs and the Internet?
   #+BEGIN_solution
-  : ping -c 2 8.8.8.8; ping -c 2 $ALLOCATED_FIP
-  The ping from the Lab machine works for both Google and the VM.
+  : ping -c 2 $ALLOCATED_FIP; ping -c 2 8.8.8.8
+  The ping from the Lab machine works for both the VM and Google.
   Thus, the Lab machine /could be a gateway/ between VMs and the
   Internet.
   #+END_solution
@@ -659,7 +659,7 @@ hints to check:
   [[http://www.microhowto.info/howto/enable_forwarding_of_ipv4_packets.html#idp17360][especially in case of firewalling]]. A common place to perform packet
   filtering of routed traffic is in the ~FORWARD~ chain of the filter
   table.
-  : sudo iptabes -t filter -L FORWARD -n
+  : sudo iptables -t filter -L FORWARD -n
 
   If a rule drops packet, then it is mandatory to accept them with a
   new rule.
@@ -671,12 +671,12 @@ hints to check:
   with the IP address of the source in the ~tcpdump~ on ~eth0~?
   #+BEGIN_solution
   From now, the ping of Google from the VM reaches Internet via ~eth0~
-  (as seen by ~tcpdump -nni eth0 icmp~). Unfortunately, it still
-  doesn't do the trick, because the packet goes out with the
-  ~10.20.20.*~ source address. For this reason, Google sees ~ICMP echo
-  request~ incoming packets from ~10.20.20.*~ and hence, replies ~ICMP
-  echo reply~ to ~10.20.20.*~ which does not makes sense out of a
-  private network.
+  (as seen by ~tcpdump -nni eth0 icmp~). Unfortunately, it still does
+  not do the trick, because the packet goes out with the ~10.20.20.*~
+  source address. For this reason, Google sees ~ICMP echo request~
+  incoming packets from ~10.20.20.*~ and hence, replies ~ICMP echo
+  reply~ to ~10.20.20.*~ which does not makes sense out of a private
+  network.
 
   You have to change the source IP of out packet (~10.20.20.*~) to
   gateway's IP (i.e., Your lab machine). The ~iptables~ will then
@@ -866,6 +866,17 @@ Start a new VM named ~art-vm~ based on the ~debian-9~ image and the
 -- available under [[cdn-url:rsc/art.sh][~rsc/art.sh~]] -- that installs the [[https://github.com/cmatsuoka/figlet][~figlet~]] and
 [[https://github.com/busyloop/lolcat][~lolcat~]] softwares on the VM.
 
+#+BEGIN_solution
+#+BEGIN_SRC bash
+openstack server create --wait --image debian-9 \
+  --flavor m1.mini --network test \
+  --key-name admin \
+  --user-data ./rsc/art.sh \
+  art-vm
+#+END_SRC
+#+END_solution
+#+END_do
+
 #+CAPTION: ~cloud-init~ script available under [[cdn-url:rsc/art.sh][~rsc/art.sh~]]
 #+NAME: lst:art.sh
 #+BEGIN_SRC bash :tangle ./rsc/art.sh
@@ -879,19 +890,10 @@ apt update
 apt install -y figlet lolcat
 #+END_SRC
 
-#+BEGIN_solution
-#+BEGIN_SRC bash
-openstack server create --wait --image debian-9 \
-  --flavor m1.mini --network test \
-  --key-name admin \
-  --user-data ./rsc/art.sh \
-  art-vm
-#+END_SRC
-#+END_solution
-
 You can follow the correct installation of software with:
 : watch openstack console log show --lines=20 art-vm
 
+#+BEGIN_do
 Could you notice /when/ the VM has finished to boot based on the
 ~console log~ output?
 #+BEGIN_solution
@@ -981,8 +983,10 @@ help.
 #+BEGIN_do
 - Check that the KVM kernel module is loaded, and load it otherwise.
   #+BEGIN_solution
-  /From the [[https://docs.openstack.org/nova/stein/admin/configuration/hypervisor-kvm.html#for-x86-based-systems][Nova documentation]]:/ Do the following command to list the
-  loaded kernel modules and verify that the KVM modules are loaded.
+  /From the [[https://docs.openstack.org/nova/stein/admin/configuration/hypervisor-kvm.html#for-x86-based-systems][Nova documentation]]/
+
+  Do the following command to list the loaded kernel modules and
+  verify that the KVM modules are loaded.
   : lsmod|fgrep kvm
   If the output includes ~kvm_intel~ or ~kvm_amd~, the KVM hardware
   virtualization modules are loaded and your kernel meets the module
@@ -1027,11 +1031,11 @@ PHP and composed of two elements: a Web server (Apache) and database
 (MariaDB). Apache serves the PHP code of WordPress and stores its
 information in the database.
 
-Automation is a very important concept for DeVops. Imagine you have
+Automation is a very important concept for DevOps. Imagine you have
 your own datacenter and want to exploit it by renting WordPress
 instances to your customers. Each time a client rents an instance, you
-have to manually deploy it. Wouldn't it be more convenient to automate
-all the operations? 😎
+have to manually deploy it?! No. It would be more convenient to
+automate all the operations. 😎
 
 #+BEGIN_do
 As the DevOps of {{{co}}} -- {{{c5o}}} -- your job is to automatize
@@ -1144,7 +1148,7 @@ In this last part, the teacher has setup an OpenStack in a DataCenter
 (here, on top of Grid'5000) and created member account and project for
 each of you (not admin). As a preamble, you should:
 - Connect to the Grid'5000 VPN (see §[[#sec:assign-lab]]).
-- Go on the [[os-cloud][horizon dashbord]] of teacher's OpenStack and download the
+- Go on the [[horizon-url][horizon dashbord]] of teacher's OpenStack and download the
   "OpenStack RC File V3" (see §[[#sec:os-cli]]) on your own machine.
   + user name: your Grid'5000 login
   + password: ~os-imt~
