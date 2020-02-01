@@ -47,25 +47,31 @@ def get_addr(h: Host) -> str:
 #   'ecotype-13.nantes.grid5000.fr', 'ecotype-14.nantes.grid5000.fr', 'ecotype-15.nantes.grid5000.fr',
 #   'ecotype-16.nantes.grid5000.fr', 'ecotype-17.nantes.grid5000.fr')\"" -j "os-imt-aio" --yes
 def make_conf(testing=True):
+    kavlan = NetworkConfiguration(
+        id="net", type="kavlan", roles=["network_interface"], site="nantes")
     prod_net = NetworkConfiguration(
-        id="net", type="prod", roles=["net"], site="nantes")
+        id="net_ext", type="prod", roles=["neutron_external_interface"], site="nantes")
 
     os = MachineConfiguration(
         roles=["OpenStack"],
         cluster="ecotype",
-        nodes=2 if testing else 15,
-        primary_network=prod_net)
+        nodes=10 if testing else 15,
+        primary_network=kavlan,
+        secondary_networks=[prod_net])
 
     conf = None
     if testing:
-        os.cluster = "econome"
+        os.cluster = "paravance"
+        kavlan.site = "rennes"
+        prod_net.site = "rennes"
         conf = (Configuration.from_settings(
-                    walltime="9:00:00",
+                    walltime="5:00:00",
                     job_name="os-imt-aio-test",
                     env_name="ubuntu1804-x64-min",
                     # You can specify a jobid with
                     # oargrid_jobids=[["nantes", "189621"]]
                 )
+                .add_network_conf(kavlan)
                 .add_network_conf(prod_net)
                 .add_machine(**os.__dict__))
     else:

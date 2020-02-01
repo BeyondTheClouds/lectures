@@ -5,8 +5,11 @@ import socket
 import yaml
 
 import openstack
+import enos.task as enos
 
-logging.basicConfig(level=logging.ERROR)
+
+# logging.basicConfig(level=logging.ERROR)
+logging.basicConfig(level=logging.DEBUG)
 LOG   = logging.getLogger(__name__)
 TEAMS = [
     ("ronana",      "alebre"),
@@ -23,6 +26,31 @@ TEAMS = [
     ("nfrayssinhe", "thlailler"),
     ("rgrison",     "tandrieu"),
 ]
+
+ENOS_CONF = {
+    'provider': {
+        'type': 'g5k',
+        'job_name': 'os-imt-heat',
+        'walltime': '04:00:00'
+    },
+    'resources': {
+        'paravance': {
+            'compute': 10,
+            'network': 1,
+            'control': 1
+        }
+    },
+    'inventory': 'inventories/inventory.sample',
+    'registry': { 'type': 'internal' },
+    'enable_monitoring': False,
+    'kolla_repo': "https://git.openstack.org/openstack/kolla-ansible",
+    'kolla_ref': 'stable/stein',
+    'kolla': {
+        'kolla_base_distro': "centos",
+        'kolla_install_type': "source",
+        'enable_heat': True
+    }
+}
 
 ENOS_ENV = None
 # with f as open("/home/rcherrueau/enos-5.0.1/current/env", "r"):
@@ -49,6 +77,10 @@ ENOS_ENV = {'networks': [
 
 
 def install_os():
+    kwargs = {
+        '--force-deploy': False,
+        '--env': None, }
+    enos.deploy(ENOS_CONF, **kwargs)
 
 
 def make_cloud(cloud_auth_url):
@@ -205,11 +237,12 @@ def make_sec_group_rule(net, project):
         LOG.info("New sgr %s" % sgr)
 
 
-cloud = make_cloud("http://10.16.61.255:35357/v3")
+install_os()
+# cloud = make_cloud("http://10.16.61.255:35357/v3")
 
-for team in TEAMS:
-    project = make_account(cloud.identity, team)
-    priv_snet = make_private_net(cloud.network, project)
-    priv_net = make_router(cloud.network, project, priv_snet)
-    make_sec_group_rule(cloud.network, project)
-    # pub_net = make_public_net(cloud.network, project)
+# for team in TEAMS:
+#     project = make_account(cloud.identity, team)
+#     priv_snet = make_private_net(cloud.network, project)
+#     priv_net = make_router(cloud.network, project, priv_snet)
+#     make_sec_group_rule(cloud.network, project)
+#     # pub_net = make_public_net(cloud.network, project)

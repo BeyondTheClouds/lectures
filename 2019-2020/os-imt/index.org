@@ -140,7 +140,14 @@ Show solutions
   (save-buffer))
 #+END_SRC
 
+** Setup microstack
+For the first part of the TP (Sec. [[#sec:req]] to [[#sec:devops]])
+
 * Requirements and Setup
+:PROPERTIES:
+:CUSTOM_ID: sec:req
+:END:
+
 ** Environment
 OpenStack needs, at least, 6 Go of RAM to run. And plenty more to
 start VMs on it. Therefore, this lab relies on [[https://www.grid5000.fr/][Grid'5000]], a testbed
@@ -1015,6 +1022,9 @@ appreciate how fast your VM displays the ~figlet "The Art of
 Contextualizing a VM with KVM" | lolcat~ command.
 
 * Deploy a WordPress as a Service (as a DevOps)
+:PROPERTIES:
+:CUSTOM_ID: sec:devops
+:END:
 In the previous sessions, we saw how to boot a VM with OpenStack, and
 execute a post-installation script using the ~user-data~ mechanism.
 Such mechanism can help us to install software but it is not enough to
