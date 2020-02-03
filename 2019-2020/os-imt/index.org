@@ -10,7 +10,7 @@
 #+PROPERTY: header-args :mkdirp yes
 #+MACRO: co  OMH
 #+MACRO: c5o Online Mine Hosting
-#+LINK: cdn-url      https://github.com/BeyondTheClouds/lectures/blob/3c07b45dfd659cfb5063a199ef92cb09783cb1d8/%s?raw=true
+#+LINK: cdn-url      https://github.com/BeyondTheClouds/lectures/blob/93f3ead/%s?raw=true
 #+LINK: heat-doc     https://docs.openstack.org/heat/train/%s
 #+LINK: horizon-url  http://10.16.61.255:80
 
@@ -25,7 +25,7 @@
 #+HTML_HEAD: <style>#table-of-contents .tag {display: none;}</style>
 
 #+EXCLUDE_TAGS: noexport
-# #+EXCLUDE_TAGS: solution
+#+EXCLUDE_TAGS: solution
 
 #+BEGIN_abstract
 OpenStack has become the de-facto solution to operate compute, network
@@ -251,10 +251,10 @@ The rest of this lab proceeds on the Lab machine.
 :PROPERTIES:
 :CUSTOM_ID: sec:rscs-lab
 :END:
-Get the resources of the lab at [[cdn-url:2019/os-imt/tp.tar.gz]].
+Get the resources of the lab at [[cdn-url:2019-2020/os-imt/tp.tar.gz]].
 
 #+BEGIN_SRC bash
-curl -O https://github.com/BeyondTheClouds/lectures/tree/master/2019-2020/os-imt/tp.tar.gz?raw=true
+curl -O https://github.com/BeyondTheClouds/lectures/blob/93f3ead/2019-2020/os-imt/tp.tar.gz?raw=true
 mkdir ~/os-imt
 tar xzf tp.tar.gz -C ~/os-imt
 cd ~/os-imt
@@ -283,7 +283,8 @@ Then, ensure OpenStack services are running on your machine. Find the
 snap command that lists microstack OpenStack services and there
 status? What is the purpose of each service?
 
-#+BEGIN_solution
+#+BEGIN_comment
+# solution
 : snap services microstack|sort
 
 - glance-* :: Glance to manage VM images: ~openstack image --help~.
@@ -295,7 +296,8 @@ status? What is the purpose of each service?
 - memcached :: Cache used by all OpenStack services
 - mysqld :: Database used by all OpenStack services
 - rabbitmq-server :: Communication bus used by all OpenStack services
-#+END_solution
+#+END_comment
+# solution
 #+END_do
 
 *** Installation script                                            :noexport:
@@ -451,7 +453,8 @@ most often used commands to operate your Cloud:
 #+BEGIN_do
 Using all these commands, you can use the CLI to start a new tiny
 cirros VM called ~cli-vm~.
-#+BEGIN_solution
+#+BEGIN_comment
+# solution
 #+BEGIN_src bash
 openstack server create \
   --image cirros \
@@ -459,7 +462,8 @@ openstack server create \
   --network test \
   cli-vm
 #+END_src
-#+END_solution
+#+END_comment
+# solution
 #+END_do
 
 Then, display the information about your VM with the following
@@ -537,7 +541,8 @@ Does it work? Why? Hint: [[https://docs.openstack.org/neutron/latest/feature_cla
 Find the command that list the security group rules of the ~admin~
 project. # (i.e., ~openstack project show admin~).
 
-#+BEGIN_solution
+#+BEGIN_comment
+# solution
 Regarding security rules, OpenStack is very conservative by default
 and prevents ingress and egress traffic. Spot the ~None~ value at ~IP
 Protocol~, and ~0.0.0.0/0~ [[https://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing][CIDR]] at ~IP Range~, in the result table of
@@ -557,12 +562,14 @@ $ openstack security group rule list -c ID -c "IP Protocol" -c "IP Range" $SECGR
 | 9b104d51-61d2-4a0f-bac4-36b5803ac721 | None        | ::/0      |
 +--------------------------------------+-------------+-----------+
 #+END_src
-#+END_solution
+#+END_comment
+# solution
 
 Then, make it work for ~10.20.20.0/24~ network. See examples of
 security groups rules in the [[https://docs.openstack.org/neutron/latest/admin/deploy-lb-selfservice.html#verify-network-operation][neutron doc]].
 
-#+BEGIN_solution
+#+BEGIN_comment
+# solution
 To make it work, you have to setup new rules in the security group of
 the ~admin~ project. The following rules allow ICMP packets (for ping)
 and TCP on port 22 (for SSH connection) on the VM.
@@ -571,7 +578,8 @@ openstack security group rule create $SECGROUP_ID --proto icmp --remote-ip 10.20
 openstack security group rule create $SECGROUP_ID --proto tcp --remote-ip 10.20.20.0/24 \
   --dst-port 22
 #+END_src
-#+END_solution
+#+END_comment
+# solution
 #+END_do
 
 Once you succeed to ping the vm, you should also be able to SSH on it.
@@ -602,37 +610,44 @@ hints to check:
 - Ping the VM and Google *from the Lab machine*. The ping should work
   for both. What does it mean for the Lab machine regarding
   communications between VMs and the Internet?
-  #+BEGIN_solution
+  #+BEGIN_comment
+# solution
   : ping -c 2 $ALLOCATED_FIP; ping -c 2 8.8.8.8
   The ping from the Lab machine works for both the VM and Google.
   Thus, the Lab machine /could be a gateway/ between VMs and the
   Internet.
-  #+END_solution
+  #+END_comment
+# solution
 
 - Note the IP address of ~$ALLOCATED_FIP~. From which network this IP
   comes? Which NIC serves that network on the Lab machine?
-  #+BEGIN_solution
+  #+BEGIN_comment
+# solution
   : echo "$ALLOCATED_FIP"
   : openstack subnet show external-subnet -c cidr -c allocation_pools
   : ip address | fgrep -B 2 10.20.20
   The IP of the VM comes from the network 10.20.20.0/24, which is
   served on the Lab machine by ~br-ex~.
-  #+END_solution
+  #+END_comment
+# solution
 
 - Do a ~tcpdump~ on that NIC. Do you see the ICMP packets from
   ~$ALLOCATED_FIP~ that flow over that NIC?
-  #+BEGIN_solution
+  #+BEGIN_comment
+# solution
   : sudo tcpdump -nni br-ex icmp
   The ~tcpdump~ on ~br-ex~ shows ping ~echo request~ packets, but no
   ~echo reply~. So the packets are lost somewhere.... In other words,
   the Lab machine does not play its role of gateway between VMs and
   the Internet.
-  #+END_solution
+  #+END_comment
+# solution
 
 - Find the route that forward packets to the Internet on Lab machine.
   Do a ~tcpdump~ on the NIC that servers that route. Do you see the
   ICMP packets flow over that NIC?
-  #+BEGIN_solution
+  #+BEGIN_comment
+# solution
   To ensure that something is wrong on the Lab machine regarding its
   role of gateway between VMs and the Internet, let's find the route
   that forwards Google packets out of the Lab machine.
@@ -671,11 +686,13 @@ hints to check:
   new rule.
   : iptables -A FORWARD -j ACCEPT
   #+END_note
-  #+END_solution
+  #+END_comment
+# solution
 
 - After making the packets flow on the second NIC, is everything OK
   with the IP address of the source in the ~tcpdump~ on ~eth0~?
-  #+BEGIN_solution
+  #+BEGIN_comment
+# solution
   From now, the ping of Google from the VM reaches Internet via ~eth0~
   (as seen by ~tcpdump -nni eth0 icmp~). Unfortunately, it still does
   not do the trick, because the packet goes out with the ~10.20.20.*~
@@ -700,7 +717,8 @@ hints to check:
   MASQUERADE~)."
   # : sudo iptables -t nat -A POSTROUTING ! -d 10.20.20.0/24 -o <NIC-of-your-Lab-machine> -j SNAT --to-source <ip-of-your-Lab-machine>
   : sudo iptables -t nat -A POSTROUTING -s 10.20.20.0/24 ! -d 10.20.20.0/24 -j MASQUERADE
-  #+END_solution
+  #+END_comment
+# solution
 #+END_do
 
 Go on, and play with the ~openstack~ cli. For instance, list all
@@ -712,7 +730,8 @@ figure out how to:
 4. Boot a new machine ~cli-vm-clone~ from the snapshot.
 5. Delete ~cli-vm-clone~;
 
-#+BEGIN_solution
+#+BEGIN_comment
+# solution
 #+BEGIN_SRC bash
 # 1.
 openstack server ssh cli-vm -l cirros
@@ -728,7 +747,8 @@ openstack server create --wait --flavor m1.tiny \
 # 5.
 openstack server delete cli-vm-clone
 #+END_SRC
-#+END_solution
+#+END_comment
+# solution
 
 ** In encryption we trust
 :PROPERTIES:
@@ -837,25 +857,29 @@ curl -L -o /tmp/debian-9.qcow2 \
 Import the image into Glance; name it ~debian-9~. Use ~openstack image
 create --help~ for creation arguments. Find values example with
 ~openstack image show cirros~.
-#+BEGIN_solution
+#+BEGIN_comment
+# solution
 #+BEGIN_SRC bash
 openstack image create --disk-format=qcow2 \
   --container-format=bare --property architecture=x86_64 \
   --public --file /tmp/debian-9.qcow2 \
   debian-9
 #+END_SRC
-#+END_solution
+#+END_comment
+# solution
 
 And, create a new ~m1.mini~ flavor with 5 Go of Disk, 2 Go of RAM, 2
 VCPU and 1 Go of swap. Use ~openstack flavor create --help~ for
 creation arguments.
-#+BEGIN_solution
+#+BEGIN_comment
+# solution
 #+BEGIN_SRC bash
 openstack flavor create --ram 2048 \
   --disk 5 --vcpus 2 --swap 1024 \
   --public m1.mini
 #+END_SRC
-#+END_solution
+#+END_comment
+# solution
 #+END_do
 
 *** ~cloud-init~ in Action
@@ -872,7 +896,8 @@ Start a new VM named ~art-vm~ based on the ~debian-9~ image and the
 -- available under [[cdn-url:rsc/art.sh][~rsc/art.sh~]] -- that installs the [[https://github.com/cmatsuoka/figlet][~figlet~]] and
 [[https://github.com/busyloop/lolcat][~lolcat~]] softwares on the VM.
 
-#+BEGIN_solution
+#+BEGIN_comment
+# solution
 #+BEGIN_SRC bash
 openstack server create --wait --image debian-9 \
   --flavor m1.mini --network test \
@@ -880,7 +905,8 @@ openstack server create --wait --image debian-9 \
   --user-data ./rsc/art.sh \
   art-vm
 #+END_SRC
-#+END_solution
+#+END_comment
+# solution
 #+END_do
 
 #+CAPTION: ~cloud-init~ script available under [[cdn-url:rsc/art.sh][~rsc/art.sh~]]
@@ -902,7 +928,8 @@ You can follow the correct installation of software with:
 #+BEGIN_do
 Could you notice /when/ the VM has finished to boot based on the
 ~console log~ output?
-#+BEGIN_solution
+#+BEGIN_comment
+# solution
 #+BEGIN_src bash :tangle ./rsc/wordpress-deploy.sh :shebang #!/usr/bin/env bash
 function wait_contextualization {
   # Get the log
@@ -938,7 +965,8 @@ function wait_contextualization {
 
 Then use it as the following.
 : wait_contextualization art-vm
-#+END_solution
+#+END_comment
+# solution
 #+END_do
 
 Then, attach it a floating IP.
@@ -988,7 +1016,8 @@ help.
 
 #+BEGIN_do
 - Check that the KVM kernel module is loaded, and load it otherwise.
-  #+BEGIN_solution
+  #+BEGIN_comment
+# solution
   /From the [[https://docs.openstack.org/nova/stein/admin/configuration/hypervisor-kvm.html#for-x86-based-systems][Nova documentation]]/
 
   Do the following command to list the loaded kernel modules and
@@ -1003,17 +1032,20 @@ help.
   : modprobe -a kvm
   : modprobe -a kvm-intel  # for Intel
   : modprobe -a kvm-amd    # for amd
-  #+END_solution
+  #+END_comment
+# solution
 
 - Change the configuration of ~nova-compute~ hypervisor (file
   ~/var/snap/microstack/common/etc/nova/nova.conf.d/hypervisor.conf~)
   to support KVM and restart it.
-  #+BEGIN_solution
+  #+BEGIN_comment
+# solution
   : NOVA_HYPERV_CONF=/var/snap/microstack/common/etc/nova/nova.conf.d/hypervisor.conf
   : sudo sed -i 's|virt_type.\+|virt_type = kvm|' $NOVA_HYPERV_CONF
   : sudo sed -i 's|cpu_mode.\+|cpu_mode = host-passthrough|' $NOVA_HYPERV_CONF
   : sudo snap restart microstack.nova-compute
-  #+END_solution
+  #+END_comment
+# solution
 #+END_do
 
 Finally, create a new VM such as in the [[#sec:cloud-init][previous section]] and
@@ -1065,7 +1097,8 @@ before going any further (spot the *TODO*).
 
 Also, remind to [[#sec:debian9-ftw][clean your environment]].
 
-#+BEGIN_solution
+#+BEGIN_comment
+# solution
 Find the solution in the [[cdn-url:rsc/wordpress-deploy.sh][~rsc/wordpress-deploy.sh~]] script.
 
 First thing first, enable HTTP connections.
@@ -1135,7 +1168,8 @@ from your own machine.
 
 Then, reach WordPress on [[http://localhost:8080/wp]].
 #+END_note
-#+END_solution
+#+END_comment
+# solution
 #+END_do
 
 * Automatize the Deployment with Heat
@@ -1201,7 +1235,7 @@ resources:
       flavor: m1.mini        # Its flavor (must exist in Nova)
       key_name: admin        # Name of the SSH Key (must exist in Nova)
       networks:              # List of networks to connect to
-        - {network: test}
+        - {network: private}
 #+END_SRC
 
 As depicted in this example, the different OpenStack resources can be
@@ -1278,7 +1312,7 @@ resources:
       flavor:   { get_param: the_flavor }
       key_name: { get_param: the_key }
       networks:
-        - {network: test}
+        - {network: private}
 #+end_src
 
 To deploy this stack, run the next command. It deploys the VM by
@@ -1331,7 +1365,7 @@ resources:
       flavor: m1.mini
       key_name: admin
       networks:
-        - {network: test}
+        - {network: private}
 
 # We set here outputs (stack returned attributes).
 # Outputs are defined by a name, and a set of properties:
@@ -1341,15 +1375,15 @@ outputs:
     description: IP address of the created instance
     # Use `get_attr` to find the value of `HOSTIP`. The `get_attr`
     # function references an attribute of a resouces, here the
-    # `addresses.test[0].addr` of `heat-vm`.
+    # `addresses.private[0].addr` of `heat-vm`.
     #
     # The following should be read:
     # - on `heat-vm` resource (which is an object ...)
     # - select the `addresses` attribute (which is an object ...)
-    # - select the `test` attribute (which is a list ...)
+    # - select the `private` attribute (which is a list ...)
     # - pick the element at indices `0` (which is an object ...)
     # - select the `addr` attribute (which is a string)
-    value: { get_attr: [heat-vm, addresses, test, 0, addr] }
+    value: { get_attr: [heat-vm, addresses, private, 0, addr] }
   HOSTNAME:
     description: Hostname of the created instance
     value: { get_attr: [heat-vm, name] }
@@ -1373,12 +1407,12 @@ openstack stack delete --wait --yes hw3
 Once again, the Heat documentation is your friend to find out
 [[heat-doc:template_guide/openstack.html#OS::Nova::Server-attrs][attributes]]. As such, you can reference the IP address with the
 ~network~ attribute.
-: get_attr: [heat-vm, networks, test, 0]
+: get_attr: [heat-vm, networks, private, 0]
 
 The source code of Heat also list [[https://github.com/openstack/heat/blob/0703ca7bb19ca3bb06009c828a66bababf9970b8/heat/engine/resources/openstack/nova/server.py#L646-L736][extra attributes]] that lets you find
 the IP address such as ~first_address~, but that one is deprecated
 though.
-: get_attr: [heat-vm, networks, test, 0]
+: get_attr: [heat-vm, networks, private, 0]
 : get_attr: [heat-vm, first_address]
 
 Finally, you can introspect all attributes of a resource with the
@@ -1388,7 +1422,7 @@ following command at runtime:
 #+begin_src python
 {u'OS-DCF:diskConfig': u'MANUAL',
  # ...
- u'addresses': {u'test': [{u'OS-EXT-IPS-MAC:mac_addr': u'fa:16:3e:73:10:fe',
+ u'addresses': {u'private': [{u'OS-EXT-IPS-MAC:mac_addr': u'fa:16:3e:73:10:fe',
                            u'OS-EXT-IPS:type': u'fixed',
                            u'addr': u'192.168.222.84',
                            u'version': 4}]},
@@ -1419,7 +1453,7 @@ resources:
       flavor: m1.mini
       key_name: admin
       networks:
-        - {network: test}
+        - {network: private}
       # We set here the user-data:
       user_data: |
         #!/usr/bin/env bash
@@ -1444,7 +1478,7 @@ section [[#sec:cloud-init]]).
 
 #+begin_src bash
 openstack server add floating ip hello_cloud_init \
-  $(openstack floating ip create -c floating_ip_address -f value external)
+  $(openstack floating ip create -c floating_ip_address -f value public)
 wait_contextualization hello_cloud_init
 openstack server ssh --login debian --identity ./admin.pem hello_cloud_init
 openstack stack delete --wait --yes hw4
@@ -1483,7 +1517,7 @@ resources:
       flavor: m1.mini
       key_name: admin
       networks:
-        - {network: test}
+        - {network: private}
       user_data:
         # This intrinsic function can replace strings in a template
         str_replace:
@@ -1544,7 +1578,7 @@ resources:
       flavor: m1.mini
       key_name: admin
       networks:
-        - {network: test}
+        - {network: private}
       user_data:
         str_replace:
           template: |
@@ -1553,7 +1587,7 @@ resources:
             echo "${IP_ADDRESS} provider" >> /etc/hosts
           params:
             # `get_attr` references the following `provider-vm` resource.
-            ${IP_ADDRESS}: { get_attr: [provider-vm, addresses, test, 0, addr] }
+            ${IP_ADDRESS}: { get_attr: [provider-vm, addresses, private, 0, addr] }
 
   provider-vm:
     type: "OS::Nova::Server"
@@ -1563,7 +1597,7 @@ resources:
       flavor: m1.mini
       key_name: admin
       networks:
-        - {network: test}
+        - {network: private}
 #+end_src
 
 In this example, ~user~ requires the IP address of ~provider~ to boot.
@@ -1575,7 +1609,7 @@ resources. Take a look during the deployment, and check that
 openstack stack create -t ./rsc/heat-templates/6_boot_vms_with_exchange.yaml hw6 \
   && watch openstack server list
 openstack server add floating ip user \
-  $(openstack floating ip create -c floating_ip_address -f value external)
+  $(openstack floating ip create -c floating_ip_address -f value public)
 openstack server ssh --login debian --identity ./admin.pem --address-type public user
 debian@user:~$ ping provider -c 2
 PING provider-vm (192.168.222.238) 56(84) bytes of data.
@@ -1660,7 +1694,7 @@ resources:
       flavor:   m1.mini
       key_name: admin
       networks:
-        - {network: test}
+        - {network: private}
       user_data:
         str_replace:
           params:
@@ -1674,7 +1708,7 @@ resources:
 outputs:
   HOSTIP:
     description: IP address of the created instance
-    value: { get_attr: [hostname-vm, networks, test, 0] }
+    value: { get_attr: [hostname-vm, networks, private, 0] }
 #+end_src
 
 We can now declare the main template. While it defines three VMs, this
@@ -1734,18 +1768,18 @@ resources:
       flavor: m1.mini
       key_name: admin
       networks:
-        - {network: test}
+        - {network: private}
 
   floating-ip:
     type: OS::Neutron::FloatingIP
     properties:
-      floating_network: external
+      floating_network: public
 
   association:
     type: OS::Neutron::FloatingIPAssociation
     properties:
       floatingip_id: { get_resource: floating-ip }
-      port_id: { get_attr: [server, addresses, test, 0, port]}
+      port_id: { get_attr: [server, addresses, private, 0, port]}
 #+END_SRC
 
 : openstack stack create -t ./rsc/heat-templates/9_floating_ip.yaml --wait hw9
@@ -1786,9 +1820,11 @@ Create three HOT files:
 Once it is deployed, you should be able to reach the wordpress service by
 going on [[http://<web-server-fip-address>/wp]].
 
-#+BEGIN_solution
+#+BEGIN_comment
+# solution
 Find the solution in the [[cdn-url:rsc/heat-templates/wordpress/][~rsc/heat-templates/wordpress/~]] directory.
-#+END_solution
+#+END_comment
+# solution
 #+END_do
 
 ** Database VM template                                            :solution:
@@ -1827,7 +1863,7 @@ resources:
       image: debian-9
       flavor: m1.mini
       networks:
-        - {network: test}
+        - {network: private}
       user_data:
         str_replace:
           template: { get_file: ../../install-mariadb.sh }
@@ -1839,7 +1875,7 @@ resources:
 outputs:
   DBHost:
     description: IP address of the created instance running MariaDB
-    value: { get_attr: [db-vm, networks, test, 0] }
+    value: { get_attr: [db-vm, networks, private, 0] }
 #+END_src
 
 ** Web VM template                                                 :solution:
@@ -1879,7 +1915,7 @@ resources:
       image: debian-9
       flavor: m1.mini
       networks:
-        - {network: test}
+        - {network: private}
       user_data:
         str_replace:
           template: { get_file: ../../install-wp.sh }
@@ -1892,13 +1928,13 @@ resources:
   floating-ip:
     type: OS::Neutron::FloatingIP
     properties:
-      floating_network: external
+      floating_network: public
 
   association:
     type: OS::Neutron::FloatingIPAssociation
     properties:
       floatingip_id: { get_resource: floating-ip }
-      port_id: { get_attr: [wp-vm, addresses, test, 0, port]}
+      port_id: { get_attr: [wp-vm, addresses, private, 0, port]}
 #+END_src
 
 ** Wordpress application template                                  :solution:
@@ -2046,6 +2082,7 @@ EOF
 #+END_src
 # This is not needed anymore (at least, with SSH tunneling)
 # define('WP_SITEURL', 'http://' . $_SERVER['HTTP_HOST'] . '/wp');
+
 * Footnotes
 [fn:g5k-tunnel] For sure, you always can setup an SSH tunnel but this
 is a bit annoying.
