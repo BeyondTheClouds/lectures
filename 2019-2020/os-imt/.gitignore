@@ -1,6 +1,13 @@
-index.html 
+index.html
 index.txt
 *.retry
+setup-infra/heat/current
+setup-infra/heat/enos_*
+setup-infra/heat/_tmp_enos_
+setup-infra/heat/venv_kolla
+rsc/
+setup.sh
+teardown.sh
 
 # Created by https://www.gitignore.io/api/python
 # Edit at https://www.gitignore.io/?templates=python

@@ -6,10 +6,11 @@ import yaml
 
 import openstack
 import enos.task as enos
+from enoslib.task import enostask
 
 
-# logging.basicConfig(level=logging.ERROR)
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.ERROR)
+# logging.basicConfig(level=logging.DEBUG)
 LOG   = logging.getLogger(__name__)
 TEAMS = [
     ("ronana",      "alebre"),
@@ -30,8 +31,9 @@ TEAMS = [
 ENOS_CONF = {
     'provider': {
         'type': 'g5k',
+        'env_name': 'debian9-x64-min',
         'job_name': 'os-imt-heat',
-        'walltime': '04:00:00'
+        'walltime': '06:00:00'
     },
     'resources': {
         'paravance': {
@@ -52,35 +54,13 @@ ENOS_CONF = {
     }
 }
 
-ENOS_ENV = None
-# with f as open("/home/rcherrueau/enos-5.0.1/current/env", "r"):
-#     ENOS_ENV = yaml.load(f)
 
-ENOS_ENV = {'networks': [
-    {
-        "cidr": "10.16.0.0/18",
-        "dns": "172.16.111.118",
-        "end": "10.16.61.251",
-        "gateway": "10.16.63.254",
-        "roles": ["network_interface"],
-        "start": "10.16.26.0",
-    },
-    {
-        "cidr": "10.16.64.0/18",
-        "dns": "172.16.111.118",
-        "end": "10.16.125.255",
-        "gateway": "10.16.127.254",
-        "roles": ["neutron_external_interface"],
-        "start": "10.16.90.0",
-    }
-]}
+@enostask()
+def install_os(env=None):
+    args = { '--force-deploy': False, '--env': env, }
+    enos.deploy(ENOS_CONF, **args)
 
-
-def install_os():
-    kwargs = {
-        '--force-deploy': False,
-        '--env': None, }
-    enos.deploy(ENOS_CONF, **kwargs)
+    return env
 
 
 def make_cloud(cloud_auth_url):
@@ -149,7 +129,7 @@ def make_account(identity, users):
     return project
 
 
-def make_private_net(net, project):
+def make_private_net(net, project, enos_env):
     # Make private net
     # https://docs.openstack.org/openstacksdk/latest/user/resources/network/v2/network.html#openstack.network.v2.network.Network
     private_net = net.find_network("private", project_id=project.id)
@@ -176,7 +156,7 @@ def make_private_net(net, project):
             cidr="10.0.0.0/24",
             gateway_ip="10.0.0.1",
             allocation_pools=[{"start": "10.0.0.2", "end": "10.0.0.254"}],
-            dns_nameservers=[ENOS_ENV['networks'][0]['dns'], "8.8.8.8"])
+            dns_nameservers=[enos_env['networks'][0]['dns'], "8.8.8.8"])
 
     LOG.info("Private subnet %s" % private_snet)
 
@@ -189,19 +169,36 @@ def make_router(net, project, priv_snet):
     public_snet = net.find_subnet("public-subnet", ignore_missing=False)
     router = net.find_router("router", project_id=project.id)
 
+
     if not router:
         router = net.create_router(
             name="router",
             project_id=project.id)
 
-        # XXX: Add public gateway
-        # res = net.add_gateway_to_router(
-        #     router,
-        #     network_id=public_net.id,
-        #     enable_snat=True,
-        #     external_fixed_ips=[{'subnet_id': public_snet.id,}])
-        # LOG.info("Res net %s" % res)
-        LOG.error("openstack router set %s --external-gateway %s" % (router.id, public_net.name))
+        # FIXME: Add public gateway
+        #
+        # The following python code doesn't work and I don't know why:
+        #
+        # > res = net.add_gateway_to_router(
+        # >     router,
+        # >     network_id=public_net.id,
+        # >     enable_snat=True,
+        # >     external_fixed_ips=[{'subnet_id': public_snet.id,}])
+        #
+        # But the following CLI is OK:
+        # $ openstack router set {router.id} --external-gateway {public_net.name}
+        #
+        # So I resume myself to the following based on python-openstackclient [1]
+        #
+        # [1] https://github.com/openstack/python-openstackclient/blob/70ab3f9dd56a638cdff516ca85baa5ebd64c888b/openstackclient/network/v2/router.py#L636-L658
+        res = net.update_router(
+            router,
+            external_gateway_info={
+                'network_id':public_net.id,
+                'enable_snat':True,
+                'external_fixed_ips':[{'subnet_id': public_snet.id,}]
+            })
+        LOG.info("Ext gateway %s" % res)
 
         res = net.add_interface_to_router(router, subnet_id=priv_snet.id)
         LOG.info("Res net %s" % res)
@@ -237,12 +234,26 @@ def make_sec_group_rule(net, project):
         LOG.info("New sgr %s" % sgr)
 
 
-install_os()
-# cloud = make_cloud("http://10.16.61.255:35357/v3")
+def make_flavors(cpt):
+    f_mini = cpt.find_flavor('m1.mini')
 
-# for team in TEAMS:
-#     project = make_account(cloud.identity, team)
-#     priv_snet = make_private_net(cloud.network, project)
-#     priv_net = make_router(cloud.network, project, priv_snet)
-#     make_sec_group_rule(cloud.network, project)
-#     # pub_net = make_public_net(cloud.network, project)
+    if not f_mini:
+        f_mini = cpt.create_flavor(
+            name='m1.mini',
+            disk=5,
+            is_public=True,
+            ram=2048,
+            vcpus=2,
+            swap=1024)
+
+    LOG.info("Flavor %s" % f_mini)
+
+
+enos_env = install_os()
+cloud = make_cloud(f"http://{enos_env['config']['vip']}:35357/v3")
+for team in TEAMS:
+    project = make_account(cloud.identity, team)
+    priv_snet = make_private_net(cloud.network, project, enos_env)
+    priv_net = make_router(cloud.network, project, priv_snet)
+    make_sec_group_rule(cloud.network, project)
+    make_flavors(cloud.compute)

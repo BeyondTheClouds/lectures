@@ -88,7 +88,7 @@ Find the slides of the lecture [[cdn-url:2018-2019/os-polytech/docs/CloudFogEdge
 #+END_SRC
 
 ** Export
-Do ~C-c C-c~ on the following
+Do ~C-c C-c~ in the following
 #+NAME: export
 #+BEGIN_SRC elisp :results silent :noweb yes
 (delete-directory "rsc" t)
@@ -100,11 +100,12 @@ Do ~C-c C-c~ on the following
 (defun f-cmd (&rest cmds) (s-join " " cmds))
 (shell-command (f-cmd "tar czf tp.tar.gz"
                       "index.txt" "setup.sh"
-                      "install-heat.sh"
                       "teardown.sh" "rsc"))
 #+END_SRC
 
 ** Publish
+Do ~C-c C-c~ in the following.
+
 Put it on my personal website and change the link to org file to link
 the one in
 #+NAME: publish
@@ -124,6 +125,8 @@ the one in
 #+END_SRC
 
 ** Hide/show solutions
+Do ~C-c C-c~ in one of the followings.
+
 Hide solutions
 #+BEGIN_SRC elisp :results silent :noweb yes
 (save-excursion
@@ -140,14 +143,10 @@ Show solutions
   (save-buffer))
 #+END_SRC
 
-** Setup microstack
-For the first part of the TP (Sec. [[#sec:req]] to [[#sec:devops]])
-
 * Requirements and Setup
 :PROPERTIES:
 :CUSTOM_ID: sec:req
 :END:
-
 ** Environment
 OpenStack needs, at least, 6 Go of RAM to run. And plenty more to
 start VMs on it. Therefore, this lab relies on [[https://www.grid5000.fr/][Grid'5000]], a testbed
@@ -255,7 +254,7 @@ The rest of this lab proceeds on the Lab machine.
 Get the resources of the lab at [[cdn-url:2019/os-imt/tp.tar.gz]].
 
 #+BEGIN_SRC bash
-curl -O https://github.com/BeyondTheClouds/lectures/blob/3c07b45dfd659cfb5063a199ef92cb09783cb1d8/2019-2020/os-imt/tp.tar.gz?raw=true
+curl -O https://github.com/BeyondTheClouds/lectures/tree/master/2019-2020/os-imt/tp.tar.gz?raw=true
 mkdir ~/os-imt
 tar xzf tp.tar.gz -C ~/os-imt
 cd ~/os-imt
@@ -1023,7 +1022,7 @@ Contextualizing a VM with KVM" | lolcat~ command.
 
 * Deploy a WordPress as a Service (as a DevOps)
 :PROPERTIES:
-:CUSTOM_ID: sec:devops
+:CUSTOM_ID: sec:wp-devops
 :END:
 In the previous sessions, we saw how to boot a VM with OpenStack, and
 execute a post-installation script using the ~user-data~ mechanism.
@@ -1140,6 +1139,9 @@ Then, reach WordPress on [[http://localhost:8080/wp]].
 #+END_do
 
 * Automatize the Deployment with Heat
+:PROPERTIES:
+:CUSTOM_ID: sec:heat
+:END:
 [[heat-doc][Heat]] is the OpenStack orchestrator: it eats templates (called HOT for
 Heat Orchestration Template - which are files written in YAML)
 describing the OpenStack infrastructure you want to deploy (e.g. VMs,
@@ -1757,6 +1759,9 @@ python -c "print('floating ip is %s' % ${FIP_RSC_ATTRIBUTES}['floating_ip_addres
 #+END_src
 
 * Deploy a WordPress as a Service (as a Heat DevOps)
+:PROPERTIES:
+:CUSTOM_ID: sec:wp-heat
+:END:
 As a DevOps at {{{co}}} -- {{{c5o}}} -- you are now in charge of the
 automation process of deploying WordPress instances for clients:
 Congratulation! To that end, you have to use what you learned from the
