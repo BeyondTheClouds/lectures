@@ -10,7 +10,7 @@
 #+PROPERTY: header-args :mkdirp yes
 #+MACRO: co  OMH
 #+MACRO: c5o Online Mine Hosting
-#+LINK: cdn-url      https://github.com/BeyondTheClouds/lectures/blob/93f3ead/%s?raw=true
+#+LINK: cdn-url      https://github.com/BeyondTheClouds/lectures/blob/f15cd40/%s?raw=true
 #+LINK: heat-doc     https://docs.openstack.org/heat/train/%s
 #+LINK: horizon-url  http://10.16.61.255:80
 
@@ -181,19 +181,17 @@ minutes for other options).
 :CUSTOM_ID: sec:assign-lab
 :END:
 Here is the assignation list of Lab machine per team:
-- ronana, alebre :: ~172.16.193.4~
-- alacour, mnoritop :: ~172.16.193.40~
-- aqueiros, rlao :: ~172.16.193.41~
-- blemee, launea :: ~172.16.193.42~
-- bpeyresaube, nguegan :: ~172.16.193.43~
-- cg, mmainchai :: ~172.16.193.44~
-- damartin, eguerin :: ~172.16.193.45~
-- jfreta, vjorda :: ~172.16.193.46~
-- kforest, maguyo :: ~172.16.193.47~
-- lparis, sedahmani :: ~172.16.193.5~
-- mmaheo, qeud :: ~172.16.193.6~
-- nfrayssinhe, thlailler :: ~172.16.193.7~
-- rgrison, tandrieu :: ~172.16.193.8~
+- ronana, alebre :: ~172.16.193.13~
+- acharpentier, ltaillebourg :: ~172.16.193.17~
+- bescouvois, ldelhommeau :: ~172.16.193.7~
+- iboughalem, brivard :: ~172.16.193.2~
+- gjacquet, kmer :: ~172.16.193.12~
+- gguirriec, sbouttier :: ~172.16.193.6~
+- vlouradour, vquiedeville :: ~172.16.193.15~
+- ebarus, cegarcia :: ~172.16.193.16~
+- vbourcier, bvrignaud :: ~172.16.193.8~
+- ytelaoumaten, llebert :: ~172.16.193.9~
+- adelforges, isow :: ~172.16.193.5~
 
 First thing first, you have to connect to the Lab machine.
 Unfortunately, the Lab machine isn't available publicly, but hides
@@ -254,7 +252,7 @@ The rest of this lab proceeds on the Lab machine.
 Get the resources of the lab at [[cdn-url:2019-2020/os-imt/tp.tar.gz]].
 
 #+BEGIN_SRC bash
-curl -O https://github.com/BeyondTheClouds/lectures/blob/93f3ead/2019-2020/os-imt/tp.tar.gz?raw=true
+curl https://github.com/BeyondTheClouds/lectures/blob/f15cd40/2019-2020/os-imt/tp.tar.gz?raw=true -o tp.tar.gz -L
 mkdir ~/os-imt
 tar xzf tp.tar.gz -C ~/os-imt
 cd ~/os-imt
@@ -283,8 +281,7 @@ Then, ensure OpenStack services are running on your machine. Find the
 snap command that lists microstack OpenStack services and there
 status? What is the purpose of each service?
 
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 : snap services microstack|sort
 
 - glance-* :: Glance to manage VM images: ~openstack image --help~.
@@ -296,8 +293,7 @@ status? What is the purpose of each service?
 - memcached :: Cache used by all OpenStack services
 - mysqld :: Database used by all OpenStack services
 - rabbitmq-server :: Communication bus used by all OpenStack services
-#+END_comment
-# solution
+#+END_solution
 #+END_do
 
 *** Installation script                                            :noexport:
@@ -453,8 +449,7 @@ most often used commands to operate your Cloud:
 #+BEGIN_do
 Using all these commands, you can use the CLI to start a new tiny
 cirros VM called ~cli-vm~.
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 #+BEGIN_src bash
 openstack server create \
   --image cirros \
@@ -462,8 +457,7 @@ openstack server create \
   --network test \
   cli-vm
 #+END_src
-#+END_comment
-# solution
+#+END_solution
 #+END_do
 
 Then, display the information about your VM with the following
@@ -541,8 +535,7 @@ Does it work? Why? Hint: [[https://docs.openstack.org/neutron/latest/feature_cla
 Find the command that list the security group rules of the ~admin~
 project. # (i.e., ~openstack project show admin~).
 
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 Regarding security rules, OpenStack is very conservative by default
 and prevents ingress and egress traffic. Spot the ~None~ value at ~IP
 Protocol~, and ~0.0.0.0/0~ [[https://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing][CIDR]] at ~IP Range~, in the result table of
@@ -562,14 +555,12 @@ $ openstack security group rule list -c ID -c "IP Protocol" -c "IP Range" $SECGR
 | 9b104d51-61d2-4a0f-bac4-36b5803ac721 | None        | ::/0      |
 +--------------------------------------+-------------+-----------+
 #+END_src
-#+END_comment
-# solution
+#+END_solution
 
 Then, make it work for ~10.20.20.0/24~ network. See examples of
 security groups rules in the [[https://docs.openstack.org/neutron/latest/admin/deploy-lb-selfservice.html#verify-network-operation][neutron doc]].
 
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 To make it work, you have to setup new rules in the security group of
 the ~admin~ project. The following rules allow ICMP packets (for ping)
 and TCP on port 22 (for SSH connection) on the VM.
@@ -578,8 +569,7 @@ openstack security group rule create $SECGROUP_ID --proto icmp --remote-ip 10.20
 openstack security group rule create $SECGROUP_ID --proto tcp --remote-ip 10.20.20.0/24 \
   --dst-port 22
 #+END_src
-#+END_comment
-# solution
+#+END_solution
 #+END_do
 
 Once you succeed to ping the vm, you should also be able to SSH on it.
@@ -610,44 +600,37 @@ hints to check:
 - Ping the VM and Google *from the Lab machine*. The ping should work
   for both. What does it mean for the Lab machine regarding
   communications between VMs and the Internet?
-  #+BEGIN_comment
-# solution
+  #+BEGIN_solution
   : ping -c 2 $ALLOCATED_FIP; ping -c 2 8.8.8.8
   The ping from the Lab machine works for both the VM and Google.
   Thus, the Lab machine /could be a gateway/ between VMs and the
   Internet.
-  #+END_comment
-# solution
+  #+END_solution
 
 - Note the IP address of ~$ALLOCATED_FIP~. From which network this IP
   comes? Which NIC serves that network on the Lab machine?
-  #+BEGIN_comment
-# solution
+  #+BEGIN_solution
   : echo "$ALLOCATED_FIP"
   : openstack subnet show external-subnet -c cidr -c allocation_pools
   : ip address | fgrep -B 2 10.20.20
   The IP of the VM comes from the network 10.20.20.0/24, which is
   served on the Lab machine by ~br-ex~.
-  #+END_comment
-# solution
+  #+END_solution
 
 - Do a ~tcpdump~ on that NIC. Do you see the ICMP packets from
   ~$ALLOCATED_FIP~ that flow over that NIC?
-  #+BEGIN_comment
-# solution
+  #+BEGIN_solution
   : sudo tcpdump -nni br-ex icmp
   The ~tcpdump~ on ~br-ex~ shows ping ~echo request~ packets, but no
   ~echo reply~. So the packets are lost somewhere.... In other words,
   the Lab machine does not play its role of gateway between VMs and
   the Internet.
-  #+END_comment
-# solution
+  #+END_solution
 
 - Find the route that forward packets to the Internet on Lab machine.
   Do a ~tcpdump~ on the NIC that servers that route. Do you see the
   ICMP packets flow over that NIC?
-  #+BEGIN_comment
-# solution
+  #+BEGIN_solution
   To ensure that something is wrong on the Lab machine regarding its
   role of gateway between VMs and the Internet, let's find the route
   that forwards Google packets out of the Lab machine.
@@ -686,13 +669,11 @@ hints to check:
   new rule.
   : iptables -A FORWARD -j ACCEPT
   #+END_note
-  #+END_comment
-# solution
+  #+END_solution
 
 - After making the packets flow on the second NIC, is everything OK
   with the IP address of the source in the ~tcpdump~ on ~eth0~?
-  #+BEGIN_comment
-# solution
+  #+BEGIN_solution
   From now, the ping of Google from the VM reaches Internet via ~eth0~
   (as seen by ~tcpdump -nni eth0 icmp~). Unfortunately, it still does
   not do the trick, because the packet goes out with the ~10.20.20.*~
@@ -717,8 +698,7 @@ hints to check:
   MASQUERADE~)."
   # : sudo iptables -t nat -A POSTROUTING ! -d 10.20.20.0/24 -o <NIC-of-your-Lab-machine> -j SNAT --to-source <ip-of-your-Lab-machine>
   : sudo iptables -t nat -A POSTROUTING -s 10.20.20.0/24 ! -d 10.20.20.0/24 -j MASQUERADE
-  #+END_comment
-# solution
+  #+END_solution
 #+END_do
 
 Go on, and play with the ~openstack~ cli. For instance, list all
@@ -730,8 +710,7 @@ figure out how to:
 4. Boot a new machine ~cli-vm-clone~ from the snapshot.
 5. Delete ~cli-vm-clone~;
 
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 #+BEGIN_SRC bash
 # 1.
 openstack server ssh cli-vm -l cirros
@@ -747,8 +726,7 @@ openstack server create --wait --flavor m1.tiny \
 # 5.
 openstack server delete cli-vm-clone
 #+END_SRC
-#+END_comment
-# solution
+#+END_solution
 
 ** In encryption we trust
 :PROPERTIES:
