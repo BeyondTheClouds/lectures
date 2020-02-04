@@ -92,8 +92,8 @@ def bootstrap(rs: Roles):
 
     with play_on(roles=rs, pattern_hosts="OpenStack") as p:
         # Install the bare necessities
-        p.apt(pkg=['silversearcher-ag', 'curl', 'htop', 'tcpdump', 'vim',
-                   'kmod'])
+        p.apt(pkg=['silversearcher-ag', 'curl', 'htop', 'tcpdump',
+                   'lynx', 'vim', 'kmod'])
 
         # Setup ssh for root w/ password
         p.raw('echo "root:os-imt" | chpasswd')

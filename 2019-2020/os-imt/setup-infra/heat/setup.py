@@ -1,4 +1,11 @@
-# $ pipenv run setup-heat  # thanks to Pipfile > scripts > setup-heat
+# Install openstack on top of g5k thanks to enos and configures account for
+# students.
+#
+# Executions:
+# $ pipenv install
+# $ pipenv run setup  # thanks to Pipfile > scripts > setup-heat
+#
+
 import logging
 import os
 import socket
@@ -6,38 +13,34 @@ import yaml
 
 import openstack
 import enos.task as enos
-from enoslib.task import enostask
 
-
-logging.basicConfig(level=logging.ERROR)
-# logging.basicConfig(level=logging.DEBUG)
+# logging.basicConfig(level=logging.ERROR)
+logging.basicConfig(level=logging.DEBUG)
 LOG   = logging.getLogger(__name__)
 TEAMS = [
     ("ronana",      "alebre"),
-    ("alacour",     "mnoritop"),
-    ("aqueiros",    "rlao"),
-    ("blemee",      "launea"),
-    ("bpeyresaube", "nguegan"),
-    ("cg",          "mmainchai"),
-    ("damartin",    "eguerin"),
-    ("jfreta",      "vjorda"),
-    ("kforest",     "maguyo"),
-    ("lparis",      "sedahmani"),
-    ("mmaheo",      "qeud"),
-    ("nfrayssinhe", "thlailler"),
-    ("rgrison",     "tandrieu"),
+    ("acharpentier", "ltaillebourg"),
+    ("bescouvois", "ldelhommeau"),
+    ("iboughalem", "brivard"),
+    ("gjacquet","kmer"),
+    ("gguirriec", "sbouttier"),
+    ("vlouradour", "vquiedeville"),
+    ("ebarus", "cegarcia"),
+    ("vbourcier", "bvrignaud"),
+    ("ytelaoumaten","llebert"),
+    ("adelforges","isow"),
 ]
 
 ENOS_CONF = {
     'provider': {
         'type': 'g5k',
         'env_name': 'debian9-x64-min',
-        'job_name': 'os-imt-heat',
-        'walltime': '06:00:00'
+        'job_name': 'os-imt',
+        'walltime': '26:00:00'
     },
     'resources': {
-        'paravance': {
-            'compute': 10,
+        'ecotype': {
+            'compute': 13,
             'network': 1,
             'control': 1
         }
@@ -55,10 +58,20 @@ ENOS_CONF = {
 }
 
 
-@enostask()
-def install_os(env=None):
-    args = { '--force-deploy': False, '--env': env, }
+def install_os():
+    # Deploy openstack using enos
+    args = { '--force-deploy': False, '--env': None, }
     enos.deploy(ENOS_CONF, **args)
+
+    # Get the `env`. I could have put the `enoslib.tasks.@enostask` on top of
+    # `install_os` to get an access to the `env`. But, it doesn't always work
+    # because of the decorator that assumes `--env` is a filepath at line 100
+    # of task.py [1] despite of line 106 that accepts dict.
+    #
+    # [1] https://gitlab.inria.fr/discovery/enoslib/blob/408e3e2814454704df74fab579958b8be35e5972/enoslib/task.py#L100
+    env = None
+    with os.open('current/env', 'r') as env_file:
+        env = yaml.safe_load(env_file)
 
     return env
 
@@ -175,7 +188,7 @@ def make_router(net, project, priv_snet):
             name="router",
             project_id=project.id)
 
-        # FIXME: Add public gateway
+        # TODO: Add public gateway with `add_gateway_to_router`
         #
         # The following python code doesn't work and I don't know why:
         #
@@ -188,7 +201,8 @@ def make_router(net, project, priv_snet):
         # But the following CLI is OK:
         # $ openstack router set {router.id} --external-gateway {public_net.name}
         #
-        # So I resume myself to the following based on python-openstackclient [1]
+        # So I resume myself to write the next code based on
+        # python-openstackclient [1]
         #
         # [1] https://github.com/openstack/python-openstackclient/blob/70ab3f9dd56a638cdff516ca85baa5ebd64c888b/openstackclient/network/v2/router.py#L636-L658
         res = net.update_router(

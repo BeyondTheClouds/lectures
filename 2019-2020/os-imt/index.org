@@ -10,7 +10,7 @@
 #+PROPERTY: header-args :mkdirp yes
 #+MACRO: co  OMH
 #+MACRO: c5o Online Mine Hosting
-#+LINK: cdn-url      https://github.com/BeyondTheClouds/lectures/blob/f15cd40/%s?raw=true
+#+LINK: cdn-url      https://github.com/BeyondTheClouds/lectures/blob/5d5249c/%s?raw=true
 #+LINK: heat-doc     https://docs.openstack.org/heat/train/%s
 #+LINK: horizon-url  http://10.16.61.255:80
 
@@ -191,7 +191,7 @@ Here is the assignation list of Lab machine per team:
 - ebarus, cegarcia :: ~172.16.193.16~
 - vbourcier, bvrignaud :: ~172.16.193.8~
 - ytelaoumaten, llebert :: ~172.16.193.9~
-- adelforges, isow :: ~172.16.193.5~
+- adelforges, isow :: ~172.16.193.3~
 
 First thing first, you have to connect to the Lab machine.
 Unfortunately, the Lab machine isn't available publicly, but hides
@@ -252,7 +252,7 @@ The rest of this lab proceeds on the Lab machine.
 Get the resources of the lab at [[cdn-url:2019-2020/os-imt/tp.tar.gz]].
 
 #+BEGIN_SRC bash
-curl https://github.com/BeyondTheClouds/lectures/blob/f15cd40/2019-2020/os-imt/tp.tar.gz?raw=true -o tp.tar.gz -L
+curl https://github.com/BeyondTheClouds/lectures/blob/5d5249c/2019-2020/os-imt/tp.tar.gz?raw=true -o tp.tar.gz -L
 mkdir ~/os-imt
 tar xzf tp.tar.gz -C ~/os-imt
 cd ~/os-imt
@@ -835,29 +835,25 @@ curl -L -o /tmp/debian-9.qcow2 \
 Import the image into Glance; name it ~debian-9~. Use ~openstack image
 create --help~ for creation arguments. Find values example with
 ~openstack image show cirros~.
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 #+BEGIN_SRC bash
 openstack image create --disk-format=qcow2 \
   --container-format=bare --property architecture=x86_64 \
   --public --file /tmp/debian-9.qcow2 \
   debian-9
 #+END_SRC
-#+END_comment
-# solution
+#+END_solution
 
 And, create a new ~m1.mini~ flavor with 5 Go of Disk, 2 Go of RAM, 2
 VCPU and 1 Go of swap. Use ~openstack flavor create --help~ for
 creation arguments.
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 #+BEGIN_SRC bash
 openstack flavor create --ram 2048 \
   --disk 5 --vcpus 2 --swap 1024 \
   --public m1.mini
 #+END_SRC
-#+END_comment
-# solution
+#+END_solution
 #+END_do
 
 *** ~cloud-init~ in Action
@@ -874,8 +870,7 @@ Start a new VM named ~art-vm~ based on the ~debian-9~ image and the
 -- available under [[cdn-url:rsc/art.sh][~rsc/art.sh~]] -- that installs the [[https://github.com/cmatsuoka/figlet][~figlet~]] and
 [[https://github.com/busyloop/lolcat][~lolcat~]] softwares on the VM.
 
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 #+BEGIN_SRC bash
 openstack server create --wait --image debian-9 \
   --flavor m1.mini --network test \
@@ -883,8 +878,7 @@ openstack server create --wait --image debian-9 \
   --user-data ./rsc/art.sh \
   art-vm
 #+END_SRC
-#+END_comment
-# solution
+#+END_solution
 #+END_do
 
 #+CAPTION: ~cloud-init~ script available under [[cdn-url:rsc/art.sh][~rsc/art.sh~]]
@@ -906,8 +900,7 @@ You can follow the correct installation of software with:
 #+BEGIN_do
 Could you notice /when/ the VM has finished to boot based on the
 ~console log~ output?
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 #+BEGIN_src bash :tangle ./rsc/wordpress-deploy.sh :shebang #!/usr/bin/env bash
 function wait_contextualization {
   # Get the log
@@ -943,8 +936,7 @@ function wait_contextualization {
 
 Then use it as the following.
 : wait_contextualization art-vm
-#+END_comment
-# solution
+#+END_solution
 #+END_do
 
 Then, attach it a floating IP.
@@ -994,8 +986,7 @@ help.
 
 #+BEGIN_do
 - Check that the KVM kernel module is loaded, and load it otherwise.
-  #+BEGIN_comment
-# solution
+  #+BEGIN_solution
   /From the [[https://docs.openstack.org/nova/stein/admin/configuration/hypervisor-kvm.html#for-x86-based-systems][Nova documentation]]/
 
   Do the following command to list the loaded kernel modules and
@@ -1010,20 +1001,17 @@ help.
   : modprobe -a kvm
   : modprobe -a kvm-intel  # for Intel
   : modprobe -a kvm-amd    # for amd
-  #+END_comment
-# solution
+  #+END_solution
 
 - Change the configuration of ~nova-compute~ hypervisor (file
   ~/var/snap/microstack/common/etc/nova/nova.conf.d/hypervisor.conf~)
   to support KVM and restart it.
-  #+BEGIN_comment
-# solution
+  #+BEGIN_solution
   : NOVA_HYPERV_CONF=/var/snap/microstack/common/etc/nova/nova.conf.d/hypervisor.conf
   : sudo sed -i 's|virt_type.\+|virt_type = kvm|' $NOVA_HYPERV_CONF
   : sudo sed -i 's|cpu_mode.\+|cpu_mode = host-passthrough|' $NOVA_HYPERV_CONF
   : sudo snap restart microstack.nova-compute
-  #+END_comment
-# solution
+  #+END_solution
 #+END_do
 
 Finally, create a new VM such as in the [[#sec:cloud-init][previous section]] and
@@ -1061,13 +1049,14 @@ As the DevOps of {{{co}}} -- {{{c5o}}} -- your job is to automatize
 the deployment of WordPress on your OpenStack. To do so, you have to
 make a bash script that:
 
-1. Starts ~wordpress-db~: a VM that contains the MariaDB database for
+1. Start ~wordpress-db~: a VM that contains the MariaDB database for
    WordPress.
-2. Waits until its final deployment (the database is running)
-3. Starts ~wordpress-app~: a VM that contains a web server and serves
+2. Wait until its final deployment (the database is running)
+3. Start ~wordpress-app~: a VM that contains a web server and serves
    the Wordpress CMS.
-4. Finally, connects to the WordPress website and initializes a new
-   WordPress project named ~os-oph~.
+4. Finally, connect with your browser to the WordPress website
+   ([[http://<ip-of-your-lab>:8080/wp]]) and initializes a new WordPress
+   project named ~os-omh~.
 
 The ~rsc~ directory provides bash scripts to deploy the MariaDB
 database and web server of WordPress (also in [[*Appendix][Appendix]]). Review it
@@ -1075,8 +1064,7 @@ before going any further (spot the *TODO*).
 
 Also, remind to [[#sec:debian9-ftw][clean your environment]].
 
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 Find the solution in the [[cdn-url:rsc/wordpress-deploy.sh][~rsc/wordpress-deploy.sh~]] script.
 
 First thing first, enable HTTP connections.
@@ -1135,7 +1123,7 @@ openstack server add floating ip wordpress-app "${WP_APP_FIP}"
 #+END_SRC
 
 Setup redirection to access your floating ip on port 80.
-: sudo iptables -t nat -A PREROUTING -p tcp --dport 8081 -j DNAT --to "${WP_APP_FIP}:80"
+: sudo iptables -t nat -A PREROUTING -p tcp --dport 8080 -j DNAT --to "${WP_APP_FIP}:80"
 
 Finally, you can reach WordPress on [[http://<ip-of-your-lab>:8080/wp]].
 
@@ -1146,8 +1134,7 @@ from your own machine.
 
 Then, reach WordPress on [[http://localhost:8080/wp]].
 #+END_note
-#+END_comment
-# solution
+#+END_solution
 #+END_do
 
 * Automatize the Deployment with Heat
@@ -2028,7 +2015,7 @@ DB_HOST=<TODO>
 
 apt-get update -y
 apt-get upgrade -y
-apt-get install -q -y --force-yes wordpress apache2 curl
+apt-get install -q -y --force-yes wordpress apache2 curl lynx
 
 cat << EOF > /etc/apache2/sites-available/wp.conf
 Alias /wp/wp-content /var/lib/wordpress/wp-content

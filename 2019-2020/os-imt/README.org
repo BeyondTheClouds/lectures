@@ -3,6 +3,11 @@
 #+AUTHOR: Ronan-Alexandre Cherrueau, Adrien Lebre, Didier Iscovery
 #+EMAIL: {firstname.lastname}@inria.fr
 
+* Subject
+The subject is available in the [[file:index.org]] file.
+Refer to Sec. [[file:index.org::*Lecture
+ Notes][Lecture Notes]] on how to export and publish it on the net.
+
 * Setup the lab
 On a g5k frontend.
 
@@ -44,8 +49,3 @@ router communications with the private net. For each team:
 - Project name :: ~project-<g5k-user-name1>-...-<g5k-user-nameN>~
 - login :: ~<g5k-user-name>~
 - password :: ~os-imt~
-
-* Subject
-The subject is available in the [[file:index.org]] file.
-Refer to Sec. [[file:index.org::*Lecture
- Notes][Lecture Notes]] on how to export and publish it on the net.
