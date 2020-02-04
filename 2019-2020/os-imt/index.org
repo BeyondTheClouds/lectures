@@ -867,7 +867,7 @@ extra argument to the regular ~openstack server create~ command.
 #+BEGIN_do
 Start a new VM named ~art-vm~ based on the ~debian-9~ image and the
 ~m1.mini~ flavor. The VM should load and execute the script [[lst:art.sh]]
--- available under [[cdn-url:rsc/art.sh][~rsc/art.sh~]] -- that installs the [[https://github.com/cmatsuoka/figlet][~figlet~]] and
+-- available under ~rsc/art.sh~ -- that installs the [[https://github.com/cmatsuoka/figlet][~figlet~]] and
 [[https://github.com/busyloop/lolcat][~lolcat~]] softwares on the VM.
 
 #+BEGIN_solution
@@ -881,7 +881,7 @@ openstack server create --wait --image debian-9 \
 #+END_solution
 #+END_do
 
-#+CAPTION: ~cloud-init~ script available under [[cdn-url:rsc/art.sh][~rsc/art.sh~]]
+#+CAPTION: ~cloud-init~ script available under ~rsc/art.sh~
 #+NAME: lst:art.sh
 #+BEGIN_SRC bash :tangle ./rsc/art.sh
 #!/usr/bin/env bash
@@ -1065,7 +1065,8 @@ before going any further (spot the *TODO*).
 Also, remind to [[#sec:debian9-ftw][clean your environment]].
 
 #+BEGIN_solution
-Find the solution in the [[cdn-url:rsc/wordpress-deploy.sh][~rsc/wordpress-deploy.sh~]] script.
+Find the solution in the ~rsc/wordpress-deploy.sh~ script of the
+tarball.
 
 First thing first, enable HTTP connections.
 #+BEGIN_SRC bash
@@ -1076,7 +1077,7 @@ openstack security group rule create $SECGROUP_ID \
 
 Then start a VM with the ~wordpress-db~ name, ~debian-9~ image,
 ~m1.mini~ flavor, ~test~ network and ~admin~ key-pair. Also,
-contextualize your VM with the [[cdn-url:rsc/install-mariadb.sh][~rsc/install-mariadb.sh~]] script thanks
+contextualize your VM with the ~rsc/install-mariadb.sh~ script thanks
 to the ~--user-data ./rsc/install-mariadb.sh~ option.
 
 #+BEGIN_SRC bash :tangle ./rsc/wordpress-deploy.sh
@@ -1091,7 +1092,7 @@ wait_contextualization wordpress-db
 
 Next, start a VM with ~wordpress-app~ name, ~debian-9~ image,
 ~m1.mini~ flavor, ~test~ network and ~admin~ key-pair. Also,
-contextualize your VM with the [[cdn-url:rsc/install-wp.sh][~rsc/install-wp.sh~]] script thanks to
+contextualize your VM with the ~rsc/install-wp.sh~ script thanks to
 the ~--user-data ./rsc/install-wp.sh~ option. Note that you need to
 provide the IP address of the ~wordpress-db~ to this script before
 running it.
@@ -1787,7 +1788,10 @@ going on [[http://<web-server-fip-address>/wp]].
 
 #+BEGIN_comment
 # solution
-Find the solution in the [[cdn-url:rsc/heat-templates/wordpress/][~rsc/heat-templates/wordpress/~]] directory.
+
+Find the solution in the ~rsc/heat-templates/wordpress/~ directory of
+the tarball and in the following subsections.
+
 #+END_comment
 # solution
 #+END_do
