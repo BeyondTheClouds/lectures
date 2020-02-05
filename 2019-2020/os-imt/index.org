@@ -25,7 +25,7 @@
 #+HTML_HEAD: <style>#table-of-contents .tag {display: none;}</style>
 
 #+EXCLUDE_TAGS: noexport
-#+EXCLUDE_TAGS: solution
+# #+EXCLUDE_TAGS: solution
 
 #+BEGIN_abstract
 OpenStack has become the de-facto solution to operate compute, network
@@ -1792,14 +1792,12 @@ Create three HOT files:
 Once it is deployed, you should be able to reach the wordpress service by
 going on [[http://<web-server-fip-address>/wp]].
 
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 
 Find the solution in the ~rsc/heat-templates/wordpress/~ directory of
 the tarball and in the following subsections.
 
-#+END_comment
-# solution
+#+END_solution
 #+END_do
 
 ** Database VM template                                            :solution:
