@@ -12,7 +12,7 @@
 #+MACRO: c5o Online Mine Hosting
 #+LINK: cdn-url      https://github.com/BeyondTheClouds/lectures/blob/5d5249c/%s?raw=true
 #+LINK: heat-doc     https://docs.openstack.org/heat/train/%s
-#+LINK: horizon-url  http://10.16.61.255:80
+#+LINK: horizon-url  http://10.24.61.255
 
 # -- HTML specific options
 #+OPTIONS: html-link-use-abs-url:nil html-preamble:t html-scripts:t html-style:t html5-fancy:t tex:t
@@ -1054,8 +1054,12 @@ make a bash script that:
 2. Wait until its final deployment (the database is running)
 3. Start ~wordpress-app~: a VM that contains a web server and serves
    the Wordpress CMS.
-4. Finally, connect with your browser to the WordPress website
-   ([[http://<ip-of-your-lab>:8080/wp]]) and initializes a new WordPress
+4. Expose ~wordpress-app~ to the world via your-lab-machine on a
+   specific port (because our floating IPs are not real public IPs and
+   thus inaccessible from the world). Something like
+   [[http://<ip-of-your-lab>:8080]], or [[http://<ip-of-your-lab>:999]].
+5. Finally, connect with your browser to the WordPress website (i.e.,
+   [[http://<ip-of-your-lab>:8080/wp]]) and initializes a new WordPress
    project named ~os-omh~.
 
 The ~rsc~ directory provides bash scripts to deploy the MariaDB
@@ -1097,7 +1101,7 @@ the ~--user-data ./rsc/install-wp.sh~ option. Note that you need to
 provide the IP address of the ~wordpress-db~ to this script before
 running it.
 
-Set the script with IP address of ~wordpress-db~ # and floating ip
+Set the script with IP address of ~wordpress-db~.
 #+BEGIN_SRC bash :tangle ./rsc/wordpress-deploy.sh
 sed -i '13s|.*|DB_HOST="'$(openstack server show wordpress-db -c addresses -f value | sed -Er "s/test=//g")'"|' ./rsc/install-wp.sh
 #+END_SRC
@@ -1159,17 +1163,17 @@ the [[https://github.com/openstack/heat-templates][heat-templates repository]].
 In this last part, the teacher has setup an OpenStack in a DataCenter
 (here, on top of Grid'5000) and created member account and project for
 each of you (not admin). As a preamble, you should:
-- Connect to the Grid'5000 VPN (see §[[#sec:assign-lab]]).
+- Connect to the Grid'5000 VPN (Sec.\nbsp{}[[#sec:assign-lab]]).
 - Go on the [[horizon-url][horizon dashbord]] of teacher's OpenStack and download the
-  "OpenStack RC File V3" (see §[[#sec:os-cli]]) on your own machine.
+  "OpenStack RC File V3" (Sec.\nbsp{}[[#sec:os-cli]]) on your own machine.
   + user name: your Grid'5000 login
   + password: ~os-imt~
 - [[https://github.com/openstack/python-openstackclient/tree/stable/rocky#getting-started][Install the OpenStack CLI]] and [[https://github.com/openstack/python-heatclient/tree/stable/rocky][Heat CLI]] on your own machine.
   # : alias openstack="pipenv run openstack"
 - Source the "OpenStack RC File V3".
-- Reimport (or maybe recreate) your admin SSH key (see
-  §[[#sec:enc-trust]]).
-- Download the last version of the Lab resources (see §[[#sec:rscs-lab]]).
+- Reimport (or maybe recreate) your admin SSH key
+  (Sec.\nbsp{}[[#sec:enc-trust]]).
+- Download the last version of the Lab resources (Sec.\nbsp{}[[#sec:rscs-lab]]).
 
 Resource names change a bit from previously. Do not hesitate to run
 some commands such as the following to know about new names.
@@ -1450,12 +1454,12 @@ openstack server ssh --login debian --identity ./admin.pem hello_cloud_init
 openstack stack delete --wait --yes hw4
 #+end_src
 
-#+begin_note
+#+BEGIN_note
 Find the ~user_data~ file executed on the VM by cloud-init at
 ~/var/lib/heat-cfntools/cfn-userdata~. This path comes from the log of
 the VM boot (using ~openstack console log show hello_cloud_init~)
 right after the log ~Cloud-init v. ... running~.
-#+end_note
+#+END_note
 
 ** Dynamic configuration with ~cloud-init~ and parameters
 Let's mix parameters and cloud-init to write a template with a
@@ -1711,9 +1715,11 @@ resources:
 # time.
 # : the_remote_hostname: { get_attr: [provider-vm, resources.heat-vm, name] }
 
-
-# openstack stack create -t ./rsc/heat-templates/8_nested_template_exchange.yaml hw8 \
-#   && watch openstack server list
+#+BEGIN_src bash
+openstack stack create -t ./rsc/heat-templates/8_nested_template_exchange.yaml hw8 \
+  && watch openstack server list
+openstack stack delete --wait --yes hw8
+#+END_SRC
 
 ** Other type of resources: floating IP
 It's Floating IP time!
@@ -2015,7 +2021,7 @@ echo "nameserver 8.8.8.8" >> /etc/resolv.conf
 DB_NAME=wordpress
 DB_USER=silr
 DB_PASSWORD=silr
-DB_HOST=<TODO>
+DB_HOST=TODO
 
 apt-get update -y
 apt-get upgrade -y
