@@ -9,7 +9,6 @@
 #+OPTIONS: ^:{} ':t email:t toc:nil
 #+PROPERTY: header-args :mkdirp yes
 #+LINK: cdn-url      https://github.com/BeyondTheClouds/lectures/blob/5d5249c/%s?raw=true
-#+LINK: os-doc       %(os-doc)
 #+LINK: horizon-url  http://10.24.61.255
 
 # -- HTML specific options
@@ -89,8 +88,6 @@ reviewing the [[lst:export]] and [[lst:publish]] scripts.
 Do ~C-c C-c~ in the following
 #+NAME: lst:export
 #+BEGIN_SRC elisp :results silent :noweb yes
-<<os-doc>>
-
 (delete-directory "rsc" t)
 (org-babel-tangle)
 (org-ascii-export-to-ascii)
@@ -142,17 +139,6 @@ Show solutions
     (replace-match "\\1_solution"))
   (save-buffer))
 #+END_SRC
-
-** Compute links
-#+NAME: os-doc
-#+begin_src elisp :results silent :noweb yes
-(defun os-doc (tag)
-  (let* ((split-tag (s-split "," tag))
-         (os-service (or (-first-item split-tag)
-                         (error "OpenStack service name is required in %s" tag)))
-         (os-url     (or (-second-item split-tag) "")))
-    (s-lex-format "https://docs.openstack.org/${os-service}/ussuri/${os-url}")))
-#+end_src
 
 * Requirements and Setup
 :PROPERTIES:
@@ -302,6 +288,7 @@ set -o xtrace
 
 # Set the admin password to keystone
 snap set microstack config.credentials.keystone-password=keystone
+snap set microstack config.host.check-qemu=False
 
 # Initialize  OpenStack
 microstack.init --auto --control
@@ -347,7 +334,7 @@ set -o xtrace
 <<lst:undo-extnet-setup>>
 
 sudo snap remove --purge openstackclients
-sudo microstack.remove --auto --purge
+sudo snap remove --purge microstack
 #+END_SRC
 
 * Play with OpenStack (as an Admin)
@@ -364,7 +351,7 @@ machine, horizon is reachable from the web browser at
 From here, you can reach ~Project > Compute > Instances > Launch
 Instance~ and boot a virtual machine given the following information:
 - a name (e.g., ~horizon-vm~)
-- an image (e.g., ~cirros~) and set the "Create New Volume" to "No"
+- an image (e.g., ~cirros~) and set the ~Create New Volume~ to "No"
 - a flavor to limit the resources of your instance (we recommend
   ~m1.tiny~)
 - and a network setting (must be ~test~)
@@ -393,33 +380,6 @@ the tool of choice for an operator. An operator prefers command line
 interface 😄. You are lucky, OpenStack provides such a command line
 interface.
 
-To use it, you need to set your environment with the OpenStack
-credentials, so that the command line won't bother you by requiring
-credentials each time. You can retrieve this information through the
-Horizon interface by clicking on the ~admin~ dropdown list at the top
-right corner, and get the "OpenStack RC File V3" (or by following
-[[http://<ip-of-your-lab-machine>/project/api_access/openrc/]]).
-
-To setup your environment please download and source this file on your
-Lab machine.
-: source ./admin-openrc.sh
-
-You can then check that your environment is correctly set.
-#+begin_src bash
-$ env|fgrep OS_|sort
-
-OS_AUTH_URL=http://<ip-of-your-lab-machine>:5000/v3/
-OS_IDENTITY_API_VERSION=3
-OS_INTERFACE=public
-OS_PASSWORD=keystone
-OS_PROJECT_DOMAIN_ID=default
-OS_PROJECT_ID=2bad71b9246a4a06a0c9daf2d8896108
-OS_PROJECT_NAME=admin
-OS_REGION_NAME=microstack
-OS_USER_DOMAIN_NAME=Default
-OS_USERNAME=admin
-#+end_src
-
 All operations to manage OpenStack are done through one unique command
 line, called ~openstack <service> <action> ...~. Doing an ~openstack
 --help~ displays the /really long/ list of services/possibilities
@@ -434,6 +394,60 @@ most often used commands to operate your Cloud:
 - Get details on a specific VM :: ~openstack server show <vm-name>~
 - Start a new VM :: ~openstack server create --image <image-name> --flavor <flavor-name> --nic net-id=<net-id> <vm-name>~
 - View VMs logs :: ~openstack console log show <vm-name>~
+
+#+BEGIN_do
+Try one of these commands. Does it works? What is the problem, how to
+fix it?
+
+#+BEGIN_solution
+#+BEGIN_SRC bash
+$ openstack endpoint list
+Missing value auth-url required for auth plugin password
+#+END_SRC
+
+Similarly to Horizon, you have to provide your credentials to the
+OpenStack CLI and tell it the URL of the authentication service.
+There are *two options* to achieve this.  First, to give them as
+arguments of the command.
+
+#+BEGIN_SRC bash
+openstack endpoint list --os-auth-url=http://172.16.96.49:5000/v3/ \
+                        --os-username=admin \
+                        --os-password=keystone \
+                        --os-project-name=admin \
+                        --os-user-domain-name=Default \
+                        --os-project-domain-id=default
+#+END_SRC
+
+This is a bit cumbersome since you have to give them every time.  The
+second option consists in seting your credentials as variables in your
+bash [[https://www.gnu.org/software/coreutils/manual/html_node/env-invocation.html#env-invocation][environment]].  Hence, the CLI automatically reads these variables
+instead.  You can find a pre-generated file with all variables
+properly set under the Horizon interface by clicking on the ~admin~
+dropdown list at the top right corner, and get the "OpenStack RC
+File".
+
+To setup your environment, download and source this file on your Lab
+machine.
+: source ./admin-openrc.sh
+
+You can then check that your environment is correctly set.
+#+BEGIN_SRC bash
+$ env|fgrep OS_|sort
+
+OS_AUTH_URL=http://<ip-of-your-lab-machine>:5000/v3/
+OS_IDENTITY_API_VERSION=3
+OS_INTERFACE=public
+OS_PASSWORD=keystone
+OS_PROJECT_DOMAIN_ID=default
+OS_PROJECT_ID=2bad71b9246a4a06a0c9daf2d8896108
+OS_PROJECT_NAME=admin
+OS_REGION_NAME=microstack
+OS_USER_DOMAIN_NAME=Default
+OS_USERNAME=admin
+#+END_SRC
+#+END_solution
+#+END_do
 
 #+BEGIN_do
 Using all these commands, you can use the CLI to start a new tiny
@@ -468,6 +482,7 @@ command.
 #+BEGIN_solution
 : openstack server create --help
 #+BEGIN_example
+...
 output formatters:
   output formatter options
 
@@ -475,6 +490,7 @@ output formatters:
                         the output format, defaults to table
   -c COLUMN, --column COLUMN
                         specify the column(s) to include, can be repeated
+...
 #+END_example
 #+END_solution
 #+END_do
@@ -498,7 +514,7 @@ cli-vm login:
 #+END_EXAMPLE
 
 *** Make the world reaches the VM
-The [[os-doc:neutron,lala][neutron]] service manage networks in OpenStack.  Neutron
+The [[os-doc:neutron][neutron]] service manage networks in OpenStack.  Neutron
 distinguishes, at least two kind of networks.  First, the /project (or
 tenant) network/ to provide communication between VMs of the same
 project.  Second, the /provider (or external) network/ to provide an
@@ -514,8 +530,7 @@ dashboard).  Ensure that you *cannot* ping that VM from the Lab machine.
 
 #+BEGIN_solution
 #+BEGIN_SRC bash
-PRIV_IP=$(openstack server show cli-vm -c addresses -f value |\
-          sed -E 's/test=(.+), .*/\1/g')
+PRIV_IP=$(openstack server show cli-vm -c addresses -f value | sed -E 's/test=(.+)/\1/g')
 echo "Private IP of cli-vm is ${PRIV_IP}"
 ping -c 3 "${PRIV_IP}" # From horizon-vm: 0% packet loss, From lab: 100% packet loss
 #+END_SRC
@@ -524,18 +539,16 @@ ping -c 3 "${PRIV_IP}" # From horizon-vm: 0% packet loss, From lab: 100% packet 
 
 To ping your VM from the Lab machine, you have to affect it an IP
 address of the ~external~ network.  The management of the external
-network typically is done at the level of the infrastructure and not
+network is done typically at the level of the infrastructure and not
 by OpenStack.  OpenStack allows to access IP addresses of that network
-using /floating IPs/.  The main advantage of such floating IPs is that
-it is not allocated to VMs by default. Rather, an operator needs to
-explicitly "grab" one from a pool and then attach it to its VM. Thus,
-if the VM dies for some reason, the user does not lose the floating IP
--- it remains his own resource, ready to be attached to another VM.
-For instance, OVH uses that mechanism to assign public IP addresses to
-VMs.  This mechanism also allows load balancing.
-
-For instance, the physical network that interconnects
-in the Data Center.
+using /floating IPs/.  The main advantage of such a floating IP is
+that it is not allocated to a specific VM by default. Rather, an
+operator needs to explicitly "grab" one from a pool and then attach it
+to its VM. Thus, if the VM dies for some reason, the operator does not
+lose the floating IP -- it remains her own resource, ready to be
+attached to another VM.  For instance, OVH uses that mechanism to
+assign public IP addresses to VMs.  This mechanism also allows load
+balancing.
 
 Affect a floating IP of the ~external~ network to your machine if you
 want it to be pingable from the host.
@@ -2091,4 +2104,12 @@ is a bit annoying.
 # <p class=\"date\">Last modification: %C</p>
 # <p class=\"license\">This work is licensed under a <a rel=\"license\" href=\"http://creativecommons.org/licenses/by-sa/4.0/\">Creative Commons Attribution-ShareAlike 4.0 International License</a>.</p>
 # <p class=\"creator\">%c – <a href=\"http://gongzhitaao.org/orgcss\">Zhitao Gong</a> customized theme</p>"
+# eval: (progn
+# (defun os-doc (tag)
+#           (let* ((split-tag (s-split "," tag))
+#                  (os-service (or (-first-item split-tag)
+#                                  (error "OpenStack service name is required in %s" tag)))
+#                  (os-url     (or (-second-item split-tag) "")))
+#             (s-lex-format "https://docs.openstack.org/${os-service}/ussuri/${os-url}")))
+# (add-to-list 'org-link-abbrev-alist-local '("os-doc" . "%(os-doc)")))
 # End:
