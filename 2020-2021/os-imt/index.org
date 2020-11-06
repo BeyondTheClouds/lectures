@@ -4,24 +4,6 @@
 #+EMAIL: {firstname.lastname}@inria.fr
 #+DATE: [2020-11-02 Mon]
 
-#+STARTUP: entitiespretty
-#+LANGUAGE: en
-#+OPTIONS: ^:{} ':t email:t toc:nil
-#+PROPERTY: header-args :mkdirp yes
-#+LINK: cdn-url      https://github.com/BeyondTheClouds/lectures/blob/5d5249c/%s?raw=true
-#+LINK: horizon-url  http://10.24.61.255
-
-# -- HTML specific options
-#+OPTIONS: html-link-use-abs-url:nil html-preamble:t html-scripts:t html-style:t html5-fancy:t tex:t
-#+HTML_DOCTYPE: html5
-#+HTML_CONTAINER: div
-#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="../../../rsc/org.css" />
-#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="../../rsc/org.css" />
-#+HTML_HEAD: <style>#table-of-contents .tag {display: none;}</style>
-
-#+EXCLUDE_TAGS: noexport
-# #+EXCLUDE_TAGS: solution
-
 #+BEGIN_abstract
 OpenStack has become the de-facto solution to operate compute, network
 and storage resources in public and private clouds. In this lab, we
@@ -51,7 +33,7 @@ Find the slides of the lecture [[cdn-url:2018-2019/os-polytech/docs/CloudFogEdge
     - [[#make-the-world-reaches-the-vm][Make the world reaches the VM]]
   - [[#in-encryption-we-trust][In encryption we trust]]
   - [[#the-art-of-contextualizing-a-vm][The art of contextualizing a VM]]
-    - [[#debian-9-ftw][Debian 9 FTW]]
+    - [[#debian-10-ftw][Debian 10 FTW]]
     - [[#cloud-init-in-action][~cloud-init~ in Action]]
   - [[#run-vms-at-near-native-speed][Run VMs at (near-)native speed]]
 - [[#deploy-a-wordpress-as-a-service-as-a-devops][Deploy a WordPress as a Service (as a DevOps)]]
@@ -71,8 +53,8 @@ Find the slides of the lecture [[cdn-url:2018-2019/os-polytech/docs/CloudFogEdge
   - [[#web-vm-template][Web VM template]]
   - [[#wordpress-application-template][Wordpress application template]]
 - [[#appendix][Appendix]]
-  - [[#install-mariadb-on-debian-9][Install MariaDB on Debian 9]]
-  - [[#install-wordpress-application-on-debian-9][Install Wordpress application on Debian 9]]
+  - [[#install-mariadb-on-debian-10][Install MariaDB on Debian 10]]
+  - [[#install-wordpress-application-on-debian-10][Install Wordpress application on Debian 10]]
 - [[#footnotes][Footnotes]]
 
 * Lecture Notes for the Teacher                                    :noexport:
@@ -88,16 +70,13 @@ reviewing the [[lst:export]] and [[lst:publish]] scripts.
 Do ~C-c C-c~ in the following
 #+NAME: lst:export
 #+BEGIN_SRC elisp :results silent :noweb yes
-(delete-directory "rsc" t)
+(delete-directory "output" t)
 (org-babel-tangle)
 (org-ascii-export-to-ascii)
 (org-html-export-to-html)
 
 ;; Make the tp.tar.gz
-(defun f-cmd (&rest cmds) (s-join " " cmds))
-(shell-command (f-cmd "tar czf tp.tar.gz"
-                      "index.txt" "setup.sh"
-                      "teardown.sh" "rsc"))
+(shell-command "tar czf tp.tar.gz --transform s/^output/tp/")
 #+END_SRC
 
 ** Publish
@@ -282,7 +261,7 @@ status? What is the purpose of each service?
 #+END_do
 
 *** Setup script                                                   :noexport:
-#+BEGIN_SRC bash :noweb tangle :tangle ./setup.sh :shebang #!/usr/bin/env bash
+#+BEGIN_SRC bash :noweb tangle :tangle output/setup.sh :shebang #!/usr/bin/env bash
 set -o errexit
 set -o xtrace
 
@@ -328,7 +307,7 @@ set -o xtrace
 #+END_SRC
 
 *** Teardown script                                                :noexport:
-#+BEGIN_SRC bash :noweb tangle :tangle ./teardown.sh :shebang #!/usr/bin/env bash
+#+BEGIN_SRC bash :noweb tangle :tangle output/teardown.sh :shebang #!/usr/bin/env bash
 set -o xtrace
 
 <<lst:undo-extnet-setup>>
@@ -377,8 +356,7 @@ the command line interface ...
 :END:
 While Horizon is helpful to discover OpenStack features, this is not
 the tool of choice for an operator. An operator prefers command line
-interface 😄. You are lucky, OpenStack provides such a command line
-interface.
+interface 😄. You are lucky, OpenStack provides one.
 
 All operations to manage OpenStack are done through one unique command
 line, called ~openstack <service> <action> ...~. Doing an ~openstack
@@ -397,7 +375,7 @@ most often used commands to operate your Cloud:
 
 #+BEGIN_do
 Try one of these commands. Does it works? What is the problem, how to
-fix it?
+fix it? Hint: Look at the [[os-doc:python-openstackclient,cli/authentication.html][password authentication process]] for the CLI.
 
 #+BEGIN_solution
 #+BEGIN_SRC bash
@@ -411,7 +389,7 @@ There are *two options* to achieve this.  First, to give them as
 arguments of the command.
 
 #+BEGIN_SRC bash
-openstack endpoint list --os-auth-url=http://172.16.96.49:5000/v3/ \
+openstack endpoint list --os-auth-url=http://<ip-of-your-lab-machine>:5000/v3/ \
                         --os-username=admin \
                         --os-password=keystone \
                         --os-project-name=admin \
@@ -450,8 +428,8 @@ OS_USERNAME=admin
 #+END_do
 
 #+BEGIN_do
-Using all these commands, you can use the CLI to start a new tiny
-cirros VM called ~cli-vm~.
+Using all these commands, use the CLI to start a new tiny cirros VM
+called ~cli-vm~.
 #+BEGIN_solution
 #+BEGIN_src bash
 openstack server create \
@@ -480,8 +458,8 @@ infrastructure.
 What is the purpose of the ~-c~ and ~-f~ argument in the previous
 command.
 #+BEGIN_solution
-: openstack server create --help
 #+BEGIN_example
+$ openstack server create --help
 ...
 output formatters:
   output formatter options
@@ -541,14 +519,12 @@ To ping your VM from the Lab machine, you have to affect it an IP
 address of the ~external~ network.  The management of the external
 network is done typically at the level of the infrastructure and not
 by OpenStack.  OpenStack allows to access IP addresses of that network
-using /floating IPs/.  The main advantage of such a floating IP is
-that it is not allocated to a specific VM by default. Rather, an
-operator needs to explicitly "grab" one from a pool and then attach it
-to its VM. Thus, if the VM dies for some reason, the operator does not
-lose the floating IP -- it remains her own resource, ready to be
-attached to another VM.  For instance, OVH uses that mechanism to
-assign public IP addresses to VMs.  This mechanism also allows load
-balancing.
+using /floating IPs/.  A floating IP is not allocated to a specific VM
+by default. Rather, an operator has to explicitly /pick/ one from a
+pool and then attach it to its VM. Thus, if the VM dies for some
+reason, the operator does not lose the floating IP -- it remains her
+own resource, ready to be attached to another VM.  For instance, OVH
+uses that mechanism to assign public IP addresses to VMs.
 
 Affect a floating IP of the ~external~ network to your machine if you
 want it to be pingable from the host.
@@ -832,17 +808,17 @@ an hostname (the list of ~cloud-init~ modules can be found [[http://cloudinit.re
 Furthermore, ~cloud-init~ is able to run a bash script that will be
 executed on the VM as ~root~ during the boot process.
 
-*** Debian 9 FTW
+*** Debian 10 FTW
 :PROPERTIES:
-:CUSTOM_ID: sec:debian9-ftw
+:CUSTOM_ID: sec:debian10-ftw
 :END:
 When it comes the time to deal with real applications, we cannot use
 cirros VMs anymore. A Cirros VM is good for testing because it starts
 fast and has a small memory footprint. However, do not expect to
 launch [[https://en.wikipedia.org/wiki/MariaDB][MariaDB]] or even [[https://github.com/busyloop/lolcat][~lolcat~]] on a cirros.
 
-We are going to run several Debian9 VMs in this section. But, a
-Debian9 takes a lot more of resources to run. For this reason, you may
+We are going to run several Debian10 VMs in this section. But, a
+Debian10 takes a lot more of resources to run. For this reason, you may
 want to release all your resources before going further.
 
 #+NAME: lst:delete-rscs
@@ -860,22 +836,22 @@ for ip in $(openstack floating ip list -c "Floating IP Address" -f value); do \
 done
 #+END_SRC
 
-Then, download the Debian9 image with support of ~cloud-init~.
+Then, download the Debian10 image with support of ~cloud-init~.
 #+BEGIN_SRC bash
-curl -L -o /tmp/debian-9.qcow2 \
-  https://cdimage.debian.org/cdimage/openstack/current-9/debian-9-openstack-amd64.qcow2
+curl -L -o /tmp/debian-10.qcow2 \
+  https://cloud.debian.org/images/cloud/OpenStack/current-10/debian-10-openstack-amd64.qcow2
 #+END_SRC
 
 #+BEGIN_do
-Import the image into Glance; name it ~debian-9~. Use ~openstack image
+Import the image into Glance; name it ~debian-10~. Use ~openstack image
 create --help~ for creation arguments. Find values example with
 ~openstack image show cirros~.
 #+BEGIN_solution
 #+BEGIN_SRC bash
 openstack image create --disk-format=qcow2 \
   --container-format=bare --property architecture=x86_64 \
-  --public --file /tmp/debian-9.qcow2 \
-  debian-9
+  --public --file /tmp/debian-10.qcow2 \
+  debian-10
 #+END_SRC
 #+END_solution
 
@@ -900,14 +876,14 @@ time, you should append the ~--user-data <file/path/of/your/script>~
 extra argument to the regular ~openstack server create~ command.
 
 #+BEGIN_do
-Start a new VM named ~art-vm~ based on the ~debian-9~ image and the
+Start a new VM named ~art-vm~ based on the ~debian-10~ image and the
 ~m1.mini~ flavor. The VM should load and execute the script [[lst:art.sh]]
 -- available under ~rsc/art.sh~ -- that installs the [[https://github.com/cmatsuoka/figlet][~figlet~]] and
 [[https://github.com/busyloop/lolcat][~lolcat~]] softwares on the VM.
 
 #+BEGIN_solution
 #+BEGIN_SRC bash
-openstack server create --wait --image debian-9 \
+openstack server create --wait --image debian-10 \
   --flavor m1.mini --network test \
   --key-name admin \
   --user-data ./rsc/art.sh \
@@ -918,7 +894,7 @@ openstack server create --wait --image debian-9 \
 
 #+CAPTION: ~cloud-init~ script available under ~rsc/art.sh~
 #+NAME: lst:art.sh
-#+BEGIN_SRC bash :tangle ./rsc/art.sh
+#+BEGIN_SRC bash :tangle output/rsc/art.sh
 #!/usr/bin/env bash
 # Fix DNS resolution
 echo "" > /etc/resolv.conf
@@ -934,13 +910,23 @@ You can follow the correct installation of software with:
 
 #+BEGIN_do
 Could you notice /when/ the VM has finished to boot based on the
-~console log~ output?
+~console log~ output?  Write a small bash script that waits until the
+boot has finished.
+
 #+BEGIN_solution
-#+BEGIN_src bash :tangle ./rsc/wordpress-deploy.sh :shebang #!/usr/bin/env bash
+#+BEGIN_src bash :tangle output/rsc/wordpress-deploy.sh :shebang #!/usr/bin/env bash
 function wait_contextualization {
-  # Get the log
+  # VM to get the log of
   local vm="$1"
-  local console_log=$(openstack console log show --lines=20 "${vm}")
+  # Number of rows displayed by the term
+  local term_lines=$(tput lines)
+  # Number of log lines to display is min(term_lines, 20)
+  local console_lines=$(($term_lines<22 ? $term_lines - 2 : 20))
+  # Get the log
+  local console_log=$(openstack console log show --lines=${console_lines} "${vm}")
+
+  # Do not wrap long lines
+  tput rmam
 
   # Loop till cloud-init finished
   local cloudinit_end_rx="Cloud-init v\. .\+ finished"
@@ -952,8 +938,8 @@ function wait_contextualization {
       sleep 5
 
       # Compute the new console log before clearing
-      # so the screen is not blank for two long.
-      local new_console_log=$(openstack console log show --lines=20 "${vm}")
+      # the screen is it does not remain blank for two long.
+      local new_console_log=$(openstack console log show --lines=${console_lines} "${vm}")
 
       # Clear the screen (`cuu1` move cursor up by one line, `el`
       # clear the line)
@@ -965,7 +951,10 @@ function wait_contextualization {
   done
 
   # cloud-init finished
-  echo "${console_log}"|grep "${CLOUDINIT_END_RX}"
+  echo "${console_log}"|grep --color=always "${cloudinit_end_rx}"
+
+  # Re-enable wrap of long lines
+  tput smam
 }
 #+END_src
 
@@ -1060,48 +1049,51 @@ Contextualizing a VM with KVM" | lolcat~ command.
 In the previous sessions, we saw how to boot a VM with OpenStack, and
 execute a post-installation script using the ~user-data~ mechanism.
 Such mechanism can help us to install software but it is not enough to
-deploy a real Cloud application. Cloud applications are composed of
-multiple services that collaborate to deliver the application. Each
-service is in charge of one aspect of the application. This separation
-of concerns brings flexibility. If a single service is overloaded, it
-is common to deploy new units of this service to balance the load.
+deploy a real Cloud application.  Cloud applications are composed of
+multiple services that collaborate to deliver the application.  Each
+service is in charge of one aspect of the application.  This
+separation of concerns brings flexibility.  If a single service is
+overloaded, it is common to deploy new units of this service to
+balance the load.
 
 Let's take a simple example: [[https://wordpress.org/][WordPress]]! WordPress is a very popular
-content management system (CMS) in use on the Web. People use it to
-create websites, blogs or applications. It is open-source, written in
-PHP and composed of two elements: a Web server (Apache) and database
-(MariaDB). Apache serves the PHP code of WordPress and stores its
+content management system (CMS) in use on the Web.  People use it to
+create websites, blogs or applications.  It is open-source, written in
+PHP, and composed of two elements: a Web server (Apache) and database
+(MariaDB).  Apache serves the PHP code of WordPress and stores its
 information in the database.
 
-Automation is a very important concept for DevOps. Imagine you have
+Automation is a very important concept for DevOps.  Imagine you have
 your own datacenter and want to exploit it by renting WordPress
-instances to your customers. Each time a client rents an instance, you
-have to manually deploy it?! No. It would be more convenient to
+instances to your customers.  Each time a client rents an instance,
+you have to manually deploy it?!  No. It would be more convenient to
 automate all the operations. 😎
 
 #+BEGIN_do
 As the DevOps of OWPH -- Online WordPress Hosting -- your job is to
-automatize the deployment of WordPress on your OpenStack. To do so,
+automatize the deployment of WordPress on your OpenStack.  To do so,
 you have to make a bash script that:
 
 1. Start ~wordpress-db~: a VM that contains the MariaDB database for
    WordPress.
-2. Wait until its final deployment (the database is running)
+2. Wait until its final deployment (the database is running).
 3. Start ~wordpress-app~: a VM that contains a web server and serves
    the Wordpress CMS.
 4. Expose ~wordpress-app~ to the world via your Lab machine on a
    specific port (because our floating IPs are not real public IPs and
    thus inaccessible from the world). Something like
-   [[http://<ip-of-your-lab>:8080]], or [[http://<ip-of-your-lab>:999]].
+   [[http://<ip-of-your-lab>:8080]].
 5. Finally, connect with your browser to the WordPress website (i.e.,
    [[http://<ip-of-your-lab>:8080/wp]]) and initializes a new WordPress
-   project named ~os-omh~.
+   project named ~os-owph~.
 
 The ~rsc~ directory provides bash scripts to deploy the MariaDB
 database and web server of WordPress (also in [[*Appendix][Appendix]]). Review it
-before going any further (spot the *TODO*).
+before going any further (spot the *TODO*).  And ask yourself
+questions such as: Does the ~wordpress-db~ VM needs a floating IP in
+order to be reached by the ~wordpress-app~ VM?
 
-Also, remind to [[#sec:debian9-ftw][clean your environment]].
+Also, remind to [[lst:delete-rscs][clean your environment]].
 
 #+BEGIN_solution
 Find the solution in the ~rsc/wordpress-deploy.sh~ script of the
@@ -1114,13 +1106,13 @@ openstack security group rule create $SECGROUP_ID \
   --dst-port 80
 #+END_SRC
 
-Then start a VM with the ~wordpress-db~ name, ~debian-9~ image,
+Then start a VM with the ~wordpress-db~ name, ~debian-10~ image,
 ~m1.mini~ flavor, ~test~ network and ~admin~ key-pair. Also,
 contextualize your VM with the ~rsc/install-mariadb.sh~ script thanks
 to the ~--user-data ./rsc/install-mariadb.sh~ option.
 
-#+BEGIN_SRC bash :tangle ./rsc/wordpress-deploy.sh
-openstack server create --wait --image debian-9 \
+#+BEGIN_SRC bash :tangle output/rsc/wordpress-deploy.sh
+openstack server create --wait --image debian-10 \
   --flavor m1.mini --network test \
   --key-name admin \
   --user-data ./rsc/install-mariadb.sh \
@@ -1129,7 +1121,7 @@ openstack server create --wait --image debian-9 \
 wait_contextualization wordpress-db
 #+END_SRC
 
-Next, start a VM with ~wordpress-app~ name, ~debian-9~ image,
+Next, start a VM with ~wordpress-app~ name, ~debian-10~ image,
 ~m1.mini~ flavor, ~test~ network and ~admin~ key-pair. Also,
 contextualize your VM with the ~rsc/install-wp.sh~ script thanks to
 the ~--user-data ./rsc/install-wp.sh~ option. Note that you need to
@@ -1137,13 +1129,13 @@ provide the IP address of the ~wordpress-db~ to this script before
 running it.
 
 Set the script with IP address of ~wordpress-db~.
-#+BEGIN_SRC bash :tangle ./rsc/wordpress-deploy.sh
+#+BEGIN_SRC bash :tangle output/rsc/wordpress-deploy.sh
 sed -i '13s|.*|DB_HOST="'$(openstack server show wordpress-db -c addresses -f value | sed -Er "s/test=//g")'"|' ./rsc/install-wp.sh
 #+END_SRC
 
 Then, create ~wordpress-app~.
-#+BEGIN_SRC bash :tangle ./rsc/wordpress-deploy.sh :shebang #!/usr/bin/env bash
-openstack server create --wait --image debian-9 \
+#+BEGIN_SRC bash :tangle output/rsc/wordpress-deploy.sh :shebang #!/usr/bin/env bash
+openstack server create --wait --image debian-10 \
   --flavor m1.mini --network test \
   --key-name admin \
   --user-data ./rsc/install-wp.sh \
@@ -1153,12 +1145,12 @@ wait_contextualization wordpress-app
 #+END_SRC
 
 Get a floating ip for the VM.
-#+BEGIN_SRC bash :tangle ./rsc/wordpress-deploy.sh
+#+BEGIN_SRC bash :tangle output/rsc/wordpress-deploy.sh
 WP_APP_FIP=$(openstack floating ip create -c floating_ip_address -f value external)
 #+END_SRC
 
 Attach the ~WP_APP_FIP~ floating ip to that VM.
-#+BEGIN_SRC bash :tangle ./rsc/wordpress-deploy.sh
+#+BEGIN_SRC bash :tangle output/rsc/wordpress-deploy.sh
 openstack server add floating ip wordpress-app "${WP_APP_FIP}"
 #+END_SRC
 
@@ -1219,7 +1211,7 @@ some commands such as the following to know about new names.
 
 ** Boot a VM
 The simplest HOT template you can declare describes how to boot a VM.
-#+BEGIN_SRC yaml :tangle rsc/heat-templates/1_boot_vm.yaml
+#+BEGIN_SRC yaml :tangle output/rsc/heat-templates/1_boot_vm.yaml
 # The following heat template version tag is mandatory:
 heat_template_version: 2017-09-01
 
@@ -1236,7 +1228,7 @@ resources:
     type: "OS::Nova::Server"
     properties:
       name: hello_world      # Name of the VM
-      image: debian-9        # Its image of the VM (must be available in Glance)
+      image: debian-10       # Its image of the VM (must be available in Glance)
       flavor: m1.mini        # Its flavor (must exist in Nova)
       key_name: admin        # Name of the SSH Key (must exist in Nova)
       networks:              # List of networks to connect to
@@ -1278,11 +1270,11 @@ Templates can be more flexible with parameters. To that end you can:
 
 The next template is an example with four parameters. The first one is
 related to the VM name and must be provided during the stack creation.
-The second one is the name of the VM image with a ~debian-9~ as
+The second one is the name of the VM image with a ~debian-10~ as
 default value. The third argument corresponds to the flavor and
 defaults to ~m1.small~. Finally, the last one defines the SSH key to
 use and defaults to ~admin~.
-#+begin_src yaml :tangle rsc/heat-templates/2_boot_vm_with_params.yaml
+#+begin_src yaml :tangle output/rsc/heat-templates/2_boot_vm_with_params.yaml
 heat_template_version: 2017-09-01
 
 description: >
@@ -1297,7 +1289,7 @@ parameters:
   the_image:
     type: string
     description: Image to use for servers
-    default: debian-9                # An optional default value
+    default: debian-10               # An optional default value
   the_flavor:
     type: string
     description: Flavor to use for servers
@@ -1355,7 +1347,7 @@ Templates can declare a set of attributes to return. For instance, you
 might need to know the IP address of a resource at runtime. To that
 end, you can declare attributes in a new section called ~outputs~:
 
-#+begin_src yaml :tangle rsc/heat-templates/3_boot_vm_with_output.yaml
+#+begin_src yaml :tangle output/rsc/heat-templates/3_boot_vm_with_output.yaml
 heat_template_version: 2017-09-01
 
 description: >
@@ -1366,7 +1358,7 @@ resources:
     type: "OS::Nova::Server"
     properties:
       name: hello_outputs
-      image: debian-9
+      image: debian-10
       flavor: m1.mini
       key_name: admin
       networks:
@@ -1443,7 +1435,7 @@ following command at runtime:
 ** Integrate ~cloud-init~
 It is possible to declare a post-installation script in the template
 with the ~user_data~ property.
-#+begin_src yaml :tangle rsc/heat-templates/4_boot_vm_with_user-data.yaml
+#+begin_src yaml :tangle output/rsc/heat-templates/4_boot_vm_with_user-data.yaml
 heat_template_version: 2017-09-01
 
 description: >
@@ -1454,7 +1446,7 @@ resources:
     type: "OS::Nova::Server"
     properties:
       name: hello_cloud_init
-      image: debian-9
+      image: debian-10
       flavor: m1.mini
       key_name: admin
       networks:
@@ -1502,7 +1494,7 @@ flexible post-installation script. With Heat, it is possible to
 provide a parameter to your user-data at run-time by using a new
 [[os-doc:heat,template_guide/hot_spec.html#str-replace][intrinsic function]]: ~str_replace~.
 
-#+begin_src yaml :tangle rsc/heat-templates/5_boot_vm_with_user-data2.yaml
+#+begin_src yaml :tangle output/rsc/heat-templates/5_boot_vm_with_user-data2.yaml
 heat_template_version: 2017-09-01
 
 description: >
@@ -1518,7 +1510,7 @@ resources:
     type: "OS::Nova::Server"
     properties:
       name: hello_cloud_init_params
-      image: debian-9
+      image: debian-10
       flavor: m1.mini
       key_name: admin
       networks:
@@ -1568,7 +1560,7 @@ that end, the template uses the ~user_data~ property together with the
 ~get_attr~ function to edit the ~/etc/hosts~ file on ~user~, and map
 the IP address of ~provider~ with its hostname.
 
-#+begin_src yaml :tangle rsc/heat-templates/6_boot_vms_with_exchange.yaml
+#+begin_src yaml :tangle output/rsc/heat-templates/6_boot_vms_with_exchange.yaml
 heat_template_version: 2017-09-01
 
 description: >
@@ -1579,7 +1571,7 @@ resources:
     type: "OS::Nova::Server"
     properties:
       name: user
-      image: debian-9
+      image: debian-10
       flavor: m1.mini
       key_name: admin
       networks:
@@ -1598,7 +1590,7 @@ resources:
     type: "OS::Nova::Server"
     properties:
       name: provider
-      image: debian-9
+      image: debian-10
       flavor: m1.mini
       key_name: admin
       networks:
@@ -1632,7 +1624,7 @@ describes a virtual machine, and a second template which deploys
 multiple VMs by referencing the first one. Rather than create the
 first template, we can re-use the one from section [[#sec:heat-params]].
 
-#+begin_src yaml :tangle rsc/heat-templates/7_nested_template.yaml
+#+begin_src yaml :tangle output/rsc/heat-templates/7_nested_template.yaml
 heat_template_version: 2017-09-01
 
 description: >
@@ -1672,7 +1664,7 @@ dependency.
 Let's describe the same deployment as in section [[#sec:data-deps-rscs]]
 by using nested templates. For that we need a new template:
 
-#+begin_src yaml :tangle rsc/heat-templates/8_nested_template_boot_vm.yaml
+#+begin_src yaml :tangle output/rsc/heat-templates/8_nested_template_boot_vm.yaml
 heat_template_version: 2017-09-01
 
 description: >
@@ -1695,7 +1687,7 @@ resources:
     type: "OS::Nova::Server"
     properties:
       name:     { get_param: the_vm_name }
-      image:    debian-9
+      image:    debian-10
       flavor:   m1.mini
       key_name: admin
       networks:
@@ -1719,7 +1711,7 @@ outputs:
 We can now declare the main template. While it defines three VMs, this
 template is easy to read since it points to the template created
 previously and template in section [[#sec:heat-outputs]].
-#+begin_src yaml :tangle rsc/heat-templates/8_nested_template_exchange.yaml
+#+begin_src yaml :tangle output/rsc/heat-templates/8_nested_template_exchange.yaml
 heat_template_version: 2017-09-01
 
 description: >
@@ -1759,7 +1751,7 @@ openstack stack delete --wait --yes hw8
 ** Other type of resources: floating IP
 It's Floating IP time!
 
-#+BEGIN_SRC yaml :tangle rsc/heat-templates/9_floating_ip.yaml
+#+BEGIN_SRC yaml :tangle output/rsc/heat-templates/9_floating_ip.yaml
 heat_template_version: 2017-09-01
 
 # Here we define a simple decription of the template (optional):
@@ -1771,7 +1763,7 @@ resources:
     type: OS::Nova::Server
     properties:
       name: hello_fip
-      image: debian-9
+      image: debian-10
       flavor: m1.mini
       key_name: admin
       networks:
@@ -1836,7 +1828,7 @@ the tarball and in the following subsections.
 #+END_do
 
 ** Database VM template                                            :solution:
-#+BEGIN_src yaml :tangle rsc/heat-templates/wordpress/db-vm.yaml
+#+BEGIN_src yaml :tangle output/rsc/heat-templates/wordpress/db-vm.yaml
 heat_template_version: 2017-09-01
 
 description: >
@@ -1868,7 +1860,7 @@ resources:
     type: OS::Nova::Server
     properties:
       key_name: { get_param: ServerKeyName }
-      image: debian-9
+      image: debian-10
       flavor: m1.mini
       networks:
         - {network: private}
@@ -1887,7 +1879,7 @@ outputs:
 #+END_src
 
 ** Web VM template                                                 :solution:
-#+BEGIN_src yaml :tangle rsc/heat-templates/wordpress/wp-vm.yaml
+#+BEGIN_src yaml :tangle output/rsc/heat-templates/wordpress/wp-vm.yaml
 heat_template_version: 2017-09-01
 
 description: >
@@ -1920,7 +1912,7 @@ resources:
     type: OS::Nova::Server
     properties:
       key_name: { get_param: ServerKeyName }
-      image: debian-9
+      image: debian-10
       flavor: m1.mini
       networks:
         - {network: private}
@@ -1946,7 +1938,7 @@ resources:
 #+END_src
 
 ** Wordpress application template                                  :solution:
-#+BEGIN_src yaml :tangle rsc/heat-templates/wordpress/wp-app.yaml
+#+BEGIN_src yaml :tangle output/rsc/heat-templates/wordpress/wp-app.yaml
 heat_template_version: 2017-09-01
 
 description: >
@@ -1999,11 +1991,11 @@ resources:
 #+END_src
 
 * Appendix
-** Install MariaDB on Debian 9
-#+BEGIN_src bash :tangle ./rsc/install-mariadb.sh
+** Install MariaDB on Debian 10
+#+BEGIN_src bash :tangle output/rsc/install-mariadb.sh
 #!/usr/bin/env bash
 #
-# Install and configure MariaDB for Debian 9.
+# Install and configure MariaDB for Debian 10.
 
 # Fix DNS resolution
 echo "" > /etc/resolv.conf
@@ -2040,11 +2032,11 @@ GRANT ALL PRIVILEGES ON ${DB_NAME}.* TO '${DB_USER}'@'%' IDENTIFIED BY '${DB_PAS
 EOSQL
 #+END_src
 
-** Install Wordpress application on Debian 9
-#+BEGIN_src bash :tangle ./rsc/install-wp.sh
+** Install Wordpress application on Debian 10
+#+BEGIN_src bash :tangle output/rsc/install-wp.sh
 #!/usr/bin/env bash
 #
-# Install and configure Apache to serve Wordpress for Debian 9.
+# Install and configure Apache to serve Wordpress for Debian 10.
 
 # Fix DNS resolution
 echo "" > /etc/resolv.conf
@@ -2095,7 +2087,26 @@ EOF
 [fn:g5k-tunnel] For sure, you always can setup an SSH tunnel but this
 is a bit annoying.
 
-* Local Variables                                                  :noexport:
+* Variables                                                        :noexport:
+
+#+STARTUP: entitiespretty
+#+LANGUAGE: en
+#+OPTIONS: ^:{} ':t email:t toc:nil
+#+PROPERTY: header-args :mkdirp yes
+#+LINK: cdn-url      https://github.com/BeyondTheClouds/lectures/blob/5d5249c/%s?raw=true
+#+LINK: horizon-url  http://10.24.61.255
+
+# -- HTML specific options
+#+OPTIONS: html-link-use-abs-url:nil html-preamble:t html-scripts:t html-style:t html5-fancy:t tex:t
+#+HTML_DOCTYPE: html5
+#+HTML_CONTAINER: div
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="../../../rsc/org.css" />
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="../../rsc/org.css" />
+#+HTML_HEAD: <style>#table-of-contents .tag {display: none;}</style>
+
+#+EXCLUDE_TAGS: noexport
+# #+EXCLUDE_TAGS: solution
+
 # Local Variables:
 # org-html-postamble: "<p class=\"author\">Author: %a</p>
 # <p class=\"email\">Email: %e</p>

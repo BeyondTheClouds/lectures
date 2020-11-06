@@ -35,12 +35,14 @@ ENOS_CONF = {
     'provider': {
         'type': 'g5k',
         'env_name': 'debian9-x64-min',
-        'job_name': 'os-imt',
-        'walltime': '26:00:00'
+        'job_name': 'imta-fila3-os-test2',
+        # 'walltime': '26:00:00'
+        'walltime': '3:00:00'
     },
     'resources': {
-        'ecotype': {
-            'compute': 13,
+        'paravance': {
+            # 'compute': 13,
+            'compute': 2,
             'network': 1,
             'control': 1
         }
@@ -76,7 +78,7 @@ def install_os():
     return env
 
 
-def make_cloud(cloud_auth_url):
+def make_cloud(cloud_auth_url: str):
     """Connects to `cloud_auth_url` OpenStack cloud.
 
     Args:
@@ -90,10 +92,10 @@ def make_cloud(cloud_auth_url):
         [1] https://docs.openstack.org/openstacksdk/latest/user/connection.html
         [2] https://developer.openstack.org/api-ref/identity/v3/?expanded=password-authentication-with-unscoped-authorization-detail,password-authentication-with-scoped-authorization-detail#password-authentication-with-scoped-authorization
     """
-    LOG.info("New authentication for %s with admin" % cloud_auth_url)
+    LOG.info(f"New authentication for {cloud_auth_url} with admin")
     cloud = openstack.connect(
         # Use Admin credential -- Same everywhere in this PoC!
-        auth_url="%s" % cloud_auth_url,
+        auth_url=cloud_auth_url,
         password='demo',
         project_domain_id='default',
         project_domain_name='default',
@@ -262,6 +264,10 @@ def make_flavors(cpt):
 
     LOG.info("Flavor %s" % f_mini)
 
+# TODO: add debian 10 image
+
+
+# Main
 
 enos_env = install_os()
 cloud = make_cloud(f"http://{enos_env['config']['vip']}:35357/v3")
