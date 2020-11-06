@@ -2,7 +2,7 @@
 #+TITLE: Thanks to OpenStack
 #+AUTHOR: Ronan-Alexandre Cherrueau, Adrien Lebre, Didier Iscovery
 #+EMAIL: {firstname.lastname}@inria.fr
-#+DATE: [2020-11-02 Mon]
+#+DATE: [2020-11-09 Mon]
 
 #+BEGIN_abstract
 OpenStack has become the de-facto solution to operate compute, network
@@ -70,24 +70,31 @@ reviewing the [[lst:export]] and [[lst:publish]] scripts.
 Do ~C-c C-c~ in the following
 #+NAME: lst:export
 #+BEGIN_SRC elisp :results silent :noweb yes
-(delete-directory "output" t)
-(org-babel-tangle)
-(org-ascii-export-to-ascii)
-(org-html-export-to-html)
+(let* ((output-dir "output")
+       (outfile.txt (org-export-output-file-name ".txt" nil output-dir))
+       (outfile.html (org-export-output-file-name ".html" nil output-dir)))
 
-;; Make the tp.tar.gz
-(shell-command "tar czf tp.tar.gz --transform s/^output/tp/")
+  ;; Clean everything
+  (delete-directory output-dir t)
+
+  ;; Export subject and source code
+  (make-directory output-dir)
+  (org-export-to-file 'ascii outfile.txt nil nil nil t)
+  (org-export-to-file 'html outfile.html nil nil nil t)
+  (org-babel-tangle)
+
+  ;; Make the tp.tar.gz
+  (shell-command (format "tar czf tp.tar.gz --transform 's|^%s|tp|' %s"
+                         output-dir output-dir)))
 #+END_SRC
 
 ** Publish
 Do ~C-c C-c~ in the following.
 
-Put it on my personal website and change the link to org file to link
-the one in
+Put it on my personal website.
 #+NAME: lst:publish
 #+BEGIN_SRC elisp :results silent :noweb yes
-(let* ((base-url "https://rcherrueau.github.io")
-       (base-dir "~/prog/rcherrueau.github.com/teaching/")
+(let* ((base-dir "~/prog/rcherrueau.github.com/teaching/")
        (export-dir (concat base-dir "2020-2021/os-imt/")))
   ;; Delete export if it exists. Always start from the ground base.
   (when (file-directory-p export-dir)
@@ -95,9 +102,7 @@ the one in
 
   ;; Create directory and copy index files
   (make-directory export-dir)
-  (shell-command (format "cp -r index.html %s" export-dir))
-  ;; (shell-command (format "cp -r rsc %s" export-dir))
-)
+  (shell-command (format "cp -r output/index.html %s" export-dir)))
 #+END_SRC
 
 ** Hide/show solutions
@@ -1397,7 +1402,6 @@ templates (we will see this last case latter):
 openstack stack create -t ./rsc/heat-templates/3_boot_vm_with_output.yaml hw3
 openstack stack output list hw3
 openstack stack output show hw3 HOSTIP
-openstack stack delete --wait --yes hw3
 #+end_src
 
 #+begin_note
@@ -1431,6 +1435,9 @@ following command at runtime:
  u'name': u'hello_outputs'}
 #+end_src
 #+end_note
+
+Remember to delete your stack at the end to release resources.
+: openstack stack delete --wait --yes hw3
 
 ** Integrate ~cloud-init~
 It is possible to declare a post-installation script in the template
@@ -1621,7 +1628,7 @@ openstack stack delete --wait --yes hw6
 Heat is able to compose templates to keep human-readable files, using
 nested templates. For instance, we can use a first template that
 describes a virtual machine, and a second template which deploys
-multiple VMs by referencing the first one. Rather than create the
+multiple VMs by referencing the first one. Rather than creating the
 first template, we can re-use the one from section [[#sec:heat-params]].
 
 #+begin_src yaml :tangle output/rsc/heat-templates/7_nested_template.yaml
@@ -1657,7 +1664,7 @@ openstack stack delete --wait --yes hw7
 #+END_SRC
 
 Nested templates are very convenient to keep your code clean and
-re-use templates. Next section extends nested templates with data
+re-usable. Next section extends nested templates with data
 dependency.
 
 ** Nested templates with data dependency
@@ -1754,7 +1761,6 @@ It's Floating IP time!
 #+BEGIN_SRC yaml :tangle output/rsc/heat-templates/9_floating_ip.yaml
 heat_template_version: 2017-09-01
 
-# Here we define a simple decription of the template (optional):
 description: >
   Boot a VM and associate a floating IP.
 
@@ -1787,9 +1793,12 @@ You may find the floating IP by listing servers.
 : openstack server list
 Or by asking Heat about attributes of the ~floating-ip~ resource.
 #+BEGIN_src bash
-FIP_RSC_ATTRIBUTES=$(openstack stack resource show -c attributes -f value hw123 floating-ip)
+FIP_RSC_ATTRIBUTES=$(openstack stack resource show -c attributes -f value hw9 floating-ip)
 python -c "print('floating ip is %s' % ${FIP_RSC_ATTRIBUTES}['floating_ip_address'])"
 #+END_src
+
+Remember to delete your stack at the end to release resources.
+: openstack stack delete --wait --yes hw9
 
 * Deploy a WordPress as a Service (as a Heat DevOps)
 :PROPERTIES:
@@ -2086,7 +2095,6 @@ EOF
 * Footnotes
 [fn:g5k-tunnel] For sure, you always can setup an SSH tunnel but this
 is a bit annoying.
-
 * Variables                                                        :noexport:
 
 #+STARTUP: entitiespretty
@@ -2122,5 +2130,6 @@ is a bit annoying.
 #                                  (error "OpenStack service name is required in %s" tag)))
 #                  (os-url     (or (-second-item split-tag) "")))
 #             (s-lex-format "https://docs.openstack.org/${os-service}/ussuri/${os-url}")))
-# (add-to-list 'org-link-abbrev-alist-local '("os-doc" . "%(os-doc)")))
+# (add-to-list 'org-link-abbrev-alist '("os-doc" . "%(os-doc)"))
+# )
 # End:
