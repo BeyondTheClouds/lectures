@@ -37,21 +37,6 @@ Find the slides of the lecture [[cdn-url:2018-2019/os-polytech/docs/CloudFogEdge
     - [[#cloud-init-in-action][~cloud-init~ in Action]]
   - [[#run-vms-at-near-native-speed][Run VMs at (near-)native speed]]
 - [[#deploy-a-wordpress-as-a-service-as-a-devops][Deploy a WordPress as a Service (as a DevOps)]]
-- [[#automatize-the-deployment-with-heat][Automatize the Deployment with Heat]]
-  - [[#preamble][Preamble]]
-  - [[#boot-a-vm][Boot a VM]]
-  - [[#need-more-flexibility-lets-add-parameters][Need more flexibility: let's add parameters]]
-  - [[#need-to-return-values-lets-use-outputs][Need to return values: let's use outputs!]]
-  - [[#integrate-cloud-init][Integrate ~cloud-init~]]
-  - [[#dynamic-configuration-with-cloud-init-and-parameters][Dynamic configuration with ~cloud-init~ and parameters]]
-  - [[#data-dependency-between-resources][Data dependency between resources]]
-  - [[#nested-templates][Nested templates]]
-  - [[#nested-templates-with-data-dependency][Nested templates with data dependency]]
-  - [[#other-type-of-resources-floating-ip][Other type of resources: floating IP]]
-- [[#deploy-a-wordpress-as-a-service-as-a-heat-devops][Deploy a WordPress as a Service (as a Heat DevOps)]]
-  - [[#database-vm-template][Database VM template]]
-  - [[#web-vm-template][Web VM template]]
-  - [[#wordpress-application-template][Wordpress application template]]
 - [[#appendix][Appendix]]
   - [[#install-mariadb-on-debian-10][Install MariaDB on Debian 10]]
   - [[#install-wordpress-application-on-debian-10][Install Wordpress application on Debian 10]]
@@ -84,7 +69,7 @@ Do ~C-c C-c~ in the following
   (org-babel-tangle)
 
   ;; Make the tp.tar.gz
-  (shell-command (format "tar czf tp.tar.gz --transform 's|^%s|tp|' %s"
+  (shell-command (format "tar czf tp.tar.gz --transform 's|^%s|lab-os|' %s"
                          output-dir output-dir)))
 #+END_SRC
 
@@ -222,10 +207,9 @@ The rest of this lab *proceeds on the Lab machine*.
 Get the resources of the lab at [[cdn-url:2020-2021/os-imt/tp.tar.gz]].
 
 #+BEGIN_SRC bash
-curl https://github.com/BeyondTheClouds/lectures/blob/b7f18f5/2020-2021/os-imt/tp.tar.gz?raw=true -o tp.tar.gz -L
-mkdir ~/os-imt
-tar xzf tp.tar.gz -C ~/os-imt
-cd ~/os-imt
+curl https://github.com/BeyondTheClouds/lectures/blob/dc5bbc5/2020-2021/os-imt/tp.tar.gz?raw=true -o tp.tar.gz -L
+tar xzf tp.tar.gz
+cd lab-os
 #+END_SRC
 
 The archive contains:
@@ -1214,7 +1198,7 @@ Then, reach WordPress on [[http://localhost:8080/wp]].
 # solution
 #+END_do
 
-* Automatize the Deployment with Heat
+* COMMENT Automatize the Deployment with Heat
 :PROPERTIES:
 :CUSTOM_ID: sec:heat
 :END:
@@ -1840,7 +1824,7 @@ python -c "print('floating ip is %s' % ${FIP_RSC_ATTRIBUTES}['floating_ip_addres
 Remember to delete your stack at the end to release resources.
 : openstack stack delete --wait --yes hw9
 
-* Deploy a WordPress as a Service (as a Heat DevOps)
+* COMMENT Deploy a WordPress as a Service (as a Heat DevOps)
 :PROPERTIES:
 :CUSTOM_ID: sec:wp-heat
 :END:
@@ -2143,7 +2127,7 @@ is a bit annoying.
 #+LANGUAGE: en
 #+OPTIONS: ^:{} ':t email:t toc:nil
 #+PROPERTY: header-args :mkdirp yes
-#+LINK: cdn-url      https://github.com/BeyondTheClouds/lectures/blob/b7f18f5/%s?raw=true
+#+LINK: cdn-url      https://github.com/BeyondTheClouds/lectures/blob/dc5bbc5/%s?raw=true
 #+LINK: horizon-url  http://10.24.61.255
 
 #+EXCLUDE_TAGS: noexport

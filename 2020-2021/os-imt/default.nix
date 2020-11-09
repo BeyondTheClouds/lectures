@@ -12,7 +12,7 @@ let packageOverrides = self: super: {
       ];
     };
   };
-  py-dev = (python38.override {inherit packageOverrides;}).withPackages (py-pkg: [
+  py-dev = (python37.override {inherit packageOverrides;}).withPackages (py-pkg: [
                 py-pkg.python-language-server
                 py-pkg.pyls-isort
                 py-pkg.pyls-mypy

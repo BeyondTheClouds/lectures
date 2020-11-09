@@ -40,9 +40,9 @@ def get_addr(h: Host) -> str:
 
 def make_conf(testing=True) -> Configuration:
     conf = {
-        "reservation": "2020-11-09 07:00:01",
-        "walltime": "35:59:38",
-        "job_name": "imta-fila3-os",
+        # "reservation": "2020-11-09 07:00:01",
+        "walltime": "40:00:00",
+        "job_name": "lab-imt-fila3-os",
         "env_name": "ubuntu2004-x64-min",
         "resources": {
             "networks": [
@@ -66,7 +66,7 @@ def make_conf(testing=True) -> Configuration:
                 {
                     "roles": ["OpenStack"],
                     "cluster": "paravance",
-                    "nodes": 1,
+                    "nodes": 15,
                     "primary_network": "net",
                     "secondary_networks": [ ],
                 }
@@ -128,7 +128,8 @@ def provision(rs: Roles):
 
 if __name__ == "__main__":
     # Claim the resources
-    infra = G5k(make_conf(testing=True))
+    # infra = G5k(make_conf(testing=True))
+    infra = G5k(make_conf(testing=False))
     roles, networks = infra.init(force_deploy=False)
 
     # Provision machines
