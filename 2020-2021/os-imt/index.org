@@ -49,9 +49,13 @@ Find the slides of the lecture [[cdn-url:2018-2019/os-polytech/docs/CloudFogEdge
   - [[#nested-templates-with-data-dependency][Nested templates with data dependency]]
   - [[#other-type-of-resources-floating-ip][Other type of resources: floating IP]]
 - [[#deploy-a-wordpress-as-a-service-as-a-heat-devops][Deploy a WordPress as a Service (as a Heat DevOps)]]
+  - [[#database-vm-template][Database VM template]]
+  - [[#web-vm-template][Web VM template]]
+  - [[#wordpress-application-template][Wordpress application template]]
 - [[#appendix][Appendix]]
   - [[#install-mariadb-on-debian-10][Install MariaDB on Debian 10]]
   - [[#install-wordpress-application-on-debian-10][Install Wordpress application on Debian 10]]
+  - [[#vm-live-migration][VM Live migration]]
 - [[#footnotes][Footnotes]]
 
 * Lecture Notes for the Teacher                                    :noexport:
@@ -120,6 +124,10 @@ Show solutions
     (replace-match "\\1_solution"))
   (save-buffer))
 #+END_SRC
+
+** Troubleshooting
+- ~chmod~ doesn't work on WSL. Put your key in the filesystem managed
+  by linux, i.e., ~/home/user~.
 
 * Requirements and Setup
 :PROPERTIES:
@@ -230,7 +238,7 @@ The rest of this lab *proceeds on the Lab machine*.
 Get the resources of the lab at [[cdn-url:2020-2021/os-imt/tp.tar.gz]].
 
 #+BEGIN_SRC bash
-curl https://github.com/BeyondTheClouds/lectures/blob/29d9ae1/2020-2021/os-imt/tp.tar.gz?raw=true -o tp.tar.gz -L
+curl https://github.com/BeyondTheClouds/lectures/blob/00fa5fa/2020-2021/os-imt/tp.tar.gz?raw=true -o tp.tar.gz -L
 tar xzf tp.tar.gz
 cd lab-os
 #+END_SRC
@@ -600,6 +608,33 @@ openstack security group rule create $SECGROUP_ID --proto tcp --remote-ip 10.20.
 Once you succeed to ping the vm, you should also be able to SSH on it.
 : ssh -l cirros "$ALLOCATED_FIP"
 
+Go on, and play with the ~openstack~ cli. For instance, list all
+features offered by Nova with ~openstack server --help~ and try to
+figure out how to:
+1. SSH on ~cli-vm~ using its name rather than its IP;
+2. Suspend and resume it;
+3. Create a snapshot of ~cli-vm~;
+4. Boot a new machine ~cli-vm-clone~ from the snapshot.
+5. Delete ~cli-vm-clone~;
+
+#+BEGIN_solution
+#+BEGIN_SRC bash
+# 1.
+openstack server ssh cli-vm -l cirros
+# 2.
+openstack server suspend cli-vm; openstack server show cli-vm -c status
+openstack server resume cli-vm; openstack server show cli-vm -c status
+# 3.
+openstack server image create --name cli-vm-img cli-vm; openstack image list
+# 4.
+openstack server create --wait --flavor m1.tiny \
+  --network test --image cli-vm-img \
+  cli-vm-clone
+# 5.
+openstack server delete cli-vm-clone
+#+END_SRC
+#+END_solution
+
 *** Make the VM reaches the world                                  :noexport:
 # *Note for the teacher:* The [[lst:undo-extnet-setup]] code undoes the
 # [[https://opendev.org/x/microstack/src/commit/1a25e50a172db7331edf2f836f3c2005222bb4c5/snap-overlay/bin/setup-br-ex#L21-L22][microstack network setup]], so students have to resolve the next
@@ -733,35 +768,6 @@ hints to check:
   #+END_comment
 # solution
 #+END_do
-
-Go on, and play with the ~openstack~ cli. For instance, list all
-features offered by Nova with ~openstack server --help~ and try to
-figure out how to:
-1. SSH on ~cli-vm~ using its name rather than its IP;
-2. Suspend and resume it;
-3. Create a snapshot of ~cli-vm~;
-4. Boot a new machine ~cli-vm-clone~ from the snapshot.
-5. Delete ~cli-vm-clone~;
-
-#+BEGIN_comment
-# solution
-#+BEGIN_SRC bash
-# 1.
-openstack server ssh cli-vm -l cirros
-# 2.
-openstack server suspend cli-vm; openstack server show cli-vm -c status
-openstack server resume cli-vm; openstack server show cli-vm -c status
-# 3.
-openstack server image create --name cli-vm-img cli-vm; openstack image list
-# 4.
-openstack server create --wait --flavor m1.tiny \
-  --network test --image cli-vm-img \
-  cli-vm-clone
-# 5.
-openstack server delete cli-vm-clone
-#+END_SRC
-#+END_comment
-# solution
 
 ** In encryption we trust
 :PROPERTIES:
@@ -1635,7 +1641,7 @@ openstack server add floating ip user \
   $(openstack floating ip create -c floating_ip_address -f value public)
 openstack server ssh --login debian --identity ./admin.pem --address-type public user
 debian@user:~$ ping provider -c 2
-PING provider-vm (192.168.222.238) 56(84) bytes of data.
+PING provider (192.168.222.238) 56(84) bytes of data.
 64 bytes from provider (192.168.222.238): icmp_seq=1 ttl=64 time=1.27 ms
 64 bytes from provider (192.168.222.238): icmp_seq=2 ttl=64 time=3.07 ms
 
@@ -1837,27 +1843,22 @@ runs the database:
 #+BEGIN_do
 Create three HOT files:
 
-- ~db-vm.yml~  :: Contains the description of the VM running MariaDB.
-- ~wp-vm.yml~  :: Contains the description of the VM running the Web
-                  server and serving Wordpress ;
-- ~wp-app.yml~ :: Contains the description of the WordPress
-                  application (glues the ~db-vm.yml~ and ~web-vm.yml~
-                  together).
+- ~db-vm.yaml~  :: Contains the description of the VM running MariaDB.
+- ~wp-vm.yaml~  :: Contains the description of the VM running the Web
+  server and serving Wordpress ;
+- ~wp-app.yaml~ :: Contains the description of the WordPress
+  application (glues the ~db-vm.yaml~ and ~web-vm.yaml~ together).
 
 Once it is deployed, you should be able to reach the wordpress service by
 going on [[http://<web-server-fip-address>/wp]].
 
-#+BEGIN_comment
-# solution
-
+#+BEGIN_solution
 Find the solution in the ~rsc/heat-templates/wordpress/~ directory of
 the tarball and in the following subsections.
-
-#+END_comment
-# solution
+#+END_solution
 #+END_do
 
-** COMMENT Database VM template
+** Database VM template
 #+BEGIN_src yaml :tangle output/rsc/heat-templates/wordpress/db-vm.yaml
 heat_template_version: 2017-09-01
 
@@ -1908,7 +1909,7 @@ outputs:
     value: { get_attr: [db-vm, networks, private, 0] }
 #+END_src
 
-** COMMENT Web VM template
+** Web VM template
 #+BEGIN_src yaml :tangle output/rsc/heat-templates/wordpress/wp-vm.yaml
 heat_template_version: 2017-09-01
 
@@ -1967,7 +1968,7 @@ resources:
       port_id: { get_attr: [wp-vm, addresses, private, 0, port]}
 #+END_src
 
-** COMMENT Wordpress application template
+** Wordpress application template
 #+BEGIN_src yaml :tangle output/rsc/heat-templates/wordpress/wp-app.yaml
 heat_template_version: 2017-09-01
 
@@ -2113,6 +2114,40 @@ EOF
 # This is not needed anymore (at least, with SSH tunneling)
 # define('WP_SITEURL', 'http://' . $_SERVER['HTTP_HOST'] . '/wp');
 
+** VM Live migration
+First start a VM with mpv and libcaca to output videos in the
+terminal.  Download a video from youtube, so you can then broadcast it
+on a loop with ~mpv --vo caca --no-audio --loop vid.mp4~ after SSH on it.
+#+begin_src bash
+openstack server create migrate-vm \
+          --wait --flavor m1.mini --network private \
+          --image debian-10 \
+          --key-name ronana \
+          --user-data ./rsc/live-migrate-do-it.sh
+ALLOCATED_FIP=$(openstack floating ip create -c floating_ip_address -f value external)
+openstack server add floating ip migrate-vm "${ALLOCATED_FIP}"
+echo "${ALLOCATED_FIP}"
+#+end_src
+
+Here is the script to setup the VM.
+#+begin_src bash :tangle output/rsc/live-migrate-do-it.sh
+#!/usr/bin/env bash
+apt update; apt install -y python3-pip mpv libcaca-dev
+pip3 install --upgrade youtube_dl
+# Choose a video under creative commons
+youtube-dl --recode-video mp4 --verbose \
+           --user-agent "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)" \
+           --output vid.mp4 \
+           "https://www.youtube.com/watch?v=ZXsQAXx_ao0"
+#+end_src
+
+Then while broadcasting, live migrate your VM and also take a look at
+its state.
+#+begin_src bash
+watch openstack server show migrate-vm -c 'OS-EXT-SRV-ATTR:host' -c 'OS-EXT-STS:task_state'
+openstack server migrate migrate-vm --live-migration --block-migration
+#+end_src
+
 * Footnotes
 [fn:g5k-tunnel] For sure, you always can setup an SSH tunnel but this
 is a bit annoying.
@@ -2122,7 +2157,7 @@ is a bit annoying.
 #+LANGUAGE: en
 #+OPTIONS: ^:{} ':t email:t toc:nil
 #+PROPERTY: header-args :mkdirp yes
-#+LINK: cdn-url      https://github.com/BeyondTheClouds/lectures/blob/29d9ae1/%s?raw=true
+#+LINK: cdn-url      https://github.com/BeyondTheClouds/lectures/blob/00fa5fa/%s?raw=true
 #+LINK: horizon-url  http://10.24.61.255
 
 #+EXCLUDE_TAGS: noexport
