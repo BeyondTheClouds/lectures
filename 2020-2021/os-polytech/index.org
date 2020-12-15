@@ -15,7 +15,8 @@ are going to:
 - Automatize all the stuff with the Heat template engine (i.e., manage
   your cloud from your sofa!).
 
-Find the slides of the lecture [[cdn-url:2018-2019/os-polytech/docs/CloudFogEdgeIntro.pdf][here]] and [[cdn-url:2018-2019/os-polytech/docs/openstack-slides.pdf][there]].
+Find the slides of the lecture [[cdn-url:2018-2019/os-polytech/docs/CloudFogEdgeIntro.pdf][here]] and [[cdn-url:2018-2019/os-polytech/docs/openstack-slides.pdf][there]].  Find the collaborative
+editor to follow lab completion [[https://pad.inria.fr/p/np_NuI6nLexB8GRMIBL_os-poly-grp1][here]].
 # This document is an [[https://orgmode.org/][Org mode]] document, you can find its source [[cdn-url:index.org][here]].
 #+END_abstract
 
@@ -192,7 +193,7 @@ Université de Nantes and SSH on your machine thanks to a -- sort of --
 router between the network of the Université de Nantes and Lab
 machines: ~172.19.64.240~.  That router is configured with DNAT to map
 a specific port to each Lab machine so you can SSH on it.  Here are
-the SSH commands for the corresponding machine:
+the SSH commands for the corresponding machine.  Password is ~d012~.
 - ~ssh -l invité -p 20102 172.19.64.240~ ↦ ~193.52.86.102~
 - ~ssh -l invité -p 20115 172.19.64.240~ ↦ ~193.52.86.115~
 - ~ssh -l invité -p 20122 172.19.64.240~ ↦ ~193.52.86.122~
@@ -219,7 +220,7 @@ The rest of this lab *proceeds on the Lab machine*.
 Get the resources of the lab at [[cdn-url:2020-2021/os-polytech/tp.tar.gz]].
 
 #+BEGIN_SRC bash
-curl https://github.com/BeyondTheClouds/lectures/blob/354fa4d/2020-2021/os-polytech/tp.tar.gz?raw=true -o tp.tar.gz -L
+curl https://github.com/BeyondTheClouds/lectures/blob/b70819d/2020-2021/os-polytech/tp.tar.gz?raw=true -o tp.tar.gz -L
 tar xzf tp.tar.gz
 cd lab-os
 #+END_SRC
@@ -1328,7 +1329,7 @@ systemctl restart heat-api heat-api-cfn heat-engine
 *** Remove script                                                  :noexport:
 #+NAME: lst:remove-heat
 #+BEGIN_src bash
-sudo apt purge --yes --quiet --autoremove heat-api heat-api-cfn heat-engine
+sudo apt remove --yes --quiet --autoremove heat-api heat-api-cfn heat-engine
 #+END_src
 
 ** Boot a VM
@@ -2264,6 +2265,13 @@ openstack server migrate migrate-vm --live-migration --block-migration
 Pad pour la prise de note commune
 https://pad.inria.fr/p/np_e8il1vJgfq4KIf9G
 
+#+begin_src bash
+sudo useradd -g 100 -G adm,sudo -m -s /bin/bash -c 'tp-os ronan-alexandre.cherrueau@inria.fr' tp-os
+sudo passwd tp-os
+
+
+#+end_src
+
 Tunneling from the outside world (my machine) to my lab machine
 throughout the frontend
 : ssh -NL 8080:<ip-lab-machine>:80 <frontend>
@@ -2294,7 +2302,7 @@ Share a terminal
     - Hugo Meignen
     - Gwenaïg Minette
 
-193.52.86.126
+193.52.86.126/131
     - Romain ALLAIN
     - Nathan DELAPORTE
     - Giulia MONTINO
@@ -2314,20 +2322,39 @@ Share a terminal
     -Léo Defurne
 
 IP of lab machines
-193.52.86.133
-193.52.86.147
+193.52.86.102
+193.52.86.115
 193.52.86.122
 193.52.86.126
-193.52.86.115
-193.52.86.102
+193.52.86.133
+193.52.86.147
 193.52.86.203
+
+# Undo the external network setup of `microstack.init --auto`
+sysctl -w net.ipv4.ip_forward=0
+extcidr=10.20.20.0/24  # find it with `sudo iptables -t nat -L`
+
+# Flush the nat table
+# iptables -w -t nat -D POSTROUTING -s $extcidr ! -d $extcidr -j MASQUERADE > /dev/null
+iptables -Z
+iptables -t nat -F
+iptables -t nat -X
+
+sudo apt remove --yes --quiet --autoremove heat-api heat-api-cfn heat-engine
+
+sudo snap remove --purge openstackclients
+sudo snap remove --purge microstack
+
+# test mysql, mariadb, memcached
+apt list --installed | grep -E 'mariadb|memcached'
+sudo apt remove --yes --quiet --autoremove mariadb-common mariadb-server memcached
 
 * Variables                                                        :noexport:
 #+STARTUP: entitiespretty
 #+LANGUAGE: en
 #+OPTIONS: ^:{} ':t email:t toc:nil
 #+PROPERTY: header-args :mkdirp yes
-#+LINK: cdn-url      https://github.com/BeyondTheClouds/lectures/blob/354fa4d/%s?raw=true
+#+LINK: cdn-url      https://github.com/BeyondTheClouds/lectures/blob/b70819d/%s?raw=true
 #+LINK: horizon-url  http://10.24.61.255
 
 #+EXCLUDE_TAGS: noexport
