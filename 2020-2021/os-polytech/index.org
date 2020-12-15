@@ -24,6 +24,7 @@ Find the slides of the lecture [[cdn-url:2018-2019/os-polytech/docs/CloudFogEdge
 * Table of Contents                                       :TOC_3_gh:noexport:
 - [[#requirements-and-setup][Requirements and Setup]]
   - [[#environment][Environment]]
+  - [[#access-the-lab-machine][Access the Lab machine]]
   - [[#resources-of-the-lab][Resources of the Lab]]
   - [[#setup-openstack][Setup OpenStack]]
 - [[#play-with-openstack-as-an-admin][Play with OpenStack (as an Admin)]]
@@ -54,7 +55,6 @@ Find the slides of the lecture [[cdn-url:2018-2019/os-polytech/docs/CloudFogEdge
   - [[#install-mariadb-on-debian-10][Install MariaDB on Debian 10]]
   - [[#install-wordpress-application-on-debian-10][Install Wordpress application on Debian 10]]
   - [[#vm-live-migration][VM Live migration]]
-- [[#footnotes][Footnotes]]
 
 * Lecture Notes for the Teacher                                    :noexport:
 Do ~C-c C-c~ in the following to export and publish the Lab after
@@ -143,10 +143,11 @@ Show solutions
 :END:
 ** Environment
 To follow the lab you'll need a Linux (tested under Ubuntu 20.04)
-with, at least, 8 GiB of RAM and 2 CPU.  If you have a *different
-version* of Ubuntu installed on your machine -- use ~lsb_release -d~
-to check it out -- you should start a proper VM using, for instance,
-the [[*Vagrantfile][Vagrantfile]] given in the Appendix.
+with, at least, 8 GiB of RAM and 2 CPU.  We are going to use Dell R320
+from room D011.  If you have a *different version* of Ubuntu installed
+-- use ~lsb_release -d~ to check it out -- you should start a proper
+VM using, for instance, the [[*Vagrantfile][Vagrantfile]] given in the Appendix.
+Alternatively, you can also use your own machine.
 
 The lab makes use of [[https://github.com/CanonicalLtd/microstack][Snap microstack]]: OpenStack in a Snap that you can
 run locally on a single machine. Snap is the Canonical's App delivery
@@ -169,73 +170,45 @@ minutes for other options).
   deployments.
 #+END_note
 
-** COMMENT Access the Lab machine
+** Access the Lab machine
 :PROPERTIES:
 :CUSTOM_ID: sec:assign-lab
 :END:
-Here is the assignation list of Lab machine per team:
-- Ronan, Adrien :: ~172.16.96.39~
-- Thomas Herbelin, Simon Le Bars :: ~172.16.96.10~
-- Samy Le Galloudec, Marc Lamy :: ~172.16.96.11~
-- Maël Gaonach, Antoine Omond :: ~172.16.96.12~
-- Robin Carrez, Evrard-Nil Daillet :: ~172.16.96.13~
-- Paul Bavazzano, Hoan My TRAN :: ~172.16.96.14~
-- Florian Le Menn  :: ~172.16.96.30~
-- Xavier Aleman, Ismaïl El Khantache :: ~172.16.96.31~
-- Barthélémy Tek, Raphael Hascoet :: ~172.16.96.32~
-- Javed  Syed Khasim, Emeric Chonigbaum :: ~172.16.96.33~
-- Lucas Pelec :: ~172.16.96.34~
-- Théo Coutant :: ~172.16.96.37~
+Here is the assignation list of team per Lab machines:
+- ~193.52.86.102~ ::
+- ~193.52.86.115~ ::
+- ~193.52.86.122~ ::
+- ~193.52.86.126~ ::
+- ~193.52.86.133~ ::
+- ~193.52.86.147~ ::
+- ~193.52.86.203~ ::
 
-First thing first, you have to connect to the Lab machine.
-Unfortunately, the Lab machine isn't available publicly, but hides
-behind the Grid'5000 private network. One solution, as explained in
-the [[https://www.grid5000.fr/mediawiki/index.php/Getting_Started#Connecting_for_the_first_time][official tutorial]], consists in opening an SSH connection to the
-publicly available ~access.grid5000.fr~ machine, and from there, doing
-a second SSH connection to the Lab machine. But this solution is
-fairly limited since it doesn't give an access to services from your
-own machine[fn:g5k-tunnel].
+First thing first, you have to connect to the Lab machine as ~invité~
+and create your account.
 
-To ease the interaction between your own machine and the Lab one, you
-should setup the Grid'5000 [[https://en.wikipedia.org/wiki/Virtual_private_network][VPN]]. The Grid'5000 VPN gives you access to
-the Grid'5000 private network and thus, Lab machines wherever your are
-on the globe.
+Lab machines aren't available publicly unfortunately. They are hide
+behind polytech private network.  You have to be in the VPN of the
+Université de Nantes and SSH on your machine thanks to a -- sort of --
+router between the network of the Université de Nantes and Lab
+machines: ~172.19.64.240~.  That router is configured with DNAT to map
+a specific port to each Lab machine so you can SSH on it.  Here are
+the SSH commands for the corresponding machine:
+- ~ssh -l invité -p 20102 172.19.64.240~ ↦ ~193.52.86.102~
+- ~ssh -l invité -p 20115 172.19.64.240~ ↦ ~193.52.86.115~
+- ~ssh -l invité -p 20122 172.19.64.240~ ↦ ~193.52.86.122~
+- ~ssh -l invité -p 20126 172.19.64.240~ ↦ ~193.52.86.126~
+- ~ssh -l invité -p 20133 172.19.64.240~ ↦ ~193.52.86.133~
+- ~ssh -l invité -p 20147 172.19.64.240~ ↦ ~193.52.86.147~
+- ~ssh -l invité -p 20203 172.19.64.240~ ↦ ~193.52.86.203~
 
-Next gives you the procedure on Ubuntu, but should be similar on other
-UNIX systems. You can also do it on Windows, however expect to be on
-your own in case of troubles.
+From there create your account on the Lab machine (use a valid
+univ-nantes email address).
+: sudo useradd -g 100 -G adm,sudo -m -s /bin/bash -c \
+:   '<Prénom> <Nom> <prénom.nom@etu.univ-nantes.fr>' <login>
+: sudo passwd <login>
 
-1. Install the [[https://openvpn.net/][OpenVPN]] client
-   : sudo apt update -y && apt install -y openvpn
-3. Go on [[https://api.grid5000.fr/stable/users/][UMS]] > "My Account" tab > "VPN certificates" item.
-4. "Create new certificate" > "Create with passphrase", and fill the
-   form with a new password (remember it!).
-5. Click on "Zip file" Action > store it somewhere on your personal
-   machine > unzip it. If the ~unzip~ program is unavailable, install
-   it with ~sudo apt install unzip~.
-   : unzip <g5k_login>_vpnclient.zip -d g5k_vpnclient
-6. Run OpenVPN client with sudo
-   : cd g5k_vpnclient; sudo openvpn Grid5000_VPN.ovpn
-7. Fill password of step 4 to the question ~Enter Private Key
-   Password:~.
-
-You correctly setup the VPN and can access Grid'5000 private network
-if your shell hangs and you see the following route in your routing
-table.
-#+begin_src bash
-$ ip route
-
-# ...
-10.0.0.0/8 via 172.20.255.254 dev tun0
-172.16.0.0/16 via 172.20.255.254 dev tun0
-172.20.0.0/16 via 172.20.255.254 dev tun0
-172.20.192.0/18 dev tun0 proto kernel scope link src 172.20.192.5
-# ...
-#+end_src
-
-You can finally connect to your Lab machine in another shell with the
-following SSH command. Use ~os-polytech~ as password.
-: ssh -l root <ip-of-your-lab-machine>
+And change user ID from ~invité~ to your ~<login>~.
+: su <login>
 
 The rest of this lab *proceeds on the Lab machine*.
 
@@ -246,7 +219,7 @@ The rest of this lab *proceeds on the Lab machine*.
 Get the resources of the lab at [[cdn-url:2020-2021/os-polytech/tp.tar.gz]].
 
 #+BEGIN_SRC bash
-curl https://github.com/BeyondTheClouds/lectures/blob/d727179/2020-2021/os-polytech/tp.tar.gz?raw=true -o tp.tar.gz -L
+curl https://github.com/BeyondTheClouds/lectures/blob/354fa4d/2020-2021/os-polytech/tp.tar.gz?raw=true -o tp.tar.gz -L
 tar xzf tp.tar.gz
 cd lab-os
 #+END_SRC
@@ -320,6 +293,8 @@ crudini --set $NOVA_HYPERV_CONF libvirt virt_type "qemu"
 crudini --set $NOVA_HYPERV_CONF libvirt cpu_mode  "host-model"
 snap restart microstack.nova-compute
 
+# Install openstack client
+snap info openstackclients | fgrep -q installed && sudo snap remove --purge openstackclients
 snap install --channel=latest/stable openstackclients --classic
 
 # Put snap openstackclients into the path.
@@ -2298,6 +2273,8 @@ machine from the URL https://localhost:8080
 
 : ssh -NL 8080:parapide-7.rennes:80 rennes.g5k
 
+: ssh -NL 8080:193.52.86.XXX:80 nom_connexion@172.19.64.240 -p 20XXX
+
 Share a terminal
 : tmux -S /tmp/ronan-alebre new
 : tmux -S /tmp/ronan-alebre attach
@@ -2345,17 +2322,12 @@ IP of lab machines
 193.52.86.102
 193.52.86.203
 
-* Footnotes
-[fn:g5k-tunnel] For sure, you always can setup an SSH tunnel but this
-is a bit annoying.
-
 * Variables                                                        :noexport:
-
 #+STARTUP: entitiespretty
 #+LANGUAGE: en
 #+OPTIONS: ^:{} ':t email:t toc:nil
 #+PROPERTY: header-args :mkdirp yes
-#+LINK: cdn-url      https://github.com/BeyondTheClouds/lectures/blob/d727179/%s?raw=true
+#+LINK: cdn-url      https://github.com/BeyondTheClouds/lectures/blob/354fa4d/%s?raw=true
 #+LINK: horizon-url  http://10.24.61.255
 
 #+EXCLUDE_TAGS: noexport
