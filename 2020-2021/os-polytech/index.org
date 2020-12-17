@@ -16,7 +16,7 @@ are going to:
   your cloud from your sofa!).
 
 Find the slides of the lecture [[cdn-url:2018-2019/os-polytech/docs/CloudFogEdgeIntro.pdf][here]] and [[cdn-url:2018-2019/os-polytech/docs/openstack-slides.pdf][there]].  Find the collaborative
-editor to follow lab completion [[https://pad.inria.fr/p/np_NuI6nLexB8GRMIBL_os-poly-grp1][here]].
+editor to follow lab completion [[https://pad.inria.fr/p/np_KeAkcZTawSB7hPq3_os-poly-grp2][here]].
 # This document is an [[https://orgmode.org/][Org mode]] document, you can find its source [[cdn-url:index.org][here]].
 #+END_abstract
 
@@ -32,12 +32,10 @@ editor to follow lab completion [[https://pad.inria.fr/p/np_NuI6nLexB8GRMIBL_os-
   - [[#openstack-horizon-dashboard][OpenStack Horizon dashboard]]
   - [[#unleash-the-operator-in-you][Unleash the operator in you]]
     - [[#make-the-world-reaches-the-vm][Make the world reaches the VM]]
-    - [[#make-the-vm-reaches-the-world][Make the VM reaches the world]]
   - [[#in-encryption-we-trust][In encryption we trust]]
   - [[#the-art-of-contextualizing-a-vm][The art of contextualizing a VM]]
     - [[#debian-10-ftw][Debian 10 FTW]]
     - [[#cloud-init-in-action][~cloud-init~ in Action]]
-  - [[#run-vms-at-near-native-speed][Run VMs at (near-)native speed]]
 - [[#deploy-a-wordpress-as-a-service-as-a-devops][Deploy a WordPress as a Service (as a DevOps)]]
 - [[#automatize-the-deployment-with-heat][Automatize the Deployment with Heat]]
   - [[#install-the-heat-orchestration-service-on-microstack][Install the Heat orchestration service on microstack]]
@@ -144,11 +142,11 @@ Show solutions
 :END:
 ** Environment
 To follow the lab you'll need a Linux (tested under Ubuntu 20.04)
-with, at least, 8 GiB of RAM and 2 CPU.  We are going to use Dell R320
-from room D011.  If you have a *different version* of Ubuntu installed
--- use ~lsb_release -d~ to check it out -- you should start a proper
-VM using, for instance, the [[*Vagrantfile][Vagrantfile]] given in the Appendix.
-Alternatively, you can also use your own machine.
+with, at least, 8 GiB of RAM and 2 CPU.  We are going to use Linux
+Dell R320 from room D011.  If you have a *different version* of Ubuntu
+installed -- use ~lsb_release -d~ to check it out -- you should start
+a proper VM using, for instance, the [[*Vagrantfile][Vagrantfile]] given in the
+Appendix.  Alternatively, you can also use your own machine.
 
 The lab makes use of [[https://github.com/CanonicalLtd/microstack][Snap microstack]]: OpenStack in a Snap that you can
 run locally on a single machine. Snap is the Canonical's App delivery
@@ -175,34 +173,22 @@ minutes for other options).
 :PROPERTIES:
 :CUSTOM_ID: sec:assign-lab
 :END:
-Here is the assignation list of team per Lab machines:
-- ~193.52.86.102~ ::
-- ~193.52.86.115~ ::
-- ~193.52.86.122~ ::
-- ~193.52.86.126~ ::
-- ~193.52.86.133~ ::
-- ~193.52.86.147~ ::
-- ~193.52.86.203~ ::
-
 First thing first, you have to connect to the Lab machine as ~invité~
 and create your account.
 
-Lab machines aren't available publicly unfortunately. They are hide
-behind polytech private network.  You have to be in the VPN of the
-Université de Nantes and SSH on your machine thanks to a -- sort of --
-router between the network of the Université de Nantes and Lab
-machines: ~172.19.64.240~.  That router is configured with DNAT to map
-a specific port to each Lab machine so you can SSH on it.  Here are
-the SSH commands for the corresponding machine.  Password is ~d012~.
-- ~ssh -l invité -p 20102 172.19.64.240~ ↦ ~193.52.86.102~
-- ~ssh -l invité -p 20115 172.19.64.240~ ↦ ~193.52.86.115~
-- ~ssh -l invité -p 20122 172.19.64.240~ ↦ ~193.52.86.122~
-- ~ssh -l invité -p 20126 172.19.64.240~ ↦ ~193.52.86.126~
-- ~ssh -l invité -p 20133 172.19.64.240~ ↦ ~193.52.86.133~
-- ~ssh -l invité -p 20147 172.19.64.240~ ↦ ~193.52.86.147~
-- ~ssh -l invité -p 20203 172.19.64.240~ ↦ ~193.52.86.203~
+Lab machines aren't available publicly unfortunately.  They are hide
+behind Polytech private network.  Fortunately, a frontend is available
+from the outside world at the address ~163.172.58.84~ that let us
+reaches Lab machines.  SSH on that frontend using the login and
+password given in the pad of the collaborative editor and then, SSH on
+your Lab machine.  Password for ~invité~ on the lab machine is ~d012~.
 
-From there create your account on the Lab machine (use a valid
+#+begin_src bash
+ssh -l <login> 163.172.58.84
+ssh -l invité 192.52.86.XXX
+#+end_src
+
+From there, create your account on the Lab machine (use a valid
 univ-nantes email address).
 : sudo useradd -g 100 -G adm,sudo -m -s /bin/bash -c \
 :   '<Prénom> <Nom> <prénom.nom@etu.univ-nantes.fr>' <login>
@@ -220,7 +206,7 @@ The rest of this lab *proceeds on the Lab machine*.
 Get the resources of the lab at [[cdn-url:2020-2021/os-polytech/tp.tar.gz]].
 
 #+BEGIN_SRC bash
-curl https://github.com/BeyondTheClouds/lectures/blob/5e81a08/2020-2021/os-polytech/tp.tar.gz?raw=true -o tp.tar.gz -L
+curl https://github.com/BeyondTheClouds/lectures/blob/16dda68/2020-2021/os-polytech/tp.tar.gz?raw=true -o tp.tar.gz -L
 tar xzf tp.tar.gz
 cd lab-os
 #+END_SRC
@@ -250,7 +236,8 @@ Then, ensure OpenStack services are running on your machine. Find the
 snap command that lists microstack OpenStack services and there
 status? What is the purpose of each service?
 
-#+BEGIN_solution
+#+BEGIN_comment
+# solution
 : snap services microstack|sort
 
 - glance-* :: Glance to manage VM images: ~openstack image --help~.
@@ -262,7 +249,8 @@ status? What is the purpose of each service?
 - memcached :: Cache used by all OpenStack services
 - mysqld :: Database used by all OpenStack services
 - rabbitmq-server :: Communication bus used by all OpenStack services
-#+END_solution
+#+END_comment
+# solution
 #+END_do
 
 *** Setup script                                                   :noexport:
@@ -277,20 +265,12 @@ apt install --yes --quiet bat
 
 # Set the admin password to keystone
 snap set microstack config.credentials.keystone-password=keystone
-snap set microstack config.host.check-qemu=False
+snap set microstack config.host.check-qemu=True
 
 # Initialize  OpenStack
 microstack.init --auto --control
 
-# Make nova use qemu instead of qemu-kvm
-# i.e,:
-# > [libvirt]
-# > virt_type = kvm             # rewrite to qemu
-# > cpu_mode = host-passthrough # rewrite to host-model
-NOVA_HYPERV_CONF=/var/snap/microstack/common/etc/nova/nova.conf.d/hypervisor.conf
-crudini --set $NOVA_HYPERV_CONF libvirt virt_type "qemu"
-crudini --set $NOVA_HYPERV_CONF libvirt cpu_mode  "host-model"
-snap restart microstack.nova-compute
+<<lst:undo-kvm>>
 
 # Install openstack client
 snap info openstackclients | fgrep -q installed && sudo snap remove --purge openstackclients
@@ -387,7 +367,8 @@ most often used commands to operate your Cloud:
 Try one of these commands. Does it works? What is the problem, how to
 fix it? Hint: Look at the [[os-doc:python-openstackclient,cli/authentication.html][password authentication process]] for the CLI.
 
-#+BEGIN_solution
+#+BEGIN_comment
+# solution
 #+BEGIN_SRC bash
 $ openstack endpoint list
 Missing value auth-url required for auth plugin password
@@ -434,13 +415,15 @@ OS_REGION_NAME=microstack
 OS_USER_DOMAIN_NAME=Default
 OS_USERNAME=admin
 #+END_SRC
-#+END_solution
+#+END_comment
+# solution
 #+END_do
 
 #+BEGIN_do
 Using all these commands, use the CLI to start a new tiny cirros VM
 called ~cli-vm~.
-#+BEGIN_solution
+#+BEGIN_comment
+# solution
 #+BEGIN_src bash
 openstack server create \
   --image cirros \
@@ -448,7 +431,8 @@ openstack server create \
   --network test \
   cli-vm
 #+END_src
-#+END_solution
+#+END_comment
+# solution
 #+END_do
 
 Then, display the information about your VM with the following
@@ -467,7 +451,8 @@ infrastructure.
 #+BEGIN_do
 What is the purpose of the ~-c~ and ~-f~ argument in the previous
 command.
-#+BEGIN_solution
+#+BEGIN_comment
+# solution
 #+BEGIN_example
 $ openstack server create --help | fgrep -A 6 "output formatters:"
 output formatters:
@@ -478,7 +463,8 @@ output formatters:
   -c COLUMN, --column COLUMN
                         specify the column(s) to include, can be repeated
 #+END_example
-#+END_solution
+#+END_comment
+# solution
 #+END_do
 
 A VM in ~ACTIVE~ state still has to go through the [[http://www.tldp.org/LDP/intro-linux/html/sect_04_02.html][boot process and
@@ -514,13 +500,15 @@ Find the IP address of the ~cli-vm~. Check that you can ping that
 address from the ~horizon-vm~ (using the ~Console~ tab in the Horizon
 dashboard).  Ensure that you *cannot* ping that VM from the Lab machine.
 
-#+BEGIN_solution
+#+BEGIN_comment
+# solution
 #+BEGIN_SRC bash
 PRIV_IP=$(openstack server show cli-vm -c addresses -f value | sed -E 's/test=(.+)/\1/g')
 echo "Private IP of cli-vm is ${PRIV_IP}"
 ping -c 3 "${PRIV_IP}" # From horizon-vm: 0% packet loss, From lab: 100% packet loss
 #+END_SRC
-#+END_solution
+#+END_comment
+# solution
 #+END_do
 
 To ping your VM from the Lab machine, you have to affect it an IP
@@ -556,7 +544,8 @@ in OpenStack is called [[os-doc:neutron,feature_classification/general_feature_s
 security group rules of the ~admin~ project. # (i.e., ~openstack
 project show admin~).
 
-#+BEGIN_solution
+#+BEGIN_comment
+# solution
 Regarding security rules, OpenStack is very conservative by default
 and prevents ingress and egress traffic. Spot the ~None~ value at ~IP
 Protocol~, and ~0.0.0.0/0~ [[https://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing][CIDR]] at ~IP Range~, in the result table of
@@ -576,12 +565,14 @@ $ openstack security group rule list -c ID -c "IP Protocol" -c "IP Range" $SECGR
 | 9b104d51-61d2-4a0f-bac4-36b5803ac721 | None        | ::/0      |
 +--------------------------------------+-------------+-----------+
 #+END_src
-#+END_solution
+#+END_comment
+# solution
 
 Then, make it work for ~10.20.20.0/24~ network. See examples of
 security groups rules in the [[https://docs.openstack.org/neutron/latest/admin/deploy-lb-selfservice.html#verify-network-operation][neutron doc]].
 
-#+BEGIN_solution
+#+BEGIN_comment
+# solution
 To make it work, you have to setup new rules in the security group of
 the ~admin~ project. The following rules allow ICMP packets (for ping)
 and TCP on port 22 (for SSH connection) on the VM.
@@ -590,7 +581,8 @@ openstack security group rule create $SECGROUP_ID --proto icmp --remote-ip 10.20
 openstack security group rule create $SECGROUP_ID --proto tcp --remote-ip 10.20.20.0/24 \
   --dst-port 22
 #+END_src
-#+END_solution
+#+END_comment
+# solution
 #+END_do
 
 Once you succeed to ping the vm, you should also be able to SSH on it.
@@ -607,7 +599,8 @@ by Nova with ~openstack server --help~ and figure out how to:
 5. Boot a new machine ~cli-vm-clone~ from the snapshot;
 6. Delete ~cli-vm-clone~;
 
-#+BEGIN_solution
+#+BEGIN_comment
+# solution
 #+BEGIN_SRC bash
 # 1.
 openstack server ssh cli-vm -l cirros
@@ -629,10 +622,11 @@ openstack server create --wait --flavor m1.tiny \
 # 6.
 openstack server delete cli-vm-clone
 #+END_SRC
-#+END_solution
+#+END_comment
+# solution
 #+END_do
 
-*** Make the VM reaches the world
+*** COMMENT Make the VM reaches the world
 # *Note for the teacher:* The [[lst:undo-extnet-setup]] code undoes the
 # [[https://opendev.org/x/microstack/src/commit/1a25e50a172db7331edf2f836f3c2005222bb4c5/snap-overlay/bin/setup-br-ex#L21-L22][microstack network setup]], so students have to resolve the next
 # challenge (i.e., the next ~begin_do~). This bash snippet is tangle
@@ -661,38 +655,45 @@ hints to check:
 - Ping the VM and Google *from the Lab machine*. The ping should work
   for both. What does it mean for the Lab machine regarding
   communications between VMs and the Internet?
-  #+BEGIN_solution
+  #+BEGIN_comment
+# solution
   : ping -c 2 $ALLOCATED_FIP; ping -c 2 8.8.8.8
   The ping from the Lab machine works for both the VM and Google.
   Thus, the Lab machine /could be a gateway/ between VMs and the
   Internet.
-  #+END_solution
+  #+END_comment
+# solution
 
 - Note the IP address of ~$ALLOCATED_FIP~. From which network this IP
   comes? Which NIC serves that network on the Lab machine?
-  #+BEGIN_solution
+  #+BEGIN_comment
+# solution
   : echo "$ALLOCATED_FIP"
   : openstack subnet show external-subnet -c cidr -c allocation_pools
   : ip address | fgrep -B 2 10.20.20
   The IP of the VM comes from the network 10.20.20.0/24, which is
   served on the Lab machine by ~br-ex~.
-  #+END_solution
+  #+END_comment
+# solution
 
 - Do a ~tcpdump~ on that NIC. Do you see the ICMP packets from
   ~$ALLOCATED_FIP~ that flow over that NIC?
-  #+BEGIN_solution
+  #+BEGIN_comment
+# solution
   : sudo tcpdump -nni br-ex icmp
   The ~tcpdump~ on ~br-ex~ shows ping ~echo request~ packets, but no
   ~echo reply~. So the packets are lost somewhere... Remember
   the Lab machine should play a role of gateway between VMs and
   the Internet.  Thus, packets should flow through the NIC of the
   default route: let's see what is happening there.
-  #+END_solution
+  #+END_comment
+# solution
 
 - Find the route that forward packets to the Internet on Lab machine.
   Do a ~tcpdump~ on the NIC that servers that route. Do you see the
   ICMP packets flow over that NIC?
-  #+BEGIN_solution
+  #+BEGIN_comment
+# solution
   To ensure that something is wrong on the Lab machine regarding its
   role of gateway between VMs and the Internet, let's find the route
   that forwards Google packets out of the Lab machine.
@@ -731,11 +732,13 @@ hints to check:
   new rule.
   : sudo iptables -A FORWARD -j ACCEPT
   #+END_note
-  #+END_solution
+  #+END_comment
+# solution
 
 - After making the packets flow on the second NIC, is everything OK
   with the IP address of the source in the ~tcpdump~ on ~eth0~?
-  #+BEGIN_solution
+  #+BEGIN_comment
+# solution
   From now, the ping of Google from the VM reaches Internet via ~eth0~
   (as seen by ~tcpdump -nni eth0 icmp~). Unfortunately, it still does
   not do the trick, because the packet goes out with the ~10.20.20.*~
@@ -760,7 +763,8 @@ hints to check:
   MASQUERADE~)."
   # : sudo iptables -t nat -A POSTROUTING ! -d 10.20.20.0/24 -o <NIC-of-your-lab-machine> -j SNAT --to-source <ip-of-your-lab-machine>
   : sudo iptables -t nat -A POSTROUTING -s 10.20.20.0/24 ! -d 10.20.20.0/24 -j MASQUERADE
-  #+END_solution
+  #+END_comment
+# solution
 #+END_do
 
 ** In encryption we trust
@@ -870,25 +874,29 @@ curl -L -o ./debian-10.qcow2 \
 Import the image into Glance; name it ~debian-10~. Use ~openstack image
 create --help~ for creation arguments. Find values example with
 ~openstack image show cirros~.
-#+BEGIN_solution
+#+BEGIN_comment
+# solution
 #+BEGIN_SRC bash
 openstack image create --disk-format=qcow2 \
   --container-format=bare --property architecture=x86_64 \
   --public --file ./debian-10.qcow2 \
   debian-10
 #+END_SRC
-#+END_solution
+#+END_comment
+# solution
 
 And, create a new ~m1.mini~ flavor with 5 Go of Disk, 2 Go of RAM, 2
 VCPU and 1 Go of swap. Use ~openstack flavor create --help~ for
 creation arguments.
-#+BEGIN_solution
+#+BEGIN_comment
+# solution
 #+BEGIN_SRC bash
 openstack flavor create --ram 2048 \
   --disk 5 --vcpus 2 --swap 1024 \
   --public m1.mini
 #+END_SRC
-#+END_solution
+#+END_comment
+# solution
 #+END_do
 
 *** ~cloud-init~ in Action
@@ -905,7 +913,8 @@ Start a new VM named ~art-vm~ based on the ~debian-10~ image and the
 -- available under ~rsc/art.sh~ -- that installs the [[https://github.com/cmatsuoka/figlet][~figlet~]] and
 [[https://github.com/busyloop/lolcat][~lolcat~]] softwares on the VM.
 
-#+BEGIN_solution
+#+BEGIN_comment
+# solution
 #+BEGIN_SRC bash
 openstack server create --wait --image debian-10 \
   --flavor m1.mini --network test \
@@ -913,7 +922,8 @@ openstack server create --wait --image debian-10 \
   --user-data ./rsc/art.sh \
   art-vm
 #+END_SRC
-#+END_solution
+#+END_comment
+# solution
 #+END_do
 
 #+CAPTION: ~cloud-init~ script available under ~rsc/art.sh~
@@ -937,7 +947,8 @@ Could you notice /when/ the VM has finished to boot based on the
 ~console log~ output?  Write a small bash script that waits until the
 boot has finished.
 
-#+BEGIN_solution
+#+BEGIN_comment
+# solution
 #+BEGIN_src bash :tangle output/rsc/wordpress-deploy.sh :shebang #!/usr/bin/env bash
 function wait_contextualization {
   # VM to get the log of
@@ -984,7 +995,8 @@ function wait_contextualization {
 
 Then use it as the following.
 : wait_contextualization art-vm
-#+END_solution
+#+END_comment
+# solution
 #+END_do
 
 Then, attach it a floating IP.
@@ -1008,7 +1020,25 @@ Are you sure you want to continue connecting (yes/no)? yes
 debian@art-vm:~$ figlet "The Art of Contextualizing a VM" | lolcat
 #+END_example
 
-** Run VMs at (near-)native speed
+** COMMENT Run VMs at (near-)native speed
+# *Note for the teacher:* The [[lst:undo-kvm]] code undoes the setting of
+# kvm, so students first come with qemu and then set kvm to first feel
+# the difference of speed and second see how to configure nova.  This
+# bash snippet is tangle into [[file:setup.sh]] and could be disable to
+# mange time.
+#+NAME: lst:undo-kvm
+#+BEGIN_SRC bash :exports none
+# Make nova use qemu instead of qemu-kvm
+# i.e,:
+# > [libvirt]
+# > virt_type = kvm             # rewrite to qemu
+# > cpu_mode = host-passthrough # rewrite to host-model
+NOVA_HYPERV_CONF=/var/snap/microstack/common/etc/nova/nova.conf.d/hypervisor.conf
+crudini --set $NOVA_HYPERV_CONF libvirt virt_type "qemu"
+crudini --set $NOVA_HYPERV_CONF libvirt cpu_mode  "host-model"
+snap restart microstack.nova-compute
+#+END_SRC
+
 Every time you do an ~openstack server create ...~, your request hits,
 at some point, the ~nova~ services. It starts by the ~nova-api~ that
 processes the REST request. The API, in turns, calls the
@@ -1034,7 +1064,8 @@ help.
 
 #+BEGIN_do
 - Check that the KVM kernel module is loaded, and load it otherwise.
-  #+BEGIN_solution
+  #+BEGIN_comment
+# solution
   /From the [[https://docs.openstack.org/nova/stein/admin/configuration/hypervisor-kvm.html#for-x86-based-systems][Nova documentation]]/
 
   Do the following command to list the loaded kernel modules and
@@ -1049,17 +1080,20 @@ help.
   : modprobe -a kvm
   : modprobe -a kvm-intel  # for Intel
   : modprobe -a kvm-amd    # for amd
-  #+END_solution
+  #+END_comment
+# solution
 
 - Change the configuration of ~nova-compute~ hypervisor (file
   ~/var/snap/microstack/common/etc/nova/nova.conf.d/hypervisor.conf~)
   to support KVM and restart it.
-  #+BEGIN_solution
+  #+BEGIN_comment
+# solution
   : NOVA_HYPERV_CONF=/var/snap/microstack/common/etc/nova/nova.conf.d/hypervisor.conf
   : sudo crudini --set $NOVA_HYPERV_CONF libvirt virt_type "kvm"
   : sudo crudini --set $NOVA_HYPERV_CONF libvirt cpu_mode  "host-passthrough"
   : sudo snap restart microstack.nova-compute
-  #+END_solution
+  #+END_comment
+# solution
 #+END_do
 
 Finally, create a new VM such as in the [[#sec:cloud-init][previous section]] and
@@ -1119,7 +1153,8 @@ order to be reached by the ~wordpress-app~ VM?
 
 Also, remind to [[lst:delete-rscs][clean your environment]].
 
-#+BEGIN_solution
+#+BEGIN_comment
+# solution
 Find the solution in the ~rsc/wordpress-deploy.sh~ script of the
 tarball.
 
@@ -1190,7 +1225,8 @@ from your own machine.
 
 Then, reach WordPress on [[http://localhost:8080/wp]].
 #+END_note
-#+END_solution
+#+END_comment
+# solution
 #+END_do
 
 * Automatize the Deployment with Heat
@@ -1907,10 +1943,12 @@ Create three HOT files:
 Once it is deployed, you should be able to reach the WordPress service by
 going on [[http://<web-server-fip-address>/wp]].
 
-#+BEGIN_solution
+#+BEGIN_comment
+# solution
 Find the solution in the ~rsc/heat-templates/wordpress/~ directory of
 the tarball and in the following subsections.
-#+END_solution
+#+END_comment
+# solution
 #+END_do
 
 ** COMMENT Database VM template                                    :solution:
@@ -2260,14 +2298,14 @@ IP of lab machines
 193.52.86.203
 
 # Undo the external network setup of `microstack.init --auto`
-sysctl -w net.ipv4.ip_forward=0
-extcidr=10.20.20.0/24  # find it with `sudo iptables -t nat -L`
+sudo sysctl -w net.ipv4.ip_forward=0
+sudo extcidr=10.20.20.0/24  # find it with `sudo iptables -t nat -L`
 
 # Flush the nat table
 # iptables -w -t nat -D POSTROUTING -s $extcidr ! -d $extcidr -j MASQUERADE > /dev/null
-iptables -Z
-iptables -t nat -F
-iptables -t nat -X
+sudo iptables -Z
+sudo iptables -t nat -F
+sudo iptables -t nat -X
 
 sudo apt remove --yes --quiet --autoremove heat-api heat-api-cfn heat-engine
 
@@ -2278,12 +2316,20 @@ sudo snap remove --purge microstack
 apt list --installed | grep -E 'mariadb|memcached'
 sudo apt remove --yes --quiet --autoremove mariadb-common mariadb-server memcached
 
+# To create account on frontend
+echo "Enter password for students: "
+read PASSWD
+while read line ; do login=$(echo $line |awk -F"," '{print $1}') ;  mail=$(echo $line|awk -F"," '{print $2}') ;  sudo useradd -g 100 -m -s /bin/bash -c "$mail" $login ;  done </tmp/studentlist
+while read line ; do login=$(echo $line |awk -F"," '{print $1}') ;  echo $login:$PASSWD |sudo chpasswd ; done </tmp/studentlist
+# if needed
+while read line ; do login=$(echo $line |awk -F"," '{print $1}') ;  sudo deluser $login ; done </tmp/studentlist
+
 * Variables                                                        :noexport:
 #+STARTUP: entitiespretty
 #+LANGUAGE: en
 #+OPTIONS: ^:{} ':t email:t toc:nil
 #+PROPERTY: header-args :mkdirp yes
-#+LINK: cdn-url      https://github.com/BeyondTheClouds/lectures/blob/5e81a08/%s?raw=true
+#+LINK: cdn-url      https://github.com/BeyondTheClouds/lectures/blob/16dda68/%s?raw=true
 #+LINK: horizon-url  http://10.24.61.255
 
 #+EXCLUDE_TAGS: noexport
