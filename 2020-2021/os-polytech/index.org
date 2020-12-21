@@ -49,6 +49,9 @@ editor to follow lab completion [[https://pad.inria.fr/p/np_KeAkcZTawSB7hPq3_os-
   - [[#nested-templates-with-data-dependency][Nested templates with data dependency]]
   - [[#other-type-of-resources-floating-ip][Other type of resources: floating IP]]
 - [[#deploy-a-wordpress-as-a-service-as-a-heat-devops][Deploy a WordPress as a Service (as a Heat DevOps)]]
+  - [[#database-vm-template][Database VM template]]
+  - [[#web-vm-template][Web VM template]]
+  - [[#wordpress-application-template][Wordpress application template]]
 - [[#appendix][Appendix]]
   - [[#vagrantfile][Vagrantfile]]
   - [[#install-mariadb-on-debian-10][Install MariaDB on Debian 10]]
@@ -206,7 +209,7 @@ The rest of this lab *proceeds on the Lab machine*.
 Get the resources of the lab at [[cdn-url:2020-2021/os-polytech/tp.tar.gz]].
 
 #+BEGIN_SRC bash
-curl https://github.com/BeyondTheClouds/lectures/blob/16dda68/2020-2021/os-polytech/tp.tar.gz?raw=true -o tp.tar.gz -L
+curl https://github.com/BeyondTheClouds/lectures/blob/34c031d/2020-2021/os-polytech/tp.tar.gz?raw=true -o tp.tar.gz -L
 tar xzf tp.tar.gz
 cd lab-os
 #+END_SRC
@@ -1909,7 +1912,7 @@ the tarball and in the following subsections.
 #+END_solution
 #+END_do
 
-** COMMENT Database VM template                                    :solution:
+** Database VM template                                            :solution:
 #+BEGIN_src yaml :tangle output/rsc/heat-templates/wordpress/db-vm.yaml
 heat_template_version: 2017-09-01
 
@@ -1960,7 +1963,7 @@ outputs:
     value: { get_attr: [db-vm, networks, test, 0] }
 #+END_src
 
-** COMMENT Web VM template                                         :solution:
+** Web VM template                                                 :solution:
 #+BEGIN_src yaml :tangle output/rsc/heat-templates/wordpress/wp-vm.yaml
 heat_template_version: 2017-09-01
 
@@ -2019,7 +2022,7 @@ resources:
       port_id: { get_attr: [wp-vm, addresses, test, 0, port]}
 #+END_src
 
-** COMMENT Wordpress application template                          :solution:
+** Wordpress application template                                  :solution:
 #+BEGIN_src yaml :tangle output/rsc/heat-templates/wordpress/wp-app.yaml
 heat_template_version: 2017-09-01
 
@@ -2292,7 +2295,7 @@ while read line ; do login=$(echo $line |awk -F"," '{print $1}') ;  echo $login:
 #+LANGUAGE: en
 #+OPTIONS: ^:{} ':t email:t toc:nil
 #+PROPERTY: header-args :mkdirp yes
-#+LINK: cdn-url      https://github.com/BeyondTheClouds/lectures/blob/16dda68/%s?raw=true
+#+LINK: cdn-url      https://github.com/BeyondTheClouds/lectures/blob/34c031d/%s?raw=true
 #+LINK: horizon-url  http://10.24.61.255
 
 #+EXCLUDE_TAGS: noexport
