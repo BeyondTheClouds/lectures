@@ -92,7 +92,7 @@ def make_conf(testing=True) -> Configuration:
     # conf = (Configuration.from_settings(
     #            reservation="2020-11-09 07:00:01",
     #            walltime="35:59:58",
-    #            job_name="os-imt-aio",
+    #            job_name="lab-os-aio",
     #            job_type="deploy",
     #            env_name="ubuntu2004-x64-min")
     #         .add_network_conf(project_net)
@@ -124,7 +124,7 @@ def provision(rs: Roles):
         p.raw('sysctl -w net.ipv4.ip_forward=1')
 
         # Setup ssh for root w/ password
-        p.raw('echo "root:os-imt" | chpasswd')
+        p.raw('echo "root:lab-os" | chpasswd')
         p.blockinfile(path='/etc/ssh/sshd_config',
                       block='''
                       PasswordAuthentication yes

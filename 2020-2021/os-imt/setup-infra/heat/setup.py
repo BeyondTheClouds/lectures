@@ -130,7 +130,7 @@ def make_account(identity, users):
 
         if not user:
             user = identity.create_user(
-                domain_id='default', name=user_name, password="os-imt")
+                domain_id='default', name=user_name, password="lab-os")
 
         LOG.info("User %s" % user)
 

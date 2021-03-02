@@ -2,7 +2,7 @@
 #+TITLE: Thanks to OpenStack
 #+AUTHOR: Ronan-Alexandre Cherrueau, Adrien Lebre, Didier Iscovery
 #+EMAIL: {firstname.lastname}@inria.fr
-#+DATE: [2020-11-09 Mon]
+#+DATE: [2021-03-05 Sat]
 
 #+BEGIN_abstract
 OpenStack has become the de-facto solution to operate compute, network
@@ -15,7 +15,8 @@ are going to:
 - Automatize all the stuff with the Heat template engine (i.e., manage
   your cloud from your sofa!).
 
-Find the slides of the lecture [[cdn-url:2018-2019/os-polytech/docs/CloudFogEdgeIntro.pdf][here]] and [[cdn-url:2018-2019/os-polytech/docs/openstack-slides.pdf][there]].
+Find the slides of the lecture [[cdn-url:2018-2019/os-polytech/docs/CloudFogEdgeIntro.pdf][here]] and [[cdn-url:2018-2019/os-polytech/docs/openstack-slides.pdf][there]].  Find the collaborative
+editor to follow lab completion [[https://pad.inria.fr/p/https://pad.inria.fr/p/np_HcC3U1VsFnNgT1af_Nuage-2020-2021][here.]]
 # This document is an [[https://orgmode.org/][Org mode]] document, you can find its source [[cdn-url:index.org][here]].
 #+END_abstract
 
@@ -41,7 +42,7 @@ Find the slides of the lecture [[cdn-url:2018-2019/os-polytech/docs/CloudFogEdge
   - [[#preamble][Preamble]]
   - [[#boot-a-vm][Boot a VM]]
   - [[#need-more-flexibility-lets-add-parameters][Need more flexibility: let's add parameters]]
-  - [[#need-to-return-values-lets-use-outputs][Need to return values: let's use outputs!]]
+  - [[#need-to-return-values-lets-use-outputs][Need to return values: let's use outputs]]
   - [[#integrate-cloud-init][Integrate ~cloud-init~]]
   - [[#dynamic-configuration-with-cloud-init-and-parameters][Dynamic configuration with ~cloud-init~ and parameters]]
   - [[#data-dependency-between-resources][Data dependency between resources]]
@@ -49,9 +50,6 @@ Find the slides of the lecture [[cdn-url:2018-2019/os-polytech/docs/CloudFogEdge
   - [[#nested-templates-with-data-dependency][Nested templates with data dependency]]
   - [[#other-type-of-resources-floating-ip][Other type of resources: floating IP]]
 - [[#deploy-a-wordpress-as-a-service-as-a-heat-devops][Deploy a WordPress as a Service (as a Heat DevOps)]]
-  - [[#database-vm-template][Database VM template]]
-  - [[#web-vm-template][Web VM template]]
-  - [[#wordpress-application-template][Wordpress application template]]
 - [[#appendix][Appendix]]
   - [[#install-mariadb-on-debian-10][Install MariaDB on Debian 10]]
   - [[#install-wordpress-application-on-debian-10][Install Wordpress application on Debian 10]]
@@ -85,7 +83,7 @@ Do ~C-c C-c~ in the following
   (org-babel-tangle)
 
   ;; Make the tp.tar.gz
-  (shell-command (format "tar czf tp.tar.gz --transform 's|^%s|lab-os|' %s"
+  (shell-command (format "tar czf tp.tar.gz --exclude=index.html --transform 's|^%s|lab-os|' %s"
                          output-dir output-dir)))
 #+END_SRC
 
@@ -128,6 +126,16 @@ Show solutions
 ** Troubleshooting
 - ~chmod~ doesn't work on WSL. Put your key in the filesystem managed
   by linux, i.e., ~/home/user~.
+- Starting a VM doesn't work with an error that neutron cannot bind
+  port: if this is a Vagrant box with libvirt, then ensure that the
+  box is built with virtio.  This is not the case of the
+  'generic/ubuntu2004'.
+- Attention que des services ne soient pas installés:
+  + mysql: bloque l'installation de microstack
+  + memcachd: Retourne une erreur de cache dans Horizon
+  + `File Access Denied` ou `ssh: Permission denied` il faut réinstaller le openstackclient.
+    : sudo snap remove --purge openstackclients
+    : sudo snap install openstackclients --classic
 
 * Requirements and Setup
 :PROPERTIES:
@@ -208,11 +216,11 @@ your own in case of troubles.
    : unzip <g5k_login>_vpnclient.zip -d g5k_vpnclient
 6. Run OpenVPN client with sudo
    : cd g5k_vpnclient; sudo openvpn Grid5000_VPN.ovpn
-7. Fill password of step 4 to the question ~Enter Private Key
+7. Fill in the password of Step 4 to the question ~Enter Private Key
    Password:~.
 
 You correctly setup the VPN and can access Grid'5000 private network
-if your shell hangs and you see the following route in your routing
+if your *shell hangs* and you see the following route in your routing
 table.
 #+begin_src bash
 $ ip route
@@ -253,7 +261,10 @@ Install snap.
 : sudo apt update
 : sudo apt install snapd
 
-Install OpenStack directly from the snap store.
+# Ensure OpenStack microstack is not already installed and remove it otherwise.
+# : snap info microstack | fgrep -q installed && sudo snap remove --purge microstack
+
+Install the latest version of OpenStack from the snap store.
 : sudo snap install --channel=latest/beta microstack --devmode
 
 Execute the ~setup.sh~ file with sudo to initialize OpenStack (setup
@@ -285,25 +296,22 @@ status? What is the purpose of each service?
 set -o errexit
 set -o xtrace
 
+# Install the bare necessities
+apt install --yes --quiet silversearcher-ag curl tcpdump kmod vim htop lynx crudini
+# On ubuntu 20.04 only
+apt install --yes --quiet bat
+
 # Set the admin password to keystone
-snap set microstack config.credentials.keystone-password=keystone
-snap set microstack config.host.check-qemu=False
+snap set microstack config.credentials.keystone-password=lab-os
+snap set microstack config.host.check-qemu=True
 
 # Initialize  OpenStack
 microstack.init --auto --control
 
-# Make nova use qemu instead of qemu-kvm
-# i.e,:
-# > [libvirt]
-# > virt_type = kvm             # rewrite to qemu
-# > cpu_mode = host-passthrough # rewrite to host-model
-NOVA_HYPERV_CONF=/var/snap/microstack/common/etc/nova/nova.conf.d/hypervisor.conf
-sed -i 's|virt_type.\+|virt_type = qemu|' $NOVA_HYPERV_CONF
-sed -i 's|cpu_mode.\+|cpu_mode = host-model|' $NOVA_HYPERV_CONF
-snap restart microstack.nova-compute
+<<lst:undo-kvm>>
 
-# Install the bare necessities
-apt install --yes --quiet silversearcher-ag curl tcpdump kmod vim htop
+# Install openstack client
+snap info openstackclients | fgrep -q installed && sudo snap remove --purge openstackclients
 snap install --channel=latest/stable openstackclients --classic
 
 # Put snap openstackclients into the path.
@@ -321,8 +329,7 @@ do
     microstack.openstack security group rule delete "${rule}"
 done
 
-# Do not include this for IMT-A
-# <<lst:undo-extnet-setup>>
+<<lst:undo-extnet-setup>>
 set -o xtrace
 #+END_SRC
 
@@ -331,6 +338,7 @@ set -o xtrace
 set -o xtrace
 
 <<lst:undo-extnet-setup>>
+<<lst:remove-heat>>
 
 sudo snap remove --purge openstackclients
 sudo snap remove --purge microstack
@@ -345,7 +353,7 @@ One service deployed is the OpenStack dashboard (Horizon). On your own
 machine, horizon is reachable from the web browser at
 [[http://<ip-of-your-lab-machine>]] with the following credentials:
 - login: ~admin~
-- password: ~keystone~
+- password: ~lab-os~
 
 From here, you can reach ~Project > Compute > Instances > Launch
 Instance~ and boot a virtual machine given the following information:
@@ -368,20 +376,20 @@ credentials to access the VM:
 - password: ~gocubsgo~
 
 However, as a /real DevOps/, you will prefer to access to your VM by
-the command line interface ...
+the command line interface \dots
 
 ** Unleash the operator in you
 :PROPERTIES:
 :CUSTOM_ID: sec:os-cli
 :END:
 While Horizon is helpful to discover OpenStack features, this is not
-the tool of choice for an operator. An operator prefers command line
-interface 😄. You are lucky, OpenStack provides one.
+the tool of choice for an operator.  An operator prefers command line
+interface 😄.  You are lucky, OpenStack provides one.
 
 All operations to manage OpenStack are done through one unique command
-line, called ~openstack <service> <action> ...~. Doing an ~openstack
+line, called ~openstack <service> <action> ...~.  Doing an ~openstack
 --help~ displays the /really long/ list of services/possibilities
-provided by this command. The following gives you a selection of the
+provided by this command.  The following gives you a selection of the
 most often used commands to operate your Cloud:
 - List OpenStack running services :: ~openstack endpoint list~
 - List images :: ~openstack image list~
@@ -394,8 +402,9 @@ most often used commands to operate your Cloud:
 - View VMs logs :: ~openstack console log show <vm-name>~
 
 #+BEGIN_do
-Try one of these commands. Does it works? What is the problem, how to
-fix it? Hint: Look at the [[os-doc:python-openstackclient,cli/authentication.html][password authentication process]] for the CLI.
+Try one of these commands.  Does it works?  What is the problem, how
+to fix it?  Hint: Look at the [[os-doc:python-openstackclient,cli/authentication.html][password authentication process]] for the
+CLI.
 
 #+BEGIN_solution
 #+BEGIN_SRC bash
@@ -409,9 +418,9 @@ There are *two options* to achieve this.  First, to give them as
 arguments of the command.
 
 #+BEGIN_SRC bash
-openstack endpoint list --os-auth-url=http://<ip-of-your-lab-machine>:5000/v3/ \
+openstack server list --os-auth-url=http://<ip-of-your-lab-machine>:5000/v3/ \
                         --os-username=admin \
-                        --os-password=keystone \
+                        --os-password=lab-os \
                         --os-project-name=admin \
                         --os-user-domain-name=Default \
                         --os-project-domain-id=default
@@ -436,7 +445,7 @@ $ env|fgrep OS_|sort
 OS_AUTH_URL=http://<ip-of-your-lab-machine>:5000/v3/
 OS_IDENTITY_API_VERSION=3
 OS_INTERFACE=public
-OS_PASSWORD=keystone
+OS_PASSWORD=lab-os
 OS_PROJECT_DOMAIN_ID=default
 OS_PROJECT_ID=2bad71b9246a4a06a0c9daf2d8896108
 OS_PROJECT_NAME=admin
@@ -470,7 +479,7 @@ information from the command line with the ~-c~ and ~-f~).
 : openstack server show cli-vm -c status -f json
 
 This status will go from ~BUILD~: OpenStack is looking for the best
-place to boot the VM; to ~ACTIVE~: your VM is running. The status
+place to boot the VM; to ~ACTIVE~: your VM is running.  The status
 could also be ~ERROR~ if you are experiencing hard times with your
 infrastructure.
 
@@ -479,8 +488,7 @@ What is the purpose of the ~-c~ and ~-f~ argument in the previous
 command.
 #+BEGIN_solution
 #+BEGIN_example
-$ openstack server create --help
-...
+$ openstack server create --help | fgrep -A 6 "output formatters:"
 output formatters:
   output formatter options
 
@@ -488,7 +496,6 @@ output formatters:
                         the output format, defaults to table
   -c COLUMN, --column COLUMN
                         specify the column(s) to include, can be repeated
-...
 #+END_example
 #+END_solution
 #+END_do
@@ -565,8 +572,8 @@ Ping ~cli-vm~ on its floating IP.
 Does it work? Why? Hint: OpenStack limits the incomming traffic by
 default for security reasons.  The mechanisms to control the traffic
 in OpenStack is called [[os-doc:neutron,feature_classification/general_feature_support_matrix.html#operation_Security_Groups][security group]].  Find the command that list the
-security group rules of the ~admin~ project. # (i.e., ~openstack
-project show admin~).
+security group rules of the ~admin~ project (i.e., ~openstack project
+show admin~).
 
 #+BEGIN_solution
 Regarding security rules, OpenStack is very conservative by default
@@ -608,48 +615,64 @@ openstack security group rule create $SECGROUP_ID --proto tcp --remote-ip 10.20.
 Once you succeed to ping the vm, you should also be able to SSH on it.
 : ssh -l cirros "$ALLOCATED_FIP"
 
-Go on, and play with the ~openstack~ cli. For instance, list all
-features offered by Nova with ~openstack server --help~ and try to
-figure out how to:
+#+BEGIN_do
+Go on, and play with the ~openstack~ CLI.  List all features offered
+by Nova with ~openstack server --help~ and figure out how to:
 1. SSH on ~cli-vm~ using its name rather than its IP;
-2. Suspend and resume it;
-3. Create a snapshot of ~cli-vm~;
-4. Boot a new machine ~cli-vm-clone~ from the snapshot.
-5. Delete ~cli-vm-clone~;
+2. Pause it, note the footprint on the ram of the hypervisor, and unpause it;
+3. +Suspend it, note the footprint on the ram of the hypervisor, and
+   resume it;+ Does not work right now 😒
+4. Create a snapshot of ~cli-vm~;
+5. Boot a new machine ~cli-vm-clone~ from the snapshot;
+6. Delete ~cli-vm-clone~;
 
 #+BEGIN_solution
 #+BEGIN_SRC bash
 # 1.
 openstack server ssh cli-vm -l cirros
 # 2.
-openstack server suspend cli-vm; openstack server show cli-vm -c status
-openstack server resume cli-vm; openstack server show cli-vm -c status
+openstack hypervisor show $(openstack server show cli-vm -c "OS-EXT-SRV-ATTR:hypervisor_hostname" -f value) -c free_ram_mb
+openstack server pause cli-vm; openstack server show cli-vm -c status
+openstack hypervisor show $(openstack server show cli-vm -c "OS-EXT-SRV-ATTR:hypervisor_hostname" -f value) -c free_ram_mb
+openstack server unpause cli-vm; openstack server show cli-vm -c status
 # 3.
-openstack server image create --name cli-vm-img cli-vm; openstack image list
+openstack server suspend cli-vm; openstack server show cli-vm -c status
+openstack hypervisor show $(openstack server show cli-vm -c "OS-EXT-SRV-ATTR:hypervisor_hostname" -f value) -c free_ram_mb
+openstack server resume cli-vm; openstack server show cli-vm -c status
 # 4.
+openstack server image create --name cli-vm-img cli-vm; openstack image list
+# 5.
 openstack server create --wait --flavor m1.tiny \
   --network test --image cli-vm-img \
   cli-vm-clone
-# 5.
+# 6.
 openstack server delete cli-vm-clone
 #+END_SRC
 #+END_solution
+#+END_do
 
-*** Make the VM reaches the world                                  :noexport:
+*** COMMENT Make the VM reaches the world
 # *Note for the teacher:* The [[lst:undo-extnet-setup]] code undoes the
 # [[https://opendev.org/x/microstack/src/commit/1a25e50a172db7331edf2f836f3c2005222bb4c5/snap-overlay/bin/setup-br-ex#L21-L22][microstack network setup]], so students have to resolve the next
 # challenge (i.e., the next ~begin_do~). This bash snippet is tangle
 # into [[file:setup.sh]] and could be disable in case of a no
-# network-oriented students.
+# network-oriented students.  To disable it, simply comment that
+# headline.
 #+NAME: lst:undo-extnet-setup
 #+BEGIN_SRC bash :exports none
 # Undo the external network setup of `microstack.init --auto`
 sysctl -w net.ipv4.ip_forward=0 > /dev/null
 extcidr=10.20.20.0/24  # find it with `sudo iptables -t nat -L`
-iptables -w -t nat -D POSTROUTING -s $extcidr ! -d $extcidr -j MASQUERADE > /dev/null
+
+# Flush the nat table
+# iptables -w -t nat -D POSTROUTING -s $extcidr ! -d $extcidr -j MASQUERADE > /dev/null
+iptables -Z
+iptables -t nat -F
+iptables -t nat -X
 #+END_SRC
 
 From the cirros, ping the outside world.
+: openstack server ssh cli-vm --login cirros
 : ping 8.8.8.8  # GOOGLE could you HEAR me?!
 
 #+BEGIN_do
@@ -658,44 +681,38 @@ hints to check:
 - Ping the VM and Google *from the Lab machine*. The ping should work
   for both. What does it mean for the Lab machine regarding
   communications between VMs and the Internet?
-  #+BEGIN_comment
-# solution
+  #+BEGIN_solution
   : ping -c 2 $ALLOCATED_FIP; ping -c 2 8.8.8.8
   The ping from the Lab machine works for both the VM and Google.
   Thus, the Lab machine /could be a gateway/ between VMs and the
   Internet.
-  #+END_comment
-# solution
+  #+END_solution
 
 - Note the IP address of ~$ALLOCATED_FIP~. From which network this IP
   comes? Which NIC serves that network on the Lab machine?
-  #+BEGIN_comment
-# solution
+  #+BEGIN_solution
   : echo "$ALLOCATED_FIP"
   : openstack subnet show external-subnet -c cidr -c allocation_pools
   : ip address | fgrep -B 2 10.20.20
   The IP of the VM comes from the network 10.20.20.0/24, which is
   served on the Lab machine by ~br-ex~.
-  #+END_comment
-# solution
+  #+END_solution
 
 - Do a ~tcpdump~ on that NIC. Do you see the ICMP packets from
   ~$ALLOCATED_FIP~ that flow over that NIC?
-  #+BEGIN_comment
-# solution
+  #+BEGIN_solution
   : sudo tcpdump -nni br-ex icmp
   The ~tcpdump~ on ~br-ex~ shows ping ~echo request~ packets, but no
-  ~echo reply~. So the packets are lost somewhere.... In other words,
-  the Lab machine does not play its role of gateway between VMs and
-  the Internet.
-  #+END_comment
-# solution
+  ~echo reply~. So the packets are lost somewhere... Remember
+  the Lab machine should play a role of gateway between VMs and
+  the Internet.  Thus, packets should flow through the NIC of the
+  default route: let's see what is happening there.
+  #+END_solution
 
 - Find the route that forward packets to the Internet on Lab machine.
   Do a ~tcpdump~ on the NIC that servers that route. Do you see the
   ICMP packets flow over that NIC?
-  #+BEGIN_comment
-# solution
+  #+BEGIN_solution
   To ensure that something is wrong on the Lab machine regarding its
   role of gateway between VMs and the Internet, let's find the route
   that forwards Google packets out of the Lab machine.
@@ -717,8 +734,8 @@ hints to check:
 
   To put it differently, the Lab machine does not forward the incoming
   traffic on ~br-ex~ to ~eth0~. And this is normal, there is [[https://serverfault.com/questions/749682/ip-forwarding-on-linux-anything-important-to-make-sure-to-do-or-know][no reason]]
-  for Linux to enable this by default. However in our case, we have to
-  activate it. This is called /Kernel IP Forwarding/, and it could be
+  for Linux to enable this by default.  However in our case, we have to
+  activate it.  This is called /Kernel IP Forwarding/, and it could be
   set up with the next command (or ~echo 1 >
   /proc/sys/net/ipv4/ip_forward~).
   : sudo sysctl -w net.ipv4.ip_forward=1
@@ -732,15 +749,13 @@ hints to check:
 
   If a rule drops packet, then it is mandatory to accept them with a
   new rule.
-  : iptables -A FORWARD -j ACCEPT
+  : sudo iptables -A FORWARD -j ACCEPT
   #+END_note
-  #+END_comment
-# solution
+  #+END_solution
 
 - After making the packets flow on the second NIC, is everything OK
   with the IP address of the source in the ~tcpdump~ on ~eth0~?
-  #+BEGIN_comment
-# solution
+  #+BEGIN_solution
   From now, the ping of Google from the VM reaches Internet via ~eth0~
   (as seen by ~tcpdump -nni eth0 icmp~). Unfortunately, it still does
   not do the trick, because the packet goes out with the ~10.20.20.*~
@@ -761,12 +776,11 @@ hints to check:
   "In the ~nat~ table, for packets that leave the machine (~-A
   POSTROUTING~) and incoming from network ~10.20.20.0/24~ (~-s~) and
   not at destination of the network ~10.20.20.0/24~ (~! -d~), then
-  replace the sender's address by the router's address (~-j
+  replace the sender's address by the gateway's address (~-j
   MASQUERADE~)."
   # : sudo iptables -t nat -A POSTROUTING ! -d 10.20.20.0/24 -o <NIC-of-your-lab-machine> -j SNAT --to-source <ip-of-your-lab-machine>
   : sudo iptables -t nat -A POSTROUTING -s 10.20.20.0/24 ! -d 10.20.20.0/24 -j MASQUERADE
-  #+END_comment
-# solution
+  #+END_solution
 #+END_do
 
 ** In encryption we trust
@@ -822,14 +836,14 @@ according to your network cidr.
 ** The art of contextualizing a VM
 Contextualizing is the process that automatically installs software,
 alters configurations, and does more on a machine as part of its boot
-process. On OpenStack, contextualizing is achieved thanks to
-[[https://cloud-init.io/][~cloud-init~]]. It is a program that runs at the boot time to customize
+process.  On OpenStack, contextualizing is achieved thanks to
+[[https://cloud-init.io/][~cloud-init~]].  It is a program that runs at the boot time to customize
 the VM.
 
-You have already used ~cloud-init~ without even knowing it! The
+You have already used ~cloud-init~ without even knowing it!  The
 previous command ~openstack server create~ with the ~--identity~
 parameter tells OpenStack to make the public counterpart of the SSH
-key available to the VM. When the VM boots for the first time,
+key available to the VM.  When the VM boots for the first time,
 ~cloud-init~ is (among other tasks) in charge of fetching this public
 SSH key from OpenStack, and copy it to =~/.ssh/authorized_keys=.
 Beyond that, ~cloud-init~ is in charge of many aspects of the VM
@@ -843,9 +857,9 @@ executed on the VM as ~root~ during the boot process.
 :CUSTOM_ID: sec:debian10-ftw
 :END:
 When it comes the time to deal with real applications, we cannot use
-cirros VMs anymore. A Cirros VM is good for testing because it starts
-fast and has a small memory footprint. However, do not expect to
-launch [[https://en.wikipedia.org/wiki/MariaDB][MariaDB]] or even [[https://github.com/busyloop/lolcat][~lolcat~]] on a cirros.
+cirros VMs anymore.  A Cirros VM is good for testing because it starts
+fast and has a small memory footprint.  However, do not expect to
+launch [[https://en.wikipedia.org/wiki/MariaDB][MariaDB]] on a cirros.
 
 We are going to run several Debian10 VMs in this section. But, a
 Debian10 takes a lot more of resources to run. For this reason, you may
@@ -868,7 +882,7 @@ done
 
 Then, download the Debian10 image with support of ~cloud-init~.
 #+BEGIN_SRC bash
-curl -L -o /tmp/debian-10.qcow2 \
+curl -L -o ./debian-10.qcow2 \
   https://cloud.debian.org/images/cloud/OpenStack/current-10/debian-10-openstack-amd64.qcow2
 #+END_SRC
 
@@ -880,7 +894,7 @@ create --help~ for creation arguments. Find values example with
 #+BEGIN_SRC bash
 openstack image create --disk-format=qcow2 \
   --container-format=bare --property architecture=x86_64 \
-  --public --file /tmp/debian-10.qcow2 \
+  --public --file ./debian-10.qcow2 \
   debian-10
 #+END_SRC
 #+END_solution
@@ -913,7 +927,7 @@ Start a new VM named ~art-vm~ based on the ~debian-10~ image and the
 
 #+BEGIN_solution
 #+BEGIN_SRC bash
-openstack server create --wait --image debian-10 \
+openstack server create --wait --image debina-10 \
   --flavor m1.mini --network test \
   --key-name admin \
   --user-data ./rsc/art.sh \
@@ -1015,21 +1029,39 @@ debian@art-vm:~$ figlet "The Art of Contextualizing a VM" | lolcat
 #+END_example
 
 ** Run VMs at (near-)native speed
+# *Note for the teacher:* The [[lst:undo-kvm]] code undoes the setting of
+# kvm, so students first come with qemu and then set kvm to first feel
+# the difference of speed and second see how to configure nova.  This
+# bash snippet is tangle into [[file:setup.sh]] and could be disable to
+# manage time.  Simply comment that headline to disable it.
+#+NAME: lst:undo-kvm
+#+BEGIN_SRC bash :exports none
+# Make nova use qemu instead of qemu-kvm
+# i.e,:
+# > [libvirt]
+# > virt_type = kvm             # rewrite to qemu
+# > cpu_mode = host-passthrough # rewrite to host-model
+NOVA_HYPERV_CONF=/var/snap/microstack/common/etc/nova/nova.conf.d/hypervisor.conf
+crudini --set $NOVA_HYPERV_CONF libvirt virt_type "qemu"
+crudini --set $NOVA_HYPERV_CONF libvirt cpu_mode  "host-model"
+snap restart microstack.nova-compute
+#+END_SRC
+
 Every time you do an ~openstack server create ...~, your request hits,
-at some point, the ~nova~ services. It starts by the ~nova-api~ that
-processes the REST request. The API, in turns, calls the
+at some point, the ~nova~ services.  It starts by the ~nova-api~ that
+processes the REST request.  The API, in turns, calls the
 ~nova-conductor~ that orchestrates the boot: performs some checks,
 finds eligible computes and chooses one to transmit the boot order to
-its ~nova-compute~. Finally, the ~nova-compute~ asks to the underlying
-hypervisor to start the VM.
+its ~nova-compute~.  Finally, the ~nova-compute~ asks to the
+underlying hypervisor to start the VM.
 
 In your current setup, the hypervisor of your ~nova-compute~ runs
-[[https://en.wikipedia.org/wiki/QEMU][QEMU]]. QEMU is a free emulator for hardware virtualization. It supports
-a large variety of guest operating systems, but the emulation is a bit
-slow. Fortunately, QEMU can be used with [[http://www.linux-kvm.org/][KVM]] to run virtual machines
-at near-native speed. KVM (Kernel-based Virtual Machine) is a free
-full virtualization solution for Linux that takes advantage of x86
-hardware extensions (Intel VT or AMD-V).
+[[https://en.wikipedia.org/wiki/QEMU][QEMU]].  QEMU is a free emulator for hardware virtualization.  It
+supports a large variety of guest operating systems, but the emulation
+is a bit slow.  Fortunately, QEMU can be used with [[http://www.linux-kvm.org/][KVM]] to run virtual
+machines at near-native speed.  KVM (Kernel-based Virtual Machine) is
+a free full virtualization solution for Linux that takes advantage of
+x86 hardware extensions (Intel VT or AMD-V).
 
 To check if the x86 of your Lab machine provides hardware
 virtualization, execute the following command.
@@ -1062,8 +1094,8 @@ help.
   to support KVM and restart it.
   #+BEGIN_solution
   : NOVA_HYPERV_CONF=/var/snap/microstack/common/etc/nova/nova.conf.d/hypervisor.conf
-  : sudo sed -i 's|virt_type.\+|virt_type = kvm|' $NOVA_HYPERV_CONF
-  : sudo sed -i 's|cpu_mode.\+|cpu_mode = host-passthrough|' $NOVA_HYPERV_CONF
+  : sudo crudini --set $NOVA_HYPERV_CONF libvirt virt_type "kvm"
+  : sudo crudini --set $NOVA_HYPERV_CONF libvirt cpu_mode  "host-passthrough"
   : sudo snap restart microstack.nova-compute
   #+END_solution
 #+END_do
@@ -1194,7 +1226,7 @@ Optionally, you can do it with an SSH tunnel to access ~10.20.20.*~
 from your own machine.
 : ssh -NL 8080:<floating-ip>:80 -l root <ip-of-your-lab-machine>
 
-Then, reach WordPress on [[http://localhost:8080/wp]].
+And reach WordPress on [[http://localhost:8080/wp]].
 #+END_note
 #+END_solution
 #+END_do
@@ -1206,33 +1238,31 @@ Then, reach WordPress on [[http://localhost:8080/wp]].
 [[os-doc:heat][Heat]] is the OpenStack orchestrator: it eats templates (called HOT for
 Heat Orchestration Template - which are files written in YAML)
 describing the OpenStack infrastructure you want to deploy (e.g. VMs,
-networks, storages) as well as software configurations. Then the Heat
+networks, storages) as well as software configurations.  Then the Heat
 engine is in charge of sending the appropriate requests to OpenStack
 to deploy the system described in your template (deployments are
-called ~stacks~ in Heat). This section manipulates Heat to understand
-how to deploy applications on OpenStack. Template snippets in the
-following are available under the ~rsc/heat-templates/~ directory. You
-may also find interesting examples in the [[os-doc:heat,template_guide/basic_resources.html][Heat documentation]], or on
-the [[https://github.com/openstack/heat-templates][heat-templates repository]].
-
+called ~stacks~ in Heat).  This section manipulates Heat to understand
+how to deploy applications on OpenStack.  Templates in the following
+are available under the ~rsc/heat-templates/~ directory.  You may also
+find interesting examples in the [[os-doc:heat,template_guide/basic_resources.html][Heat documentation]], or on the
+[[https://github.com/openstack/heat-templates][heat-templates repository]].
 
 ** Preamble
 In this last part, the teacher has setup an OpenStack in a DataCenter
 (here, on top of Grid'5000) and created member account and project for
-each of you (not admin). As a preamble, you should:
+each of you (not admin).  As a preamble, you should:
 - Connect to the Grid'5000 VPN (Sec.\nbsp{}[[#sec:assign-lab]]).
 - Go on the [[horizon-url][horizon dashbord]] of teacher's OpenStack and download the
   "OpenStack RC File V3" (Sec.\nbsp{}[[#sec:os-cli]]) on your own machine.
   + user name: your Grid'5000 login
-  + password: ~os-imt~
+  + password: ~lab-os~
 - [[https://github.com/openstack/python-openstackclient/tree/stable/rocky#getting-started][Install the OpenStack CLI]] and [[https://github.com/openstack/python-heatclient/tree/stable/rocky][Heat CLI]] on your own machine.
   # : alias openstack="pipenv run openstack"
 - Source the "OpenStack RC File V3".
 - Reimport (or maybe recreate) your admin SSH key
   (Sec.\nbsp{}[[#sec:enc-trust]]).
-- Download the last version of the Lab resources (Sec.\nbsp{}[[#sec:rscs-lab]]).
 
-Resource names change a bit from previously. Do not hesitate to run
+Resource names change a bit from previously.  Do not hesitate to run
 some commands such as the following to know about new names.
 - ~openstack network list~
 - ~openstack image list~
@@ -1258,25 +1288,26 @@ resources:
     type: "OS::Nova::Server"
     properties:
       name: hello_world      # Name of the VM
-      image: debian-10       # Its image of the VM (must be available in Glance)
+      image: debian-10       # Its image (must be available in Glance)
       flavor: m1.mini        # Its flavor (must exist in Nova)
-      key_name: admin        # Name of the SSH Key (must exist in Nova)
+      key_name: admin        # Name of its SSH Key (must exist in Nova)
       networks:              # List of networks to connect to
         - {network: private}
 #+END_SRC
 
 As depicted in this example, the different OpenStack resources can be
-declared using types. OpenStack resource types are listed in the
+declared using types.  OpenStack resource types are listed in the
 [[os-doc:heat,template_guide/openstack.html][documentation]], browsing this page, you can see that resources exist
 for most OpenStack services (e.g. Nova, Neutron, Glance, Cinder,
-Heat). Here, we declare a new resource called ~heat-vm~ which is
+Heat).  Here, we declare a new resource called ~heat-vm~ which is
 defined by the type ~OS::Nova::Server~ to declare a new virtual
-machine. A type specifies different properties (some are mandatory,
-some are optional, [[os-doc:heat,template_guide/openstack.html][see the documentation]] for more details). The
+machine.  A type specifies different properties (some are mandatory,
+some are optional, [[os-doc:heat,template_guide/openstack.html][see the documentation]] for more details).  The
 ~OS::Nova::Server~ properties should be familiar to you since it is
 the classical properties Nova requires to boot a VM (i.e. name, image,
-flavor, key name). Once you have written this template in a file, you
+flavor, key name).  Once you have written this template in a file, you
 can now deploy the stack as following:
+
 #+BEGIN_SRC bash
 openstack stack create -t ./rsc/heat-templates/1_boot_vm.yaml hw1
 openstack stack list
@@ -1285,25 +1316,26 @@ watch openstack server list
 openstack stack delete --wait --yes hw1
 #+END_SRC
 
-This simple template is enough to run a virtual machine. However, it
-is very static. In the next subsection, we are going to manipulate
+This simple template is enough to run a virtual machine.  However, it
+is very static.  In the next subsection, we are going to manipulate
 parameters to add flexibility.
 
 ** Need more flexibility: let's add parameters
 :PROPERTIES:
 :CUSTOM_ID: sec:heat-params
 :END:
-Templates can be more flexible with parameters. To that end you can:
+Templates can be more flexible with parameters.  To that end you can:
 - Declare a set of parameters to provide to your template.
 - Use the [[os-doc:heat,template_guide/hot_spec.html#hot-spec-intrinsic-functions][intrinsic function]] ~get_param~ to map those parameters in
   your resource declarations.
 
-The next template is an example with four parameters. The first one is
-related to the VM name and must be provided during the stack creation.
-The second one is the name of the VM image with a ~debian-10~ as
-default value. The third argument corresponds to the flavor and
-defaults to ~m1.small~. Finally, the last one defines the SSH key to
-use and defaults to ~admin~.
+The next template is an example with four parameters.  The first one
+is related to the VM name and must be provided during the stack
+creation.  The second one is the name of the VM image with a
+~debian-10~ as default value.  The third argument corresponds to the
+flavor and defaults to ~m1.small~.  Finally, the last one defines the
+SSH key to use and defaults to ~admin~.
+
 #+begin_src yaml :tangle output/rsc/heat-templates/2_boot_vm_with_params.yaml
 heat_template_version: 2017-09-01
 
@@ -1342,8 +1374,8 @@ resources:
         - {network: private}
 #+end_src
 
-To deploy this stack, run the next command. It deploys the VM by
-overriding the default flavor value ~m1.mini~ with ~m1.small~. This
+To deploy this stack, run the next command.  It deploys the VM by
+overriding the default flavor value ~m1.mini~ with ~m1.small~.  This
 can be checked in ~openstack server list~.
 #+BEGIN_src bash
 openstack stack create -t ./rsc/heat-templates/2_boot_vm_with_params.yaml \
@@ -1355,7 +1387,7 @@ openstack stack delete --wait --yes hw2
 #+END_src
 
 The parameter ~the_vm_name~ is required as no default value is
-provided. If you try to create a stack without providing this
+provided.  If you try to create a stack without providing this
 parameter, you end with an error.
 #+BEGIN_SRC bash
 openstack stack create -t ./rsc/heat-templates/2_boot_vm_with_params.yaml \
@@ -1365,17 +1397,18 @@ openstack stack create -t ./rsc/heat-templates/2_boot_vm_with_params.yaml \
 ERROR: The Parameter (the_vm_name) was not provided.
 #+END_SRC
 
-Parameters are the inputs of templates. The next subsection, focuses
-on declaring outputs, so that a stack can return a set of
-attributes (e.g., the IP address of a deployed VM).
+Parameters are the inputs of templates.  The next subsection, focuses
+on declaring outputs, so that a stack can return a set of attributes
+(e.g., the IP address of a deployed VM).
 
-** Need to return values: let's use outputs!
+** Need to return values: let's use outputs
 :PROPERTIES:
 :CUSTOM_ID: sec:heat-outputs
 :END:
-Templates can declare a set of attributes to return. For instance, you
-might need to know the IP address of a resource at runtime. To that
-end, you can declare attributes in a new section called ~outputs~:
+Templates can declare a set of attributes to return.  For instance,
+you might need to know the IP address of a resource at runtime.  To
+that end, you can declare attributes in a new section called
+~outputs~:
 
 #+begin_src yaml :tangle output/rsc/heat-templates/3_boot_vm_with_output.yaml
 heat_template_version: 2017-09-01
@@ -1417,9 +1450,9 @@ outputs:
 #+end_src
 
 The template declares an output attribute called ~HOSTIP~ which stores
-the IP address of the VM resource. To find the IP address, it uses
-another [[os-doc:heat,template_guide/hot_spec.html#get-attr][intrinsic function]]: ~get_attr~. Same with the ~HOSTNAME~
-output. Output attributes can be exploited in two ways: they can be
+the IP address of the VM resource.  To find the IP address, it uses
+another [[os-doc:heat,template_guide/hot_spec.html#get-attr][intrinsic function]]: ~get_attr~.  Same with the ~HOSTNAME~
+output.  Output attributes can be exploited in two ways: they can be
 displayed from the CLI, or they can be fetched by other stack
 templates (we will see this last case latter):
 
@@ -1431,14 +1464,13 @@ openstack stack output show hw3 HOSTIP
 
 #+begin_note
 Once again, the Heat documentation is your friend to find out
-[[os-doc:heat,template_guide/openstack.html#OS::Nova::Server-attrs][attributes]]. As such, you can reference the IP address with the
+[[os-doc:heat,template_guide/openstack.html#OS::Nova::Server-attrs][attributes]].  As such, you can reference the IP address with the
 ~network~ attribute.
 : get_attr: [heat-vm, networks, private, 0]
 
 The source code of Heat also list [[https://github.com/openstack/heat/blob/0703ca7bb19ca3bb06009c828a66bababf9970b8/heat/engine/resources/openstack/nova/server.py#L646-L736][extra attributes]] that lets you find
 the IP address such as ~first_address~, but that one is deprecated
 though.
-: get_attr: [heat-vm, networks, private, 0]
 : get_attr: [heat-vm, first_address]
 
 Finally, you can introspect all attributes of a resource with the
@@ -1467,6 +1499,7 @@ Remember to delete your stack at the end to release resources.
 ** Integrate ~cloud-init~
 It is possible to declare a post-installation script in the template
 with the ~user_data~ property.
+
 #+begin_src yaml :tangle output/rsc/heat-templates/4_boot_vm_with_user-data.yaml
 heat_template_version: 2017-09-01
 
@@ -1501,7 +1534,7 @@ resources:
 : openstack stack create -t ./rsc/heat-templates/4_boot_vm_with_user-data.yaml hw4
 
 Associating a floating IP is a bit tricky with Heat, so let's do it
-manually for now. Then, wait for ~cloud-init~ to finish and finally,
+manually for now.  Then, wait for ~cloud-init~ to finish and finally,
 SSH on the VM (the ~wait_contextualization~ function comes from
 section [[#sec:cloud-init]]).
 
@@ -1515,14 +1548,14 @@ openstack stack delete --wait --yes hw4
 
 #+BEGIN_note
 Find the ~user_data~ file executed on the VM by cloud-init at
-~/var/lib/heat-cfntools/cfn-userdata~. This path comes from the log of
-the VM boot (using ~openstack console log show hello_cloud_init~)
+~/var/lib/heat-cfntools/cfn-userdata~.  This path comes from the log
+of the VM boot (using ~openstack console log show hello_cloud_init~)
 right after the log ~Cloud-init v. ... running~.
 #+END_note
 
 ** Dynamic configuration with ~cloud-init~ and parameters
 Let's mix parameters and cloud-init to write a template with a
-flexible post-installation script. With Heat, it is possible to
+flexible post-installation script.  With Heat, it is possible to
 provide a parameter to your user-data at run-time by using a new
 [[os-doc:heat,template_guide/hot_spec.html#str-replace][intrinsic function]]: ~str_replace~.
 
@@ -1561,9 +1594,9 @@ resources:
 #+end_src
 
 The template uses ~str_replace~ to instantiate variables in the
-template. In this example, the parameter should be a string containing
-a set of packages to install in the VM. You can deploy the stack as
-follow:
+template.  In this example, the parameter should be a string
+containing a set of packages to install in the VM. You can deploy the
+stack as follow:
 #+BEGIN_SRC bash
 openstack stack create \
     -t ./rsc/heat-templates/5_boot_vm_with_user-data2.yaml \
@@ -1573,10 +1606,10 @@ openstack stack delete --wait --yes hw5
 #+END_SRC
 
 This mechanism is crucial to dynamically configure our services during
-the deployment. For instance, ~service-A~ might require an IP address
+the deployment.  For instance, ~service-A~ might require an IP address
 in its configuration file to access ~service-B~, which runs on another
-VM. This IP address is only known at run-time, so it must be
-represented by a variable managed in Heat templates. In the next
+VM.  This IP address is only known at run-time, so it must be
+represented by a variable managed in Heat templates.  In the next
 subsections, we are going to study how to declare such variable, so
 that Heat resources can exchange information.
 
@@ -1584,10 +1617,10 @@ that Heat resources can exchange information.
 :PROPERTIES:
 :CUSTOM_ID: sec:data-deps-rscs
 :END:
-Let's declare a template with two VMs: ~user~ and ~provider~. The idea
-is to configure ~user~'s static lookup table for hostnames (more
+Let's declare a template with two VMs: ~user~ and ~provider~.  The
+idea is to configure ~user~'s static lookup table for hostnames (more
 information can be found by typing: ~man hosts~), so that user can
-target ~provider~ from its hostname rather than its IP address. To
+target ~provider~ from its hostname rather than its IP address.  To
 that end, the template uses the ~user_data~ property together with the
 ~get_attr~ function to edit the ~/etc/hosts~ file on ~user~, and map
 the IP address of ~provider~ with its hostname.
@@ -1631,7 +1664,7 @@ resources:
 
 In this example, ~user~ requires the IP address of ~provider~ to boot.
 The Heat engine is in charge of managing dependencies between
-resources. Take a look during the deployment, and check that
+resources.  Take a look during the deployment, and check that
 ~provider~ is deployed prior to ~user~.
 
 #+BEGIN_EXAMPLE
@@ -1651,9 +1684,9 @@ openstack stack delete --wait --yes hw6
 
 ** Nested templates
 Heat is able to compose templates to keep human-readable files, using
-nested templates. For instance, we can use a first template that
+nested templates.  For instance, we can use a first template that
 describes a virtual machine, and a second template which deploys
-multiple VMs by referencing the first one. Rather than creating the
+multiple VMs by referencing the first one.  Rather than creating the
 first template, we can re-use the one from section [[#sec:heat-params]].
 
 #+begin_src yaml :tangle output/rsc/heat-templates/7_nested_template.yaml
@@ -1679,8 +1712,9 @@ resources:
 #+end_src
 
 To compose template, a new resource can be defined by specifying its
-type as the target of the desired template. A set of properties can be
-provided to the nested template and will be interpreted as parameters.
+type as the target of the desired template.  A set of properties can
+be provided to the nested template and will be interpreted as
+parameters.
 
 #+BEGIN_src bash
 openstack stack create -t ./rsc/heat-templates/7_nested_template.yaml hw7 \
@@ -1689,7 +1723,7 @@ openstack stack delete --wait --yes hw7
 #+END_SRC
 
 Nested templates are very convenient to keep your code clean and
-re-usable. Next section extends nested templates with data
+re-usable.  Next section extends nested templates with data
 dependency.
 
 ** Nested templates with data dependency
@@ -1743,6 +1777,7 @@ outputs:
 We can now declare the main template. While it defines three VMs, this
 template is easy to read since it points to the template created
 previously and template in section [[#sec:heat-outputs]].
+
 #+begin_src yaml :tangle output/rsc/heat-templates/8_nested_template_exchange.yaml
 heat_template_version: 2017-09-01
 
@@ -1768,11 +1803,6 @@ resources:
       the_remote_ip: { get_attr: [provider-vm, HOSTIP] }
       the_remote_hostname: { get_attr: [provider-vm, HOSTNAME] }
 #+end_src
-
-# FIXME: At some point, something like that should prevenet me to add
-# a HOSTNAME in [[#sec:heat-outputs]] template. I have to look at it next
-# time.
-# : the_remote_hostname: { get_attr: [provider-vm, resources.heat-vm, name] }
 
 #+BEGIN_src bash
 openstack stack create -t ./rsc/heat-templates/8_nested_template_exchange.yaml hw8 \
@@ -1845,11 +1875,11 @@ Create three HOT files:
 
 - ~db-vm.yaml~  :: Contains the description of the VM running MariaDB.
 - ~wp-vm.yaml~  :: Contains the description of the VM running the Web
-  server and serving Wordpress ;
+  server and serving WordPress.
 - ~wp-app.yaml~ :: Contains the description of the WordPress
   application (glues the ~db-vm.yaml~ and ~web-vm.yaml~ together).
 
-Once it is deployed, you should be able to reach the wordpress service by
+Once it is deployed, you should be able to reach the WordPress service by
 going on [[http://<web-server-fip-address>/wp]].
 
 #+BEGIN_solution
@@ -1858,7 +1888,7 @@ the tarball and in the following subsections.
 #+END_solution
 #+END_do
 
-** Database VM template
+** COMMENT Database VM template                                    :solution:
 #+BEGIN_src yaml :tangle output/rsc/heat-templates/wordpress/db-vm.yaml
 heat_template_version: 2017-09-01
 
@@ -1894,7 +1924,7 @@ resources:
       image: debian-10
       flavor: m1.mini
       networks:
-        - {network: private}
+        - {network: test}
       user_data:
         str_replace:
           template: { get_file: ../../install-mariadb.sh }
@@ -1906,10 +1936,10 @@ resources:
 outputs:
   DBHost:
     description: IP address of the created instance running MariaDB
-    value: { get_attr: [db-vm, networks, private, 0] }
+    value: { get_attr: [db-vm, networks, test, 0] }
 #+END_src
 
-** Web VM template
+** COMMENT Web VM template                                         :solution:
 #+BEGIN_src yaml :tangle output/rsc/heat-templates/wordpress/wp-vm.yaml
 heat_template_version: 2017-09-01
 
@@ -1946,7 +1976,7 @@ resources:
       image: debian-10
       flavor: m1.mini
       networks:
-        - {network: private}
+        - {network: test}
       user_data:
         str_replace:
           template: { get_file: ../../install-wp.sh }
@@ -1959,16 +1989,16 @@ resources:
   floating-ip:
     type: OS::Neutron::FloatingIP
     properties:
-      floating_network: public
+      floating_network: external
 
   association:
     type: OS::Neutron::FloatingIPAssociation
     properties:
       floatingip_id: { get_resource: floating-ip }
-      port_id: { get_attr: [wp-vm, addresses, private, 0, port]}
+      port_id: { get_attr: [wp-vm, addresses, test, 0, port]}
 #+END_src
 
-** Wordpress application template
+** COMMENT Wordpress application template                          :solution:
 #+BEGIN_src yaml :tangle output/rsc/heat-templates/wordpress/wp-app.yaml
 heat_template_version: 2017-09-01
 
@@ -2022,6 +2052,25 @@ resources:
 #+END_src
 
 * Appendix
+** COMMENT Vagrantfile
+[[https://en.wikipedia.org/wiki/Vagrant_%28software%29][Vagrant]] is an open-source software to build development environment
+using a declarative approach.  In addition to Vagrant, we recommend to
+install the [[https://github.com/vagrant-libvirt/vagrant-libvirt#installation][Vagrant Libvirt Provider]] in order to take advantage of the
+hardware virtualization.
+
+Copy the following content into a file named "Vagrantfile".  Review
+the content, especially the number of CPU, memory size and the
+private/public network.
+#+include: "Vagrantfile" src ruby
+
+Then start and connect to the lab machine with the following commands.
+: vagrant up --provider=libvirt  # remove `--provider=libvirt` if you don't support vagrant-libvirt
+: vagrant ssh
+
+You can also synchronize the content of your current directory with
+the content of the ~/vagrant~ directory in the lab machine with the
+~vagrant rsync~ command.
+
 ** Install MariaDB on Debian 10
 #+BEGIN_src bash :tangle output/rsc/install-mariadb.sh
 #!/usr/bin/env bash
@@ -2134,7 +2183,7 @@ Here is the script to setup the VM.
 #!/usr/bin/env bash
 apt update; apt install -y python3-pip mpv libcaca-dev
 pip3 install --upgrade youtube_dl
-# Choose a video under creative commons
+# Pick a video under creative commons
 youtube-dl --recode-video mp4 --verbose \
            --user-agent "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)" \
            --output vid.mp4 \
@@ -2148,9 +2197,79 @@ watch openstack server show migrate-vm -c 'OS-EXT-SRV-ATTR:host' -c 'OS-EXT-STS:
 openstack server migrate migrate-vm --live-migration --block-migration
 #+end_src
 
+** COMMENT Misc
+Pad pour la prise de note commune
+https://pad.inria.fr/p/np_HcC3U1VsFnNgT1af_Nuage-2020-2021
+
+#+begin_src bash
+sudo useradd -g 100 -G adm,sudo -m -s /bin/bash -c 'tp-os ronan-alexandre.cherrueau@inria.fr' tp-os
+sudo passwd tp-os
+
+
+#+end_src
+
+Tunneling from the outside world (my machine) to my lab machine
+throughout the frontend
+: ssh -NL 8080:<ip-lab-machine>:80 <frontend>
+
+Now I can access the service of ~http://ip-lab-machine:80~ on my
+machine from the URL https://localhost:8080
+
+: ssh -NL 8080:parapide-7.rennes:80 rennes.g5k
+
+: ssh -NL 8080:193.52.86.XXX:80 nom_connexion@172.19.64.240 -p 20XXX
+
+: ssh -NL 8080:193.52.86.102:80 ronan@ttyd.user-content.tk
+
+Share a terminal
+: tmux -S /tmp/ronan-alebre new
+: tmux -S /tmp/ronan-alebre attach
+
+IP of lab machines
+193.52.86.102
+193.52.86.115
+193.52.86.122
+193.52.86.126
+193.52.86.133
+193.52.86.147
+193.52.86.203
+
+# Undo the external network setup of `microstack.init --auto`
+sudo sysctl -w net.ipv4.ip_forward=0
+sudo extcidr=10.20.20.0/24  # find it with `sudo iptables -t nat -L`
+
+# Flush the nat table
+# iptables -w -t nat -D POSTROUTING -s $extcidr ! -d $extcidr -j MASQUERADE > /dev/null
+sudo iptables -Z
+sudo iptables -t nat -F
+sudo iptables -t nat -X
+
+sudo apt remove --yes --quiet --autoremove heat-api heat-api-cfn heat-engine
+
+sudo snap remove --purge openstackclients
+sudo snap remove --purge microstack
+
+# test mysql, mariadb, memcached
+apt list --installed | grep -E 'mariadb|memcached'
+sudo apt remove --yes --quiet --autoremove mariadb-common mariadb-server memcached
+
+# To create account on frontend
+echo "Enter password for students: "
+read PASSWD
+while read line ; do login=$(echo $line |awk -F"," '{print $1}') ;  mail=$(echo $line|awk -F"," '{print $2}') ;  sudo useradd -g 100 -m -s /bin/bash -c "$mail" $login ;  done </tmp/studentlist
+while read line ; do login=$(echo $line |awk -F"," '{print $1}') ;  echo $login:$PASSWD |sudo chpasswd ; done </tmp/studentlist
+# if needed
+while read line ; do login=$(echo $line |awk -F"," '{print $1}') ;  sudo deluser $login ; done </tmp/studentlist
+
+: sudo useradd -g 100 -m -s /bin/bash -c "xingshuo.cha@etd-univ-nantes.fr" xcha
+: echo "xcha:os-polytech" | sudo chpasswd
+
+while read line ; do login=$(echo $line |awk -F"," '{print $1}') ;  echo $login:$PASSWD |sudo chpasswd
+
 * Footnotes
 [fn:g5k-tunnel] For sure, you always can setup an SSH tunnel but this
 is a bit annoying.
+
 * Variables                                                        :noexport:
 
 #+STARTUP: entitiespretty
