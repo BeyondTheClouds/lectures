@@ -417,6 +417,13 @@ OpenStack CLI and tell it the URL of the authentication service.
 There are *two options* to achieve this.  First, to give them as
 arguments of the command.
 
+
+# openstack server list --os-auth-url=http://$(ip addr show eno1 | head -n3 | tail -n1 | awk '{print $2}' | cut -f1 -d'/'):5000/v3/ \
+#                         --os-username=admin \
+#                         --os-password=lab-os \
+#                         --os-project-name=admin \
+#                         --os-user-domain-name=Default \
+#                         --os-project-domain-id=default
 #+BEGIN_SRC bash
 openstack server list --os-auth-url=http://<ip-of-your-lab-machine>:5000/v3/ \
                         --os-username=admin \
@@ -434,8 +441,8 @@ properly set under the Horizon interface by clicking on the ~admin~
 dropdown list at the top right corner, and get the "OpenStack RC
 File".
 
-To setup your environment, download and source this file on your Lab
-machine.
+To setup your environment, download this file on your Lab machine and
+source it.
 : source ./admin-openrc.sh
 
 You can then check that your environment is correctly set.
@@ -474,8 +481,7 @@ Then, display the information about your VM with the following
 command:
 : openstack server show cli-vm
 
-Note in particular the ~status~ of your VM (and how to extract that
-information from the command line with the ~-c~ and ~-f~).
+Note in particular the ~status~ of your VM.
 : openstack server show cli-vm -c status -f json
 
 This status will go from ~BUILD~: OpenStack is looking for the best
@@ -572,8 +578,8 @@ Ping ~cli-vm~ on its floating IP.
 Does it work? Why? Hint: OpenStack limits the incomming traffic by
 default for security reasons.  The mechanisms to control the traffic
 in OpenStack is called [[os-doc:neutron,feature_classification/general_feature_support_matrix.html#operation_Security_Groups][security group]].  Find the command that list the
-security group rules of the ~admin~ project (i.e., ~openstack project
-show admin~).
+security group rules of the ~admin~ project.
+# (i.e., ~openstack project show admin~).
 
 #+BEGIN_solution
 Regarding security rules, OpenStack is very conservative by default
@@ -581,19 +587,20 @@ and prevents ingress and egress traffic. Spot the ~None~ value at ~IP
 Protocol~, and ~0.0.0.0/0~ [[https://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing][CIDR]] at ~IP Range~, in the result table of
 the command that list security group rules of the admin project: These
 values should be interpreted as /"~None~ protocol on any (~0.0.0.0/0~)
-network is allowed"/.
+network is allowed for incoming (~ingress~) or outgoing (~egress~)
+traffic"/.
 #+BEGIN_src bash
 $ SECGROUP_ID=$(openstack security group list --project admin -f value -c ID)
-$ openstack security group rule list -c ID -c "IP Protocol" -c "IP Range" $SECGROUP_ID
+$ openstack security group rule list --long -c "IP Protocol" -c "IP Range" -c Direction $SECGROUP_ID
 
-+--------------------------------------+-------------+-----------+
-| ID                                   | IP Protocol | IP Range  |
-+--------------------------------------+-------------+-----------+
-| 473c2c5e-bd23-4b56-9d33-2276e483ac33 | None        | 0.0.0.0/0 |
-| ecd3aa5a-acde-4e9f-9738-14945bcee258 | None        | 0.0.0.0/0 |
-| 5b08ae18-ed18-4a82-8382-aa1cfc3effff | None        | ::/0      |
-| 9b104d51-61d2-4a0f-bac4-36b5803ac721 | None        | ::/0      |
-+--------------------------------------+-------------+-----------+
++-------------+-----------+-----------+
+| IP Protocol | IP Range  | Direction |
++-------------+-----------+-----------+
+| None        | 0.0.0.0/0 | ingress   |
+| None        | 0.0.0.0/0 | egress    |
+| None        | ::/0      | ingress   |
+| None        | ::/0      | egress    |
++-------------+-----------+-----------+
 #+END_src
 #+END_solution
 
@@ -621,7 +628,7 @@ by Nova with ~openstack server --help~ and figure out how to:
 1. SSH on ~cli-vm~ using its name rather than its IP;
 2. Pause it, note the footprint on the ram of the hypervisor, and unpause it;
 3. +Suspend it, note the footprint on the ram of the hypervisor, and
-   resume it;+ Does not work right now 😒
+   resume it;+ Does not work right now 😒.
 4. Create a snapshot of ~cli-vm~;
 5. Boot a new machine ~cli-vm-clone~ from the snapshot;
 6. Delete ~cli-vm-clone~;
@@ -631,13 +638,14 @@ by Nova with ~openstack server --help~ and figure out how to:
 # 1.
 openstack server ssh cli-vm -l cirros
 # 2.
-openstack hypervisor show $(openstack server show cli-vm -c "OS-EXT-SRV-ATTR:hypervisor_hostname" -f value) -c free_ram_mb
+CLI_VM_HYPERVISOR=$(openstack server show cli-vm -c "OS-EXT-SRV-ATTR:hypervisor_hostname" -f value)
+openstack hypervisor show -c free_ram_mb "$CLI_VM_HYPERVISOR"
 openstack server pause cli-vm; openstack server show cli-vm -c status
-openstack hypervisor show $(openstack server show cli-vm -c "OS-EXT-SRV-ATTR:hypervisor_hostname" -f value) -c free_ram_mb
+openstack hypervisor show -c free_ram_mb "$CLI_VM_HYPERVISOR"
 openstack server unpause cli-vm; openstack server show cli-vm -c status
 # 3.
 openstack server suspend cli-vm; openstack server show cli-vm -c status
-openstack hypervisor show $(openstack server show cli-vm -c "OS-EXT-SRV-ATTR:hypervisor_hostname" -f value) -c free_ram_mb
+openstack hypervisor show -c free_ram_mb "$CLI_VM_HYPERVISOR"
 openstack server resume cli-vm; openstack server show cli-vm -c status
 # 4.
 openstack server image create --name cli-vm-img cli-vm; openstack image list
@@ -788,11 +796,12 @@ hints to check:
 :CUSTOM_ID: sec:enc-trust
 :END:
 Any cirros VMs share the same credentials (i.e., ~cirros~, ~gocubsgo~)
-which is a security problem. As a IaaS DevOps, you want that only some
-clients can SSH on the VMs. Fortunately, OpenStack helps with the
-management of SSH keys. OpenStack can generate a SSH key and push the
-public counterpart on the VM. Therefore, doing a ~ssh~ on the VM will
-use the SSH key instead of asking the client to fill the credentials.
+which is a security problem.  As a IaaS DevOps, you want that only
+some clients can SSH on the VMs.  Fortunately, OpenStack helps with
+the management of SSH keys.  OpenStack can generate a SSH key and push
+the public counterpart on the VM.  Therefore, doing a ~ssh~ on the VM
+will use the SSH key instead of asking the client to fill the
+credentials.
 
 Make an SSH key and store the private counterpart in =./admin.pem=.
 Then, give that file the correct permission access.
@@ -927,7 +936,7 @@ Start a new VM named ~art-vm~ based on the ~debian-10~ image and the
 
 #+BEGIN_solution
 #+BEGIN_SRC bash
-openstack server create --wait --image debina-10 \
+openstack server create --wait --image debian-10 \
   --flavor m1.mini --network test \
   --key-name admin \
   --user-data ./rsc/art.sh \
@@ -1163,6 +1172,7 @@ tarball.
 
 First thing first, enable HTTP connections.
 #+BEGIN_SRC bash
+SECGROUP_ID=$(openstack security group list --project admin -f value -c ID)
 openstack security group rule create $SECGROUP_ID \
   --proto tcp --remote-ip 0.0.0.0/0 \
   --dst-port 80
