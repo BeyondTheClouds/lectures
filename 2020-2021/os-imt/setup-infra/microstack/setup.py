@@ -1,34 +1,34 @@
-# $ pipenv run python setup.py  # thanks to Pipfile > scripts > setup-aio
+# $ pipenv run setup  [--test/--no-test]
+
 import logging
 import socket
 
-from enoslib.types import Host, Roles
+import click
 
+from enoslib.types import Host, Roles
 from enoslib.api import (play_on, ensure_python3)
 from enoslib.infra.enos_g5k.provider import G5k
-from enoslib.infra.enos_g5k.configuration import (Configuration,
-                                                  NetworkConfiguration,
-                                                  MachineConfiguration,)
+from enoslib.infra.enos_g5k.configuration import (Configuration)
 
 
 logging.basicConfig(level=logging.DEBUG)
 LOG = logging.getLogger(__name__)
 TEAMS = [
     ("Ronan", "Adrien"),
-    ("Thomas Herbelin", "Simon Le Bars"),
-    ("Samy Le Galloudec", "Marc Lamy"),
-    ("Maël Gaonach", "Antoine Omond"),
-    ("Robin Carrez", "Evrard-Nil Daillet"),
-    ("Paul Bavazzano", "Hoan My TRAN"),
-    ("Florian Le Menn", "" ),
-    ("Xavier Aleman", "Ismaïl El Khantache"),
-    ("Barthélémy Tek", ""),
-    ("Javed  Syed Khasim", "Emeric Chonigbaum"),
-    ("Lucas Pelec", ""),
-    ("Théo Coutant", ""),
-    ("Raphael Hascoet", ""),
-    ("", ""),
-    ("", "")
+    # ("Thomas Herbelin", "Simon Le Bars"),
+    # ("Samy Le Galloudec", "Marc Lamy"),
+    # ("Maël Gaonach", "Antoine Omond"),
+    # ("Robin Carrez", "Evrard-Nil Daillet"),
+    # ("Paul Bavazzano", "Hoan My TRAN"),
+    # ("Florian Le Menn", "" ),
+    # ("Xavier Aleman", "Ismaïl El Khantache"),
+    # ("Barthélémy Tek", ""),
+    # ("Javed  Syed Khasim", "Emeric Chonigbaum"),
+    # ("Lucas Pelec", ""),
+    # ("Théo Coutant", ""),
+    # ("Raphael Hascoet", ""),
+    # ("", ""),
+    # ("", "")
     # ("ronana",      "alebre"),
     # ("alacour",     "mnoritop"),
     # ("aqueiros",    "rlao"),
@@ -45,20 +45,21 @@ TEAMS = [
 ]
 
 
-def get_addr(h: Host) -> str:
-    'Returns the address of a Host `h`'
+def get_ip_addr(h: Host) -> str:
+    'Returns the IP address of a Host `h`'
     try:
-        return socket.gethostbyname(h.address)
+        return f'{socket.gethostbyname(h.address)}, {h.address}'
     except socket.gaierror:
         return h.address
 
 
 def make_conf(testing=True) -> Configuration:
     conf = {
-        # "reservation": "2020-11-09 07:00:01",
-        "walltime": "40:00:00",
-        "job_name": "lab-imt-fila3-os",
+        "reservation": "2021-03-05 07:00:01",
+        "walltime": "11:00:00",
+        "job_name": "lab-2021-imta-fise-login-os",
         "env_name": "ubuntu2004-x64-min",
+        "project": "lab-2021-imta-fise-login-os",
         "resources": {
             "networks": [
                 {
@@ -81,7 +82,7 @@ def make_conf(testing=True) -> Configuration:
                 {
                     "roles": ["OpenStack"],
                     "cluster": "paravance",
-                    "nodes": 15,
+                    "nodes": 13,
                     "primary_network": "net",
                     "secondary_networks": [ ],
                 }
@@ -89,20 +90,10 @@ def make_conf(testing=True) -> Configuration:
         }
     }
 
-    # conf = (Configuration.from_settings(
-    #            reservation="2020-11-09 07:00:01",
-    #            walltime="35:59:58",
-    #            job_name="lab-os-aio",
-    #            job_type="deploy",
-    #            env_name="ubuntu2004-x64-min")
-    #         .add_network_conf(project_net)
-    #         # .add_network_conf(external_net)
-    #         .add_machine(**os.__dict__))
-
     if testing:
         del(conf["reservation"])
-        conf["walltime"] = "05:00:00"
-        conf["job_name"] = "imta-fil3-os-test"
+        conf["walltime"] = "07:00:00"
+        conf["job_name"] = "test-lab-2021-imta-fise-login-os"
         conf["resources"]["machines"][0]["nodes"] = 1
 
     return Configuration.from_dictionnary(conf)
@@ -141,10 +132,11 @@ def provision(rs: Roles):
             p.lineinfile(path='/root/.bashrc', line=l)
 
 
-if __name__ == "__main__":
+@click.command()
+@click.option('--test/--no-test', default=False)
+def main(test):
     # Claim the resources
-    # infra = G5k(make_conf(testing=True))
-    infra = G5k(make_conf(testing=False))
+    infra = G5k(make_conf(testing=test))
     roles, networks = infra.init(force_deploy=False)
 
     # Provision machines
@@ -157,10 +149,11 @@ if __name__ == "__main__":
 
     # Assign machines
     print("Lab machine assignations:")
-    addrs = map(get_addr, roles["OpenStack"])
-    for (team, addr) in zip(TEAMS, addrs):
+    addrs = map(get_ip_addr, roles["OpenStack"])
+    for (team, addr) in zip_longest(TEAMS, addrs):
         team_members_str = ', '.join(m for m in team)
         print(f"- {team_members_str} :: ~{addr}~")
 
-    # # Destroy
-    # infra.destroy()
+
+if __name__ == "__main__":
+    main()
