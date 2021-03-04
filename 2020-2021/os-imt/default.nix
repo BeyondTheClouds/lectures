@@ -18,7 +18,7 @@ let packageOverrides = self: super: {
                 py-pkg.pyls-mypy
             ]);
 in mkShell {
-  buildInputs = [ py-dev pipenv libffi openssl ];
+  buildInputs = [ py-dev python2 pipenv libffi openssl ];
   shellHook = ''
     # Set SOURCE_DATE_EPOCH so that we can use python wheels
     SOURCE_DATE_EPOCH=$(date +%s)

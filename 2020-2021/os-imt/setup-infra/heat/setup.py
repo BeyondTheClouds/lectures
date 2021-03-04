@@ -13,34 +13,38 @@ import yaml
 
 import openstack
 import enos.task as enos
+from enoslib.task import get_or_create_env
+
 
 # logging.basicConfig(level=logging.ERROR)
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 LOG   = logging.getLogger(__name__)
 TEAMS = [
     ("ronana",      "alebre"),
-    ("acharpentier", "ltaillebourg"),
-    ("bescouvois", "ldelhommeau"),
-    ("iboughalem", "brivard"),
-    ("gjacquet","kmer"),
-    ("gguirriec", "sbouttier"),
-    ("vlouradour", "vquiedeville"),
-    ("ebarus", "cegarcia"),
-    ("vbourcier", "bvrignaud"),
-    ("ytelaoumaten","llebert"),
-    ("adelforges","isow"),
+#    ("acharpentier", "ltaillebourg"),
+#    ("bescouvois", "ldelhommeau"),
+#    ("iboughalem", "brivard"),
+#    ("gjacquet","kmer"),
+#    ("gguirriec", "sbouttier"),
+#    ("vlouradour", "vquiedeville"),
+#    ("ebarus", "cegarcia"),
+#    ("vbourcier", "bvrignaud"),
+#    ("ytelaoumaten","llebert"),
+#    ("adelforges","isow"),
 ]
 
 ENOS_CONF = {
     'provider': {
         'type': 'g5k',
-        'env_name': 'debian9-x64-min',
-        'job_name': 'imta-fila3-os-test2',
+        'project': 'lab-2021-imta-fise-login-os',
+        'job_name': 'enos',
+        'walltime': '03:30:00',
+        #'env_name': 'debian9-x64-min',
+        #'job_name': 'imta-fila3-os-test2',
         # 'walltime': '26:00:00'
-        'walltime': '3:00:00'
     },
     'resources': {
-        'paravance': {
+        'parasilo': {
             # 'compute': 13,
             'compute': 2,
             'network': 1,
@@ -48,7 +52,7 @@ ENOS_CONF = {
         }
     },
     'inventory': 'inventories/inventory.sample',
-    'registry': { 'type': 'internal' },
+    'registry': { 'type': 'external', 'ip': 'docker-mirror.rennes.grid5000.fr', 'port': 5000 },
     'enable_monitoring': False,
     'kolla_repo': "https://git.openstack.org/openstack/kolla-ansible",
     'kolla_ref': 'stable/stein',
@@ -63,17 +67,9 @@ ENOS_CONF = {
 def install_os():
     # Deploy openstack using enos
     args = { '--force-deploy': False, '--env': None, }
-    enos.deploy(ENOS_CONF, **args)
+    # enos.deploy(ENOS_CONF, **args)
 
-    # Get the `env`. I could have put the `enoslib.tasks.@enostask` on top of
-    # `install_os` to get an access to the `env`. But, it doesn't always work
-    # because of the decorator that assumes `--env` is a filepath at line 100
-    # of task.py [1] despite of line 106 that accepts dict.
-    #
-    # [1] https://gitlab.inria.fr/discovery/enoslib/blob/408e3e2814454704df74fab579958b8be35e5972/enoslib/task.py#L100
-    env = None
-    with os.open('current/env', 'r') as env_file:
-        env = yaml.safe_load(env_file)
+    env = get_or_create_env(new=False, env_name='current/')
 
     return env
 
@@ -108,6 +104,40 @@ def make_cloud(cloud_auth_url: str):
 
     LOG.info("Authentication plugin %s" % cloud)
     return cloud
+
+
+def upload_debian10(img):
+    # Upload the debian10 cloud-init image
+    # https://docs.openstack.org/openstacksdk/latest/user/guides/image.html
+    debian10 = img.find_image('debian-10')
+
+    if not debian10:
+        debian10 = img.create_image(
+            name='debian-10',
+            disk_format='qcow2',
+            container_format='bare',
+            visibility='public')
+
+        uri = 'https://cloud.debian.org/images/cloud/OpenStack/' \
+              'current-10/debian-10-openstack-amd64.qcow2'
+        img.import_image(debian10, method='web-download', uri=uri)
+
+    LOG.info("Image %s" % debian10)
+
+
+def make_flavors(cpt):
+    f_mini = cpt.find_flavor('m1.mini')
+
+    if not f_mini:
+        f_mini = cpt.create_flavor(
+            name='m1.mini',
+            disk=5,
+            is_public=True,
+            ram=2048,
+            vcpus=2,
+            swap=1024)
+
+    LOG.info("Flavor %s" % f_mini)
 
 
 def make_account(identity, users):
@@ -250,30 +280,16 @@ def make_sec_group_rule(net, project):
         LOG.info("New sgr %s" % sgr)
 
 
-def make_flavors(cpt):
-    f_mini = cpt.find_flavor('m1.mini')
-
-    if not f_mini:
-        f_mini = cpt.create_flavor(
-            name='m1.mini',
-            disk=5,
-            is_public=True,
-            ram=2048,
-            vcpus=2,
-            swap=1024)
-
-    LOG.info("Flavor %s" % f_mini)
-
-# TODO: add debian 10 image
-
 
 # Main
 
 enos_env = install_os()
 cloud = make_cloud(f"http://{enos_env['config']['vip']}:35357/v3")
+upload_debian10(cloud.image)
+make_flavors(cloud.compute)
+
 for team in TEAMS:
     project = make_account(cloud.identity, team)
     priv_snet = make_private_net(cloud.network, project, enos_env)
     priv_net = make_router(cloud.network, project, priv_snet)
     make_sec_group_rule(cloud.network, project)
-    make_flavors(cloud.compute)

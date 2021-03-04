@@ -10,7 +10,8 @@ python_version = "3.8"
 setup  = "python ./setup.py"
 
 [packages]
-enos = "==6.0.2"
+# enos = "==6.0.2"
+enos = {editable = true, file = "/home/rfish/prog/enos" }
 openstacksdk = "==0.51.0"
 python-openstackclient = "==5.4.0"
 python-heatclient = "==2.2.1"
