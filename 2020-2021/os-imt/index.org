@@ -183,18 +183,18 @@ minutes for other options).
 :CUSTOM_ID: sec:assign-lab
 :END:
 Here is the assignation list of Lab machine per team:
-- Ronan, Adrien :: ~172.16.96.39~
-- Thomas Herbelin, Simon Le Bars :: ~172.16.96.10~
-- Samy Le Galloudec, Marc Lamy :: ~172.16.96.11~
-- Maël Gaonach, Antoine Omond :: ~172.16.96.12~
-- Robin Carrez, Evrard-Nil Daillet :: ~172.16.96.13~
-- Paul Bavazzano, Hoan My TRAN :: ~172.16.96.14~
-- Florian Le Menn  :: ~172.16.96.30~
-- Xavier Aleman, Ismaïl El Khantache :: ~172.16.96.31~
-- Barthélémy Tek, Raphael Hascoet :: ~172.16.96.32~
-- Javed  Syed Khasim, Emeric Chonigbaum :: ~172.16.96.33~
-- Lucas Pelec :: ~172.16.96.34~
-- Théo Coutant :: ~172.16.96.37~
+# - Ronan, Adrien :: ~172.16.96.39~
+# - Thomas Herbelin, Simon Le Bars :: ~172.16.96.10~
+# - Samy Le Galloudec, Marc Lamy :: ~172.16.96.11~
+# - Maël Gaonach, Antoine Omond :: ~172.16.96.12~
+# - Robin Carrez, Evrard-Nil Daillet :: ~172.16.96.13~
+# - Paul Bavazzano, Hoan My TRAN :: ~172.16.96.14~
+# - Florian Le Menn  :: ~172.16.96.30~
+# - Xavier Aleman, Ismaïl El Khantache :: ~172.16.96.31~
+# - Barthélémy Tek, Raphael Hascoet :: ~172.16.96.32~
+# - Javed  Syed Khasim, Emeric Chonigbaum :: ~172.16.96.33~
+# - Lucas Pelec :: ~172.16.96.34~
+# - Théo Coutant :: ~172.16.96.37~
 
 First thing first, you have to connect to the Lab machine.
 Unfortunately, the Lab machine isn't available publicly, but hides
