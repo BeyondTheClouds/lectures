@@ -182,7 +182,10 @@ minutes for other options).
 :PROPERTIES:
 :CUSTOM_ID: sec:assign-lab
 :END:
-Here is the assignation list of Lab machine per team:
+Find the assignation list of Lab machine per student on the
+collaborative editor
+https://pad.inria.fr/p/np_HcC3U1VsFnNgT1af_Nuage-2020-2021.
+
 # - Ronan, Adrien :: ~172.16.96.39~
 # - Thomas Herbelin, Simon Le Bars :: ~172.16.96.10~
 # - Samy Le Galloudec, Marc Lamy :: ~172.16.96.11~
@@ -243,7 +246,7 @@ $ ip route
 #+end_src
 
 You can finally connect to your Lab machine in another shell with the
-following SSH command. Use ~os-imt~ as password.
+following SSH command. Use ~lab-os~ as password.
 : ssh -l root <ip-of-your-lab-machine>
 
 The rest of this lab *proceeds on the Lab machine*.
@@ -285,8 +288,7 @@ Then, ensure OpenStack services are running on your machine. Find the
 snap command that lists microstack OpenStack services and there
 status? What is the purpose of each service?
 
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 : snap services microstack|sort
 
 - glance-* :: Glance to manage VM images: ~openstack image --help~.
@@ -298,8 +300,7 @@ status? What is the purpose of each service?
 - memcached :: Cache used by all OpenStack services
 - mysqld :: Database used by all OpenStack services
 - rabbitmq-server :: Communication bus used by all OpenStack services
-#+END_comment
-# solution
+#+END_solution
 #+END_do
 
 *** Setup script                                                   :noexport:
