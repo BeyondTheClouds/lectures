@@ -551,15 +551,13 @@ Find the IP address of the ~cli-vm~. Check that you can ping that
 address from the ~horizon-vm~ (using the ~Console~ tab in the Horizon
 dashboard).  Ensure that you *cannot* ping that VM from the Lab machine.
 
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 #+BEGIN_SRC bash
 PRIV_IP=$(openstack server show cli-vm -c addresses -f value | sed -E 's/test=(.+)/\1/g')
 echo "Private IP of cli-vm is ${PRIV_IP}"
 ping -c 3 "${PRIV_IP}" # From horizon-vm: 0% packet loss, From lab: 100% packet loss
 #+END_SRC
-#+END_comment
-# solution
+#+END_solution
 #+END_do
 
 To ping your VM from the Lab machine, you have to affect it an IP
@@ -608,18 +606,21 @@ $ openstack security group rule list --long -c "IP Protocol" -c "IP Range" -c Di
 +-------------+------------------+-----------+
 #+END_src
 
-By default, OpenStack allows any intercommunication among hosts of the
-same project. This is the first line. It should be read as "/Incoming
-communication (~egress~) between host of ~192.162.222.*~ of any
-protocol (~None~) is allowed/)".  OpenStack also allows any kind of
-outgoing requests. This the second line that should be read as
-"/Outgoing communication (~egress~) to anywhere (~0.0.0.0/0~) and of
-any protocol (~None~) is allowed.  And that's it.  Since there are no
-more rules, it means that OpenStack prevents all other ingress
-communications including communications on ~10.20.20.*~.
+By default, OpenStack is very conservative and only allows two kinds
+of intercommunication:
+1. Any intercommunication among hosts of the same project :: This is
+   the first line.  It should be read as "/Incoming traffic
+   (~ingress~) between/ /hosts of ~192.162.222.*~ of any protocol
+   (~None~) are allowed/".
+2. Any kind of outgoing communications :: This is the second line.  It
+   should be read as "/Outgoing traffic (~egress~) to anywhere (~0.0.0.0/0~)
+   and of any protocol (~None~) are allowed/".
+And that's it.  Since there are no more rules, it means that OpenStack
+prevents all other ingress communications including communications on
+~10.20.20.*~.
 #+END_solution
 
-Then, make it work for ~10.20.20.0/24~ network. See examples of
+Then, make it works for ~10.20.20.0/24~ network.  See examples of
 security groups rules in the [[https://docs.openstack.org/neutron/latest/admin/deploy-lb-selfservice.html#verify-network-operation][neutron doc]].
 
 #+BEGIN_solution
