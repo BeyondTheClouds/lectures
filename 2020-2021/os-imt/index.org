@@ -258,7 +258,7 @@ The rest of this lab *proceeds on the Lab machine*.
 Get the resources of the lab at [[cdn-url:2020-2021/os-imt/tp.tar.gz]].
 
 #+BEGIN_SRC bash
-curl https://github.com/BeyondTheClouds/lectures/blob/da421e2/2020-2021/os-imt/tp.tar.gz?raw=true -o tp.tar.gz -L
+curl https://github.com/BeyondTheClouds/lectures/blob/3bdbd4e/2020-2021/os-imt/tp.tar.gz?raw=true -o tp.tar.gz -L
 tar xzf tp.tar.gz
 cd lab-os
 #+END_SRC
@@ -418,8 +418,7 @@ Try one of these commands.  Does it works?  What is the problem, how
 to fix it?  Hint: Look at the [[os-doc:python-openstackclient,cli/authentication.html][password authentication process]] for the
 CLI.
 
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 #+BEGIN_SRC bash
 $ openstack endpoint list
 Missing value auth-url required for auth plugin password
@@ -473,15 +472,13 @@ OS_REGION_NAME=microstack
 OS_USER_DOMAIN_NAME=Default
 OS_USERNAME=admin
 #+END_SRC
-#+END_comment
-# solution
+#+END_solution
 #+END_do
 
 #+BEGIN_do
 Using all these commands, use the CLI to start a new tiny cirros VM
 called ~cli-vm~.
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 #+BEGIN_src bash
 openstack server create \
   --image cirros \
@@ -489,8 +486,7 @@ openstack server create \
   --network test \
   cli-vm
 #+END_src
-#+END_comment
-# solution
+#+END_solution
 #+END_do
 
 Then, display the information about your VM with the following
@@ -508,8 +504,7 @@ infrastructure.
 #+BEGIN_do
 What is the purpose of the ~-c~ and ~-f~ argument in the previous
 command.
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 #+BEGIN_example
 $ openstack server create --help | fgrep -A 6 "output formatters:"
 output formatters:
@@ -520,8 +515,7 @@ output formatters:
   -c COLUMN, --column COLUMN
                         specify the column(s) to include, can be repeated
 #+END_example
-#+END_comment
-# solution
+#+END_solution
 #+END_do
 
 A VM in ~ACTIVE~ state still has to go through the [[http://www.tldp.org/LDP/intro-linux/html/sect_04_02.html][boot process and
@@ -595,42 +589,40 @@ Then, ask again for the status of your VM and its IPs.
 Ping ~cli-vm~ on its floating IP.
 : ping -c 3 "$ALLOCATED_FIP"
 
-Does it work? Why? Hint: OpenStack limits the incomming traffic by
-default for security reasons.  The mechanisms to control the traffic
-in OpenStack is called [[os-doc:neutron,feature_classification/general_feature_support_matrix.html#operation_Security_Groups][security group]].  Find the command that list the
-security group rules of the ~admin~ project.
+Does it work? Why? Hint: OpenStack limits the traffic for security
+reasons.  The mechanisms to control the traffic in OpenStack is called
+[[os-doc:neutron,feature_classification/general_feature_support_matrix.html#operation_Security_Groups][security group]].  Find the command that list the security group rules
+of the ~admin~ project.
 # (i.e., ~openstack project show admin~).
 
-#+BEGIN_comment
-# solution
-Regarding security rules, OpenStack is very conservative by default
-and prevents ingress and egress traffic. Spot the ~None~ value at ~IP
-Protocol~, and ~0.0.0.0/0~ [[https://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing][CIDR]] at ~IP Range~, in the result table of
-the command that list security group rules of the admin project: These
-values should be interpreted as /"~None~ protocol on any (~0.0.0.0/0~)
-network is allowed for incoming (~ingress~) or outgoing (~egress~)
-traffic"/.
+#+BEGIN_solution
 #+BEGIN_src bash
 $ SECGROUP_ID=$(openstack security group list --project admin -f value -c ID)
 $ openstack security group rule list --long -c "IP Protocol" -c "IP Range" -c Direction $SECGROUP_ID
 
-+-------------+-----------+-----------+
-| IP Protocol | IP Range  | Direction |
-+-------------+-----------+-----------+
-| None        | 0.0.0.0/0 | ingress   |
-| None        | 0.0.0.0/0 | egress    |
-| None        | ::/0      | ingress   |
-| None        | ::/0      | egress    |
-+-------------+-----------+-----------+
++-------------+------------------+-----------+
+| IP Protocol | IP Range         | Direction |
++-------------+------------------+-----------+
+| None        | 192.168.222.0/24 | ingress   |
+| None        | 0.0.0.0/0        | egress    |
++-------------+------------------+-----------+
 #+END_src
-#+END_comment
-# solution
+
+By default, OpenStack allows any intercommunication among hosts of the
+same project. This is the first line. It should be read as "/Incoming
+communication (~egress~) between host of ~192.162.222.*~ of any
+protocol (~None~) is allowed/)".  OpenStack also allows any kind of
+outgoing requests. This the second line that should be read as
+"/Outgoing communication (~egress~) to anywhere (~0.0.0.0/0~) and of
+any protocol (~None~) is allowed.  And that's it.  Since there are no
+more rules, it means that OpenStack prevents all other ingress
+communications including communications on ~10.20.20.*~.
+#+END_solution
 
 Then, make it work for ~10.20.20.0/24~ network. See examples of
 security groups rules in the [[https://docs.openstack.org/neutron/latest/admin/deploy-lb-selfservice.html#verify-network-operation][neutron doc]].
 
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 To make it work, you have to setup new rules in the security group of
 the ~admin~ project. The following rules allow ICMP packets (for ping)
 and TCP on port 22 (for SSH connection) on the VM.
@@ -639,8 +631,7 @@ openstack security group rule create $SECGROUP_ID --proto icmp --remote-ip 10.20
 openstack security group rule create $SECGROUP_ID --proto tcp --remote-ip 10.20.20.0/24 \
   --dst-port 22
 #+END_src
-#+END_comment
-# solution
+#+END_solution
 #+END_do
 
 Once you succeed to ping the vm, you should also be able to SSH on it.
@@ -657,8 +648,7 @@ by Nova with ~openstack server --help~ and figure out how to:
 5. Boot a new machine ~cli-vm-clone~ from the snapshot;
 6. Delete ~cli-vm-clone~;
 
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 #+BEGIN_SRC bash
 # 1.
 openstack server ssh cli-vm -l cirros
@@ -681,8 +671,7 @@ openstack server create --wait --flavor m1.tiny \
 # 6.
 openstack server delete cli-vm-clone
 #+END_SRC
-#+END_comment
-# solution
+#+END_solution
 #+END_do
 
 *** COMMENT Make the VM reaches the world
@@ -935,29 +924,25 @@ curl -L -o ./debian-10.qcow2 \
 Import the image into Glance; name it ~debian-10~. Use ~openstack image
 create --help~ for creation arguments. Find values example with
 ~openstack image show cirros~.
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 #+BEGIN_SRC bash
 openstack image create --disk-format=qcow2 \
   --container-format=bare --property architecture=x86_64 \
   --public --file ./debian-10.qcow2 \
   debian-10
 #+END_SRC
-#+END_comment
-# solution
+#+END_solution
 
 And, create a new ~m1.mini~ flavor with 5 Go of Disk, 2 Go of RAM, 2
 VCPU and 1 Go of swap. Use ~openstack flavor create --help~ for
 creation arguments.
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 #+BEGIN_SRC bash
 openstack flavor create --ram 2048 \
   --disk 5 --vcpus 2 --swap 1024 \
   --public m1.mini
 #+END_SRC
-#+END_comment
-# solution
+#+END_solution
 #+END_do
 
 *** ~cloud-init~ in Action
@@ -974,8 +959,7 @@ Start a new VM named ~art-vm~ based on the ~debian-10~ image and the
 -- available under ~rsc/art.sh~ -- that installs the [[https://github.com/cmatsuoka/figlet][~figlet~]] and
 [[https://github.com/busyloop/lolcat][~lolcat~]] softwares on the VM.
 
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 #+BEGIN_SRC bash
 openstack server create --wait --image debian-10 \
   --flavor m1.mini --network test \
@@ -983,8 +967,7 @@ openstack server create --wait --image debian-10 \
   --user-data ./rsc/art.sh \
   art-vm
 #+END_SRC
-#+END_comment
-# solution
+#+END_solution
 #+END_do
 
 #+CAPTION: ~cloud-init~ script available under ~rsc/art.sh~
@@ -1008,8 +991,7 @@ Could you notice /when/ the VM has finished to boot based on the
 ~console log~ output?  Write a small bash script that waits until the
 boot has finished.
 
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 #+BEGIN_src bash :tangle output/rsc/wordpress-deploy.sh :shebang #!/usr/bin/env bash
 function wait_contextualization {
   # VM to get the log of
@@ -1056,8 +1038,7 @@ function wait_contextualization {
 
 Then use it as the following.
 : wait_contextualization art-vm
-#+END_comment
-# solution
+#+END_solution
 #+END_do
 
 Then, attach it a floating IP.
@@ -1125,8 +1106,7 @@ help.
 
 #+BEGIN_do
 - Check that the KVM kernel module is loaded, and load it otherwise.
-  #+BEGIN_comment
-# solution
+  #+BEGIN_solution
   /From the [[https://docs.openstack.org/nova/stein/admin/configuration/hypervisor-kvm.html#for-x86-based-systems][Nova documentation]]/
 
   Do the following command to list the loaded kernel modules and
@@ -1141,20 +1121,17 @@ help.
   : modprobe -a kvm
   : modprobe -a kvm-intel  # for Intel
   : modprobe -a kvm-amd    # for amd
-  #+END_comment
-# solution
+  #+END_solution
 
 - Change the configuration of ~nova-compute~ hypervisor (file
   ~/var/snap/microstack/common/etc/nova/nova.conf.d/hypervisor.conf~)
   to support KVM and restart it.
-  #+BEGIN_comment
-# solution
+  #+BEGIN_solution
   : NOVA_HYPERV_CONF=/var/snap/microstack/common/etc/nova/nova.conf.d/hypervisor.conf
   : sudo crudini --set $NOVA_HYPERV_CONF libvirt virt_type "kvm"
   : sudo crudini --set $NOVA_HYPERV_CONF libvirt cpu_mode  "host-passthrough"
   : sudo snap restart microstack.nova-compute
-  #+END_comment
-# solution
+  #+END_solution
 #+END_do
 
 Finally, create a new VM such as in the [[#sec:cloud-init][previous section]] and
@@ -1214,8 +1191,7 @@ order to be reached by the ~wordpress-app~ VM?
 
 Also, remind to [[lst:delete-rscs][clean your environment]].
 
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 Find the solution in the ~rsc/wordpress-deploy.sh~ script of the
 tarball.
 
@@ -1287,8 +1263,7 @@ from your own machine.
 
 And reach WordPress on [[http://localhost:8080/wp]].
 #+END_note
-#+END_comment
-# solution
+#+END_solution
 #+END_do
 
 * Automatize the Deployment with Heat
@@ -2338,7 +2313,7 @@ is a bit annoying.
 #+LANGUAGE: en
 #+OPTIONS: ^:{} ':t email:t toc:nil
 #+PROPERTY: header-args :mkdirp yes
-#+LINK: cdn-url      https://github.com/BeyondTheClouds/lectures/blob/da421e2/%s?raw=true
+#+LINK: cdn-url      https://github.com/BeyondTheClouds/lectures/blob/3bdbd4e/%s?raw=true
 #+LINK: horizon-url  http://10.24.61.255
 
 #+EXCLUDE_TAGS: noexport
