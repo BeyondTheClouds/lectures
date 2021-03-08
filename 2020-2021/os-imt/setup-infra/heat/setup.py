@@ -19,18 +19,21 @@ from enoslib.task import get_or_create_env
 # logging.basicConfig(level=logging.ERROR)
 logging.basicConfig(level=logging.INFO)
 LOG   = logging.getLogger(__name__)
-TEAMS = [
-    ("ronana",      "alebre"),
-#    ("acharpentier", "ltaillebourg"),
-#    ("bescouvois", "ldelhommeau"),
-#    ("iboughalem", "brivard"),
-#    ("gjacquet","kmer"),
-#    ("gguirriec", "sbouttier"),
-#    ("vlouradour", "vquiedeville"),
-#    ("ebarus", "cegarcia"),
-#    ("vbourcier", "bvrignaud"),
-#    ("ytelaoumaten","llebert"),
-#    ("adelforges","isow"),
+USERS = [
+    "ronana",
+    "adrien",
+    "klethuillier",
+    "bantoine",
+    "ldellinger",
+    "apichard",
+    "azorzano",
+    "vroullier",
+    "jtagnani",
+    "kthiebaut",
+    "cribes",
+    "kmahfoudh",
+    "pchebel",
+    "gsanyas",
 ]
 
 ENOS_CONF = {
@@ -38,21 +41,22 @@ ENOS_CONF = {
         'type': 'g5k',
         'project': 'lab-2021-imta-fise-login-os',
         'job_name': 'enos',
-        'walltime': '03:30:00',
+        # 'walltime': '02:20:00',
+        'walltime': '08:59:58',
+        "reservation": "2021-03-12 07:00:01",
         #'env_name': 'debian9-x64-min',
         #'job_name': 'imta-fila3-os-test2',
-        # 'walltime': '26:00:00'
     },
     'resources': {
         'parasilo': {
-            # 'compute': 13,
-            'compute': 2,
+            'compute': 11,
+            # 'compute': 2,
             'network': 1,
             'control': 1
         }
     },
     'inventory': 'inventories/inventory.sample',
-    'registry': { 'type': 'external', 'ip': 'docker-mirror.rennes.grid5000.fr', 'port': 5000 },
+    'registry': { 'type': 'external', 'ip': 'docker-mirror.rennes.grid5000.fr', 'port': 80 },
     'enable_monitoring': False,
     'kolla_repo': "https://git.openstack.org/openstack/kolla-ansible",
     'kolla_ref': 'stable/stein',
@@ -67,7 +71,7 @@ ENOS_CONF = {
 def install_os():
     # Deploy openstack using enos
     args = { '--force-deploy': False, '--env': None, }
-    # enos.deploy(ENOS_CONF, **args)
+    enos.deploy(ENOS_CONF, **args)
 
     env = get_or_create_env(new=False, env_name='current/')
 
@@ -140,9 +144,9 @@ def make_flavors(cpt):
     LOG.info("Flavor %s" % f_mini)
 
 
-def make_account(identity, users):
+def make_account(identity, user_name):
     # Make new project
-    project_name = "project-%s" % '-'.join(u for u in users)
+    project_name = f"project-{user_name}"
     project = identity.find_project(project_name)
 
     if not project:
@@ -154,22 +158,21 @@ def make_account(identity, users):
 
     LOG.info("Project %s" % project)
 
-    for user_name in users:
-        # Create users
-        user = identity.find_user(user_name)
+    # Create users
+    user = identity.find_user(user_name)
 
-        if not user:
-            user = identity.create_user(
-                domain_id='default', name=user_name, password="lab-os")
+    if not user:
+        user = identity.create_user(
+            domain_id='default', name=user_name, password="lab-os")
 
-        LOG.info("User %s" % user)
+    LOG.info("User %s" % user)
 
-        # Assign to member, heat role
-        for r in ["member", "heat_stack_owner"]:
-            role = identity.find_role(r)
-            LOG.info("Role %s" % role)
+    # Assign to member, heat role
+    for r in ["member", "heat_stack_owner"]:
+        role = identity.find_role(r)
+        LOG.info("Role %s" % role)
 
-            identity.assign_project_role_to_user(project, user, role)
+        identity.assign_project_role_to_user(project, user, role)
 
     return project
 
@@ -288,8 +291,8 @@ cloud = make_cloud(f"http://{enos_env['config']['vip']}:35357/v3")
 upload_debian10(cloud.image)
 make_flavors(cloud.compute)
 
-for team in TEAMS:
-    project = make_account(cloud.identity, team)
+for user in USERS:
+    project = make_account(cloud.identity, user)
     priv_snet = make_private_net(cloud.network, project, enos_env)
     priv_net = make_router(cloud.network, project, priv_snet)
     make_sec_group_rule(cloud.network, project)

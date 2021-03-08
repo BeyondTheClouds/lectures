@@ -14,6 +14,13 @@
 #                 ||----w |
 #                 ||     ||
 
+# Do ~C-c C-c~ in the following to export and publish the Lab after
+# reviewing the [[lst:export]] and [[lst:publish]] scripts.
+#+BEGIN_SRC elisp :results silent :noweb yes :exports none
+<<lst:export>>
+<<lst:publish>>
+#+END_SRC
+
 #+BEGIN_abstract
 OpenStack has become the de-facto solution to operate compute, network
 and storage resources in public and private clouds. In this lab, we
@@ -32,48 +39,7 @@ editor to follow lab completion [[https://pad.inria.fr/p/np_HcC3U1VsFnNgT1af_Nua
 
 #+TOC: headlines 3
 
-* Table of Contents                                       :TOC_3_gh:noexport:
-- [[#requirements-and-setup][Requirements and Setup]]
-  - [[#environment][Environment]]
-  - [[#access-the-lab-machine][Access the Lab machine]]
-  - [[#resources-of-the-lab][Resources of the Lab]]
-  - [[#setup-openstack][Setup OpenStack]]
-- [[#play-with-openstack-as-an-admin][Play with OpenStack (as an Admin)]]
-  - [[#openstack-horizon-dashboard][OpenStack Horizon dashboard]]
-  - [[#unleash-the-operator-in-you][Unleash the operator in you]]
-    - [[#make-the-world-reaches-the-vm][Make the world reaches the VM]]
-  - [[#in-encryption-we-trust][In encryption we trust]]
-  - [[#the-art-of-contextualizing-a-vm][The art of contextualizing a VM]]
-    - [[#debian-10-ftw][Debian 10 FTW]]
-    - [[#cloud-init-in-action][~cloud-init~ in Action]]
-  - [[#run-vms-at-near-native-speed][Run VMs at (near-)native speed]]
-- [[#deploy-a-wordpress-as-a-service-as-a-devops][Deploy a WordPress as a Service (as a DevOps)]]
-- [[#automatize-the-deployment-with-heat][Automatize the Deployment with Heat]]
-  - [[#preamble][Preamble]]
-  - [[#boot-a-vm][Boot a VM]]
-  - [[#need-more-flexibility-lets-add-parameters][Need more flexibility: let's add parameters]]
-  - [[#need-to-return-values-lets-use-outputs][Need to return values: let's use outputs]]
-  - [[#integrate-cloud-init][Integrate ~cloud-init~]]
-  - [[#dynamic-configuration-with-cloud-init-and-parameters][Dynamic configuration with ~cloud-init~ and parameters]]
-  - [[#data-dependency-between-resources][Data dependency between resources]]
-  - [[#nested-templates][Nested templates]]
-  - [[#nested-templates-with-data-dependency][Nested templates with data dependency]]
-  - [[#other-type-of-resources-floating-ip][Other type of resources: floating IP]]
-- [[#deploy-a-wordpress-as-a-service-as-a-heat-devops][Deploy a WordPress as a Service (as a Heat DevOps)]]
-- [[#appendix][Appendix]]
-  - [[#install-mariadb-on-debian-10][Install MariaDB on Debian 10]]
-  - [[#install-wordpress-application-on-debian-10][Install Wordpress application on Debian 10]]
-- [[#footnotes][Footnotes]]
-
 * Lecture Notes for the Teacher                                    :noexport:
-Do ~C-c C-c~ in the following to export and publish the Lab after
-reviewing the [[lst:export]] and [[lst:publish]] scripts.
-
-#+BEGIN_SRC elisp :results silent :noweb yes
-<<lst:export>>
-<<lst:publish>>
-#+END_SRC
-
 ** Export
 Do ~C-c C-c~ in the following
 #+NAME: lst:export
@@ -119,16 +85,28 @@ Do ~C-c C-c~ in one of the followings.
 Hide solutions
 #+BEGIN_SRC elisp :results silent :noweb yes
 (save-excursion
+  ;; Change "#+BEGIN_solution" into "#+BEGIN_comment solution"
   (while (re-search-forward "\\(BEGIN\\|END\\)_solution" nil t)
-    (replace-match "\\1_comment\n# solution"))
+    (replace-match "\\1_comment\n# solution" 'fixed-case))
+
+  ;; Change "* heading :solution" into "* COMMENT heading :solution:"
+  (org-map-entries (lambda () (when (not (org-in-commented-heading-p t))
+                                (org-toggle-comment)))
+                   "+solution" 'file)
   (save-buffer))
 #+END_SRC
 
 Show solutions
 #+BEGIN_SRC elisp :results silent :noweb yes
 (save-excursion
+  ;; Change "#+BEGIN_comment solution" into "#+BEGIN_comment"
   (while (re-search-forward "\\(BEGIN\\|END\\)_comment\n# solution" nil t)
-    (replace-match "\\1_solution"))
+    (replace-match "\\1_solution" 'fixed-case))
+
+  ;; Change "* COMMENT heading :solution" into "* heading :solution:"
+  (org-map-entries (lambda () (when (org-in-commented-heading-p)
+                                (org-toggle-comment)))
+                   "+solution" 'file)
   (save-buffer))
 #+END_SRC
 
@@ -429,13 +407,6 @@ OpenStack CLI and tell it the URL of the authentication service.
 There are *two options* to achieve this.  First, to give them as
 arguments of the command.
 
-
-# openstack server list --os-auth-url=http://$(ip addr show eno1 | head -n3 | tail -n1 | awk '{print $2}' | cut -f1 -d'/'):5000/v3/ \
-#                         --os-username=admin \
-#                         --os-password=lab-os \
-#                         --os-project-name=admin \
-#                         --os-user-domain-name=Default \
-#                         --os-project-domain-id=default
 #+BEGIN_SRC bash
 openstack server list --os-auth-url=http://<ip-of-your-lab-machine>:5000/v3/ \
                         --os-username=admin \
@@ -607,24 +578,46 @@ $ openstack security group rule list --long -c "IP Protocol" -c "IP Range" -c Di
 #+END_src
 
 By default, OpenStack is very conservative and only allows two kinds
-of intercommunication:
-1. Any intercommunication among hosts of the same project :: This is
-   the first line.  It should be read as "/Incoming traffic
-   (~ingress~) between/ /hosts of ~192.162.222.*~ of any protocol
-   (~None~) are allowed/".
-2. Any kind of outgoing communications :: This is the second line.  It
-   should be read as "/Outgoing traffic (~egress~) to anywhere (~0.0.0.0/0~)
-   and of any protocol (~None~) are allowed/".
+of intercommunication patterns:
+1. Any intercommunication among hosts of the same project.  This is
+   the first line.  It should be read as "/Neutron allows incoming
+   traffic (~ingress~) between/ /hosts of ~192.162.222.*~ of any
+   protocol (~None~ specific ones)/".
+2. Any kind of outgoing communications.  This is the second line.  It
+   should be read as "/Neutron allows outgoing traffic (~egress~) to
+   anywhere (~0.0.0.0/0~) and of any protocol (~None~)/".
 And that's it.  Since there are no more rules, it means that OpenStack
 prevents all other ingress communications including communications on
 ~10.20.20.*~.
+
+#+BEGIN_note
+Commonly, OpenStack states the first intercommunication pattern of
+"allowing traffic among hosts of the same project" not as we see it
+here, but using a /remote security group/.  While specifying a
+security group rule, the DevOps gives either an IP Range (e.g.,
+~192.168.222.0/24~) with ~--remote-ip~, or machines that belongs to a
+specific group with ~--remote-group~.  Using the latter, OpenStack
+implements the first intercommunication pattern with a rule that tells
+Neutron to allow traffic between hosts of the group ~$SECGROUP_ID~.
+
+#+BEGIN_src bash
+$ openstack security group rule create $SECGROUP_ID --remote-group $SECGROUP_ID
+
+# It appears as so in the security group rule list:
++-------------+------------------+-----------+
+| IP Protocol | Remote Group     | Direction |
++-------------+------------------+-----------+
+| None        | <SECGROUP_ID>    | ingress   |
++-------------+------------------+-----------+
+#+END_src
+#+END_note
 #+END_solution
 
 Then, make it works for ~10.20.20.0/24~ network.  See examples of
 security groups rules in the [[https://docs.openstack.org/neutron/latest/admin/deploy-lb-selfservice.html#verify-network-operation][neutron doc]].
 
 #+BEGIN_solution
-To make it work, you have to setup new rules in the security group of
+To make it works, you have to setup new rules in the security group of
 the ~admin~ project. The following rules allow ICMP packets (for ping)
 and TCP on port 22 (for SSH connection) on the VM.
 #+BEGIN_src bash
@@ -634,6 +627,7 @@ openstack security group rule create $SECGROUP_ID --proto tcp --remote-ip 10.20.
 #+END_src
 #+END_solution
 #+END_do
+
 
 Once you succeed to ping the vm, you should also be able to SSH on it.
 : ssh -l cirros "$ALLOCATED_FIP"
@@ -705,45 +699,38 @@ hints to check:
 - Ping the VM and Google *from the Lab machine*. The ping should work
   for both. What does it mean for the Lab machine regarding
   communications between VMs and the Internet?
-  #+BEGIN_comment
-# solution
+  #+BEGIN_solution
   : ping -c 2 $ALLOCATED_FIP; ping -c 2 8.8.8.8
   The ping from the Lab machine works for both the VM and Google.
   Thus, the Lab machine /could be a gateway/ between VMs and the
   Internet.
-  #+END_comment
-# solution
+  #+END_solution
 
 - Note the IP address of ~$ALLOCATED_FIP~. From which network this IP
   comes? Which NIC serves that network on the Lab machine?
-  #+BEGIN_comment
-# solution
+  #+BEGIN_solution
   : echo "$ALLOCATED_FIP"
   : openstack subnet show external-subnet -c cidr -c allocation_pools
   : ip address | fgrep -B 2 10.20.20
   The IP of the VM comes from the network 10.20.20.0/24, which is
   served on the Lab machine by ~br-ex~.
-  #+END_comment
-# solution
+  #+END_solution
 
 - Do a ~tcpdump~ on that NIC. Do you see the ICMP packets from
   ~$ALLOCATED_FIP~ that flow over that NIC?
-  #+BEGIN_comment
-# solution
+  #+BEGIN_solution
   : sudo tcpdump -nni br-ex icmp
   The ~tcpdump~ on ~br-ex~ shows ping ~echo request~ packets, but no
   ~echo reply~. So the packets are lost somewhere... Remember
   the Lab machine should play a role of gateway between VMs and
   the Internet.  Thus, packets should flow through the NIC of the
   default route: let's see what is happening there.
-  #+END_comment
-# solution
+  #+END_solution
 
 - Find the route that forward packets to the Internet on Lab machine.
   Do a ~tcpdump~ on the NIC that servers that route. Do you see the
   ICMP packets flow over that NIC?
-  #+BEGIN_comment
-# solution
+  #+BEGIN_solution
   To ensure that something is wrong on the Lab machine regarding its
   role of gateway between VMs and the Internet, let's find the route
   that forwards Google packets out of the Lab machine.
@@ -782,13 +769,11 @@ hints to check:
   new rule.
   : sudo iptables -A FORWARD -j ACCEPT
   #+END_note
-  #+END_comment
-# solution
+  #+END_solution
 
 - After making the packets flow on the second NIC, is everything OK
   with the IP address of the source in the ~tcpdump~ on ~eth0~?
-  #+BEGIN_comment
-# solution
+  #+BEGIN_solution
   From now, the ping of Google from the VM reaches Internet via ~eth0~
   (as seen by ~tcpdump -nni eth0 icmp~). Unfortunately, it still does
   not do the trick, because the packet goes out with the ~10.20.20.*~
@@ -813,8 +798,7 @@ hints to check:
   MASQUERADE~)."
   # : sudo iptables -t nat -A POSTROUTING ! -d 10.20.20.0/24 -o <NIC-of-your-lab-machine> -j SNAT --to-source <ip-of-your-lab-machine>
   : sudo iptables -t nat -A POSTROUTING -s 10.20.20.0/24 ! -d 10.20.20.0/24 -j MASQUERADE
-  #+END_comment
-# solution
+  #+END_solution
 #+END_do
 
 ** In encryption we trust
@@ -1084,7 +1068,7 @@ snap restart microstack.nova-compute
 
 Every time you do an ~openstack server create ...~, your request hits,
 at some point, the ~nova~ services.  It starts by the ~nova-api~ that
-processes the REST request.  The API, in turns, calls the
+processes the REST request.  The API, in turn, calls the
 ~nova-conductor~ that orchestrates the boot: performs some checks,
 finds eligible computes and chooses one to transmit the boot order to
 its ~nova-compute~.  Finally, the ~nova-compute~ asks to the
@@ -1139,6 +1123,22 @@ Finally, create a new VM such as in the [[#sec:cloud-init][previous section]] an
 appreciate how fast your VM displays the ~figlet "The Art of
 Contextualizing a VM with KVM" | lolcat~ command.
 
+
+#+BEGIN_note
+You can check that the new VM effectively uses KVM by looking at its
+configuration files in the hypervisor.
+
+#+BEGIN_src bash
+$ microstack.virsh list
+$ microstack.virsh edit instance-0000005
+<domain="kvm">
+...
+#+END_src
+
+If the domain is ~kvm~ instead of ~qemu~ then the reconfiguration of
+nova has been well taken into account.
+#+END_note
+
 * Deploy a WordPress as a Service (as a DevOps)
 :PROPERTIES:
 :CUSTOM_ID: sec:wp-devops
@@ -1186,7 +1186,7 @@ you have to make a bash script that:
 
 The ~rsc~ directory provides bash scripts to deploy the MariaDB
 database and web server of WordPress (also in [[*Appendix][Appendix]]). Review it
-before going any further (spot the *TODO*).  And ask yourself
+before going any further (spot the *{{ TODO }}*).  And ask yourself
 questions such as: Does the ~wordpress-db~ VM needs a floating IP in
 order to be reached by the ~wordpress-app~ VM?
 
@@ -1926,7 +1926,7 @@ the tarball and in the following subsections.
 # solution
 #+END_do
 
-** COMMENT Database VM template                                    :solution:
+** COMMENT Database VM template                                   :solution:
 #+BEGIN_src yaml :tangle output/rsc/heat-templates/wordpress/db-vm.yaml
 heat_template_version: 2017-09-01
 
@@ -1977,7 +1977,7 @@ outputs:
     value: { get_attr: [db-vm, networks, test, 0] }
 #+END_src
 
-** COMMENT Web VM template                                         :solution:
+** COMMENT Web VM template                                        :solution:
 #+BEGIN_src yaml :tangle output/rsc/heat-templates/wordpress/wp-vm.yaml
 heat_template_version: 2017-09-01
 
@@ -2036,7 +2036,7 @@ resources:
       port_id: { get_attr: [wp-vm, addresses, test, 0, port]}
 #+END_src
 
-** COMMENT Wordpress application template                          :solution:
+** COMMENT Wordpress application template                         :solution:
 #+BEGIN_src yaml :tangle output/rsc/heat-templates/wordpress/wp-app.yaml
 heat_template_version: 2017-09-01
 
@@ -2164,7 +2164,7 @@ echo "nameserver 8.8.8.8" >> /etc/resolv.conf
 DB_NAME=wordpress
 DB_USER=silr
 DB_PASSWORD=silr
-DB_HOST=TODO
+DB_HOST={{ TODO }}
 
 apt-get update -y
 apt-get upgrade -y
@@ -2318,7 +2318,6 @@ is a bit annoying.
 #+LINK: horizon-url  http://10.24.61.255
 
 #+EXCLUDE_TAGS: noexport
-#+EXCLUDE_TAGS: solution
 
 # -- HTML specific options
 #+OPTIONS: html-link-use-abs-url:nil html-preamble:t html-scripts:t html-style:t html5-fancy:t tex:t
