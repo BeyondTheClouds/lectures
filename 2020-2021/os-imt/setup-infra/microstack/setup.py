@@ -132,6 +132,8 @@ def provision(rs: Roles):
             p.lineinfile(path='/root/.bashrc', line=l)
 
 
+
+# Main
 @click.command()
 @click.option('--test/--no-test', default=False)
 def main(test):

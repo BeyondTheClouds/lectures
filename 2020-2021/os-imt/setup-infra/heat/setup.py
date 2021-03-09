@@ -10,6 +10,7 @@ import logging
 import os
 import socket
 import yaml
+import click
 
 import openstack
 import enos.task as enos
@@ -36,27 +37,27 @@ USERS = [
     "gsanyas",
 ]
 
+# CLUSTER = "paravance"
+CLUSTER = "paravance"
 ENOS_CONF = {
     'provider': {
         'type': 'g5k',
         'project': 'lab-2021-imta-fise-login-os',
         'job_name': 'enos',
-        # 'walltime': '02:20:00',
         'walltime': '08:59:58',
+        'job_name': 'lab-2021-imta-fise-login-os',
         "reservation": "2021-03-12 07:00:01",
         #'env_name': 'debian9-x64-min',
-        #'job_name': 'imta-fila3-os-test2',
     },
     'resources': {
-        'parasilo': {
+        CLUSTER: {
             'compute': 11,
-            # 'compute': 2,
             'network': 1,
             'control': 1
         }
     },
     'inventory': 'inventories/inventory.sample',
-    'registry': { 'type': 'external', 'ip': 'docker-mirror.rennes.grid5000.fr', 'port': 80 },
+    'registry': { 'type': 'external', 'ip': 'docker-cache.grid5000.fr', 'port': 80 },
     'enable_monitoring': False,
     'kolla_repo': "https://git.openstack.org/openstack/kolla-ansible",
     'kolla_ref': 'stable/stein',
@@ -68,7 +69,13 @@ ENOS_CONF = {
 }
 
 
-def install_os():
+def install_os(testing=True):
+    if testing:
+        del(ENOS_CONF["provider"]["reservation"])
+        ENOS_CONF["provider"]["walltime"] = "02:25:00"
+        ENOS_CONF["provider"]["job_name"] = "test-lab-2021-imta-fise-login-os"
+        ENOS_CONF["resources"][CLUSTER]["compute"] = 2
+
     # Deploy openstack using enos
     args = { '--force-deploy': False, '--env': None, }
     enos.deploy(ENOS_CONF, **args)
@@ -154,7 +161,7 @@ def make_account(identity, user_name):
             domain_id='default',
             parent_id='default',
             name=project_name,
-            description="Project of %s." % ', '.join(u for u in users))
+            description=f"Project of {user_name}")
 
     LOG.info("Project %s" % project)
 
@@ -285,14 +292,20 @@ def make_sec_group_rule(net, project):
 
 
 # Main
+@click.command()
+@click.option('--test/--no-test', default=False)
+def main(test):
+    enos_env = install_os(testing=test)
+    cloud = make_cloud(f"http://{enos_env['config']['vip']}:35357/v3")
+    upload_debian10(cloud.image)
+    make_flavors(cloud.compute)
 
-enos_env = install_os()
-cloud = make_cloud(f"http://{enos_env['config']['vip']}:35357/v3")
-upload_debian10(cloud.image)
-make_flavors(cloud.compute)
+    for user in USERS:
+        project = make_account(cloud.identity, user)
+        priv_snet = make_private_net(cloud.network, project, enos_env)
+        priv_net = make_router(cloud.network, project, priv_snet)
+        make_sec_group_rule(cloud.network, project)
 
-for user in USERS:
-    project = make_account(cloud.identity, user)
-    priv_snet = make_private_net(cloud.network, project, enos_env)
-    priv_net = make_router(cloud.network, project, priv_snet)
-    make_sec_group_rule(cloud.network, project)
+
+if __name__ == "__main__":
+    main()

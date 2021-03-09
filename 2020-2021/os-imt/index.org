@@ -1126,7 +1126,7 @@ Contextualizing a VM with KVM" | lolcat~ command.
 
 #+BEGIN_note
 You can check that the new VM effectively uses KVM by looking at its
-configuration files in the hypervisor.
+configuration file in the hypervisor.
 
 #+BEGIN_src bash
 $ microstack.virsh list
@@ -1297,6 +1297,7 @@ each of you (not admin).  As a preamble, you should:
 - Source the "OpenStack RC File V3".
 - Reimport (or maybe recreate) your admin SSH key
   (Sec.\nbsp{}[[#sec:enc-trust]]).
+- Reimport the source of this lab (Sec. \nbsp{}[[#sec:rscs-lab]]).
 
 Resource names change a bit from previously.  Do not hesitate to run
 some commands such as the following to know about new names.
@@ -1422,7 +1423,7 @@ openstack server list
 openstack stack delete --wait --yes hw2
 #+END_src
 
-The parameter ~the_vm_name~ is required as no default value is
+The parameter ~the_vm_name~ is required since no default value is
 provided.  If you try to create a stack without providing this
 parameter, you end with an error.
 #+BEGIN_SRC bash
@@ -1461,7 +1462,7 @@ resources:
       flavor: m1.mini
       key_name: admin
       networks:
-        - {network: private}
+        - { network: private }
 
 # We set here outputs (stack returned attributes).
 # Outputs are defined by a name, and a set of properties:
@@ -1551,7 +1552,7 @@ resources:
       flavor: m1.mini
       key_name: admin
       networks:
-        - {network: private}
+        - { network: private }
       # We set here the user-data:
       user_data: |
         #!/usr/bin/env bash
@@ -1615,7 +1616,7 @@ resources:
       flavor: m1.mini
       key_name: admin
       networks:
-        - {network: private}
+        - { network: private }
       user_data:
         # This intrinsic function can replace strings in a template
         str_replace:
@@ -1676,7 +1677,7 @@ resources:
       flavor: m1.mini
       key_name: admin
       networks:
-        - {network: private}
+        - { network: private }
       user_data:
         str_replace:
           template: |
@@ -1695,7 +1696,7 @@ resources:
       flavor: m1.mini
       key_name: admin
       networks:
-        - {network: private}
+        - { network: private }
 #+end_src
 
 In this example, ~user~ requires the IP address of ~provider~ to boot.
@@ -1864,7 +1865,7 @@ resources:
       flavor: m1.mini
       key_name: admin
       networks:
-        - {network: private}
+        - { network: private }
 
   floating-ip:
     type: OS::Neutron::FloatingIP
@@ -1926,7 +1927,7 @@ the tarball and in the following subsections.
 # solution
 #+END_do
 
-** COMMENT Database VM template                                   :solution:
+** COMMENT Database VM template                                    :solution:
 #+BEGIN_src yaml :tangle output/rsc/heat-templates/wordpress/db-vm.yaml
 heat_template_version: 2017-09-01
 
@@ -1962,7 +1963,7 @@ resources:
       image: debian-10
       flavor: m1.mini
       networks:
-        - {network: test}
+        - { network: private }
       user_data:
         str_replace:
           template: { get_file: ../../install-mariadb.sh }
@@ -1974,10 +1975,10 @@ resources:
 outputs:
   DBHost:
     description: IP address of the created instance running MariaDB
-    value: { get_attr: [db-vm, networks, test, 0] }
+    value: { get_attr: [db-vm, networks, private, 0] }
 #+END_src
 
-** COMMENT Web VM template                                        :solution:
+** COMMENT Web VM template                                         :solution:
 #+BEGIN_src yaml :tangle output/rsc/heat-templates/wordpress/wp-vm.yaml
 heat_template_version: 2017-09-01
 
@@ -2014,7 +2015,7 @@ resources:
       image: debian-10
       flavor: m1.mini
       networks:
-        - {network: test}
+        - { network: private }
       user_data:
         str_replace:
           template: { get_file: ../../install-wp.sh }
@@ -2027,16 +2028,16 @@ resources:
   floating-ip:
     type: OS::Neutron::FloatingIP
     properties:
-      floating_network: external
+      floating_network: public
 
   association:
     type: OS::Neutron::FloatingIPAssociation
     properties:
       floatingip_id: { get_resource: floating-ip }
-      port_id: { get_attr: [wp-vm, addresses, test, 0, port]}
+      port_id: { get_attr: [wp-vm, addresses, private, 0, port]}
 #+END_src
 
-** COMMENT Wordpress application template                         :solution:
+** COMMENT Wordpress application template                          :solution:
 #+BEGIN_src yaml :tangle output/rsc/heat-templates/wordpress/wp-app.yaml
 heat_template_version: 2017-09-01
 
@@ -2087,6 +2088,17 @@ resources:
       DBUser: { get_param: DBUser }
       DBPassword: { get_param: DBPassword }
       DBHost: { get_attr: [database, DBHost] }
+
+outputs:
+  public-ip:
+    description: IP address of the created instance running MariaDB
+    value: { get_attr: [wordpress, networks, public, 0] }
+#+END_src
+
+#+BEGIN_src bash
+openstack stack create -t ./rsc/heat-templates/wordpress/wp-app.yaml wp1
+FIP_RSC_ATTRIBUTES=$(openstack stack resource show -c attributes -f value wp1 public-ip)
+python -c "print('http://%s/wp' % ${FIP_RSC_ATTRIBUTES}['floating_ip_address'])"
 #+END_src
 
 * Appendix
@@ -2122,8 +2134,8 @@ echo "nameserver 8.8.8.8" >> /etc/resolv.conf
 # Parameters
 DB_ROOTPASSWORD=root
 DB_NAME=wordpress    # Wordpress DB name
-DB_USER=silr         # Wordpress DB user
-DB_PASSWORD=silr     # Wordpress DB pass
+DB_USER=lab-os       # Wordpress DB user
+DB_PASSWORD=lab-os   # Wordpress DB pass
 
 # Install MariaDB
 apt update -q
@@ -2162,9 +2174,9 @@ echo "nameserver 8.8.8.8" >> /etc/resolv.conf
 
 # Parameters
 DB_NAME=wordpress
-DB_USER=silr
-DB_PASSWORD=silr
-DB_HOST={{ TODO }}
+DB_USER=lab-os
+DB_PASSWORD=lab-os
+DB_HOST="{{ TODO }}"
 
 apt-get update -y
 apt-get upgrade -y
