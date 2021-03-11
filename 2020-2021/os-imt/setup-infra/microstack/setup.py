@@ -2,6 +2,7 @@
 
 import logging
 import socket
+import itertools
 
 import click
 
@@ -152,9 +153,8 @@ def main(test):
     # Assign machines
     print("Lab machine assignations:")
     addrs = map(get_ip_addr, roles["OpenStack"])
-    for (team, addr) in zip_longest(TEAMS, addrs):
-        team_members_str = ', '.join(m for m in team)
-        print(f"- {team_members_str} :: ~{addr}~")
+    for (usr, addr) in zip_longest(TEAMS, addrs):
+        print(f"- {addr} ({usr}): ")
 
 
 if __name__ == "__main__":
