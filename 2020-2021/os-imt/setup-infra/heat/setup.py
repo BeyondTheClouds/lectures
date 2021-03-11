@@ -72,7 +72,7 @@ ENOS_CONF = {
 def install_os(testing=True):
     if testing:
         del(ENOS_CONF["provider"]["reservation"])
-        ENOS_CONF["provider"]["walltime"] = "02:25:00"
+        ENOS_CONF["provider"]["walltime"] = "05:00:00"
         ENOS_CONF["provider"]["job_name"] = "test-lab-2021-imta-fise-login-os"
         ENOS_CONF["resources"][CLUSTER]["compute"] = 2
 

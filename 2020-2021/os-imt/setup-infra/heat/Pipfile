@@ -11,7 +11,8 @@ setup  = "python ./setup.py"
 
 [packages]
 # enos = "==6.0.2"
-enos = {editable = true, file = "/home/rfish/prog/enos" }
+# enos = {editable = true, file = "/home/rfish/prog/enos" }
+enos = {editable = true, git = "git@github.com:BeyondTheClouds/enos.git@b1163fb" }
 click = "==7.1.2"
 openstacksdk = "==0.51.0"
 python-openstackclient = "==5.4.0"

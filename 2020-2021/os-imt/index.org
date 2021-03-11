@@ -1286,18 +1286,28 @@ find interesting examples in the [[os-doc:heat,template_guide/basic_resources.ht
 ** Preamble
 In this last part, the teacher has setup an OpenStack in a DataCenter
 (here, on top of Grid'5000) and created member account and project for
-each of you (not admin).  As a preamble, you should:
-- Connect to the Grid'5000 VPN (Sec.\nbsp{}[[#sec:assign-lab]]).
+each of you (not admin).  As a preamble, you should connect to the
+Grid'5000 VPN (Sec.\nbsp{}[[#sec:assign-lab]]) and then do the following.  You
+can do it on your own machine, or from the rennes frontend (~ssh
+access.grid5000.fr; ssh rennes~).
+
+- [[https://github.com/openstack/python-openstackclient/tree/stable/rocky#getting-started][Install the OpenStack CLI]] and [[https://github.com/openstack/python-heatclient/tree/stable/rocky][Heat CLI]].  Here is the process for
+  Grid'5000.  You may omit the 3 first lines if you do it on your own
+  machine.
+  # : alias openstack="pipenv run openstack"
+  #+BEGIN_src bash
+  $ pip3 install --user pip
+  $ echo "export PATH=~/.local/bin:${PATH}" >> ~/.profile
+  $ source ~/.profile
+  $ pip install --user python-openstackclient python-heatclient
+  #+END_src
+- Import the source of this lab (Sec.\nbsp{}[[#sec:rscs-lab]]).
 - Go on the [[horizon-url][horizon dashbord]] of teacher's OpenStack and download the
-  "OpenStack RC File V3" (Sec.\nbsp{}[[#sec:os-cli]]) on your own machine.
+  "OpenStack RC File" (Sec.\nbsp{}[[#sec:os-cli]]) on your own machine.
   + user name: your Grid'5000 login
   + password: ~lab-os~
-- [[https://github.com/openstack/python-openstackclient/tree/stable/rocky#getting-started][Install the OpenStack CLI]] and [[https://github.com/openstack/python-heatclient/tree/stable/rocky][Heat CLI]] on your own machine.
-  # : alias openstack="pipenv run openstack"
-- Source the "OpenStack RC File V3".
-- Reimport (or maybe recreate) your admin SSH key
-  (Sec.\nbsp{}[[#sec:enc-trust]]).
-- Reimport the source of this lab (Sec. \nbsp{}[[#sec:rscs-lab]]).
+- Source the "OpenStack RC File".
+- Create your admin SSH key (Sec.\nbsp{}[[#sec:enc-trust]]).
 
 Resource names change a bit from previously.  Do not hesitate to run
 some commands such as the following to know about new names.
@@ -1509,6 +1519,9 @@ The source code of Heat also list [[https://github.com/openstack/heat/blob/0703c
 the IP address such as ~first_address~, but that one is deprecated
 though.
 : get_attr: [heat-vm, first_address]
+
+The [[horizon-url][horizon dashbord]] has an "Orchestration" tab with a good list of
+available functions and resources.
 
 Finally, you can introspect all attributes of a resource with the
 following command at runtime:
@@ -1917,12 +1930,18 @@ Create three HOT files:
   application (glues the ~db-vm.yaml~ and ~web-vm.yaml~ together).
 
 Once it is deployed, you should be able to reach the WordPress service by
-going on [[http://<web-server-fip-address>/wp]].
+going on [[http://<wp-vm-fip-address>/wp]].
 
 #+BEGIN_comment
 # solution
 Find the solution in the ~rsc/heat-templates/wordpress/~ directory of
-the tarball and in the following subsections.
+the tarball and in the following subsections.  Create the WordPress
+application and output its endpoint with the next commands.
+
+#+BEGIN_src bash
+openstack stack create -t ./rsc/heat-templates/wordpress/wp-app.yaml wp1
+echo "http://$(openstack stack output show wp1 public-ip -c output_value -f value)/wp"
+#+END_src
 #+END_comment
 # solution
 #+END_do
@@ -2035,6 +2054,11 @@ resources:
     properties:
       floatingip_id: { get_resource: floating-ip }
       port_id: { get_attr: [wp-vm, addresses, private, 0, port]}
+
+outputs:
+  public-ip:
+    description: IP address of the created instance running WordPress
+    value: { get_attr: [floating-ip, floating_ip_address] }
 #+END_src
 
 ** COMMENT Wordpress application template                          :solution:
@@ -2091,14 +2115,8 @@ resources:
 
 outputs:
   public-ip:
-    description: IP address of the created instance running MariaDB
-    value: { get_attr: [wordpress, networks, public, 0] }
-#+END_src
-
-#+BEGIN_src bash
-openstack stack create -t ./rsc/heat-templates/wordpress/wp-app.yaml wp1
-FIP_RSC_ATTRIBUTES=$(openstack stack resource show -c attributes -f value wp1 public-ip)
-python -c "print('http://%s/wp' % ${FIP_RSC_ATTRIBUTES}['floating_ip_address'])"
+    description: IP address of the created instance running WordPress
+    value: { get_attr: [wordpress, public-ip] }
 #+END_src
 
 * Appendix
