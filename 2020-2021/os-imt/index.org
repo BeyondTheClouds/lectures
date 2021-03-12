@@ -1289,14 +1289,14 @@ In this last part, the teacher has setup an OpenStack in a DataCenter
 each of you (not admin).  As a preamble, you should connect to the
 Grid'5000 VPN (Sec.\nbsp{}[[#sec:assign-lab]]) and then do the following.  You
 can do it on your own machine, or from the rennes frontend (~ssh
-access.grid5000.fr; ssh rennes~).
+<user>@access.grid5000.fr~ and ~ssh rennes~).
 
 - [[https://github.com/openstack/python-openstackclient/tree/stable/rocky#getting-started][Install the OpenStack CLI]] and [[https://github.com/openstack/python-heatclient/tree/stable/rocky][Heat CLI]].  Here is the process for
   Grid'5000.  You may omit the 3 first lines if you do it on your own
   machine.
   # : alias openstack="pipenv run openstack"
   #+BEGIN_src bash
-  $ pip3 install --user pip
+  $ pip3 install --upgrade --user pip
   $ echo "export PATH=~/.local/bin:${PATH}" >> ~/.profile
   $ source ~/.profile
   $ pip install --user python-openstackclient python-heatclient
@@ -1932,8 +1932,7 @@ Create three HOT files:
 Once it is deployed, you should be able to reach the WordPress service by
 going on [[http://<wp-vm-fip-address>/wp]].
 
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 Find the solution in the ~rsc/heat-templates/wordpress/~ directory of
 the tarball and in the following subsections.  Create the WordPress
 application and output its endpoint with the next commands.
@@ -1942,11 +1941,10 @@ application and output its endpoint with the next commands.
 openstack stack create -t ./rsc/heat-templates/wordpress/wp-app.yaml wp1
 echo "http://$(openstack stack output show wp1 public-ip -c output_value -f value)/wp"
 #+END_src
-#+END_comment
-# solution
+#+END_solution
 #+END_do
 
-** COMMENT Database VM template                                    :solution:
+** Database VM template                                    :solution:
 #+BEGIN_src yaml :tangle output/rsc/heat-templates/wordpress/db-vm.yaml
 heat_template_version: 2017-09-01
 
@@ -1997,7 +1995,7 @@ outputs:
     value: { get_attr: [db-vm, networks, private, 0] }
 #+END_src
 
-** COMMENT Web VM template                                         :solution:
+** Web VM template                                         :solution:
 #+BEGIN_src yaml :tangle output/rsc/heat-templates/wordpress/wp-vm.yaml
 heat_template_version: 2017-09-01
 
@@ -2061,7 +2059,7 @@ outputs:
     value: { get_attr: [floating-ip, floating_ip_address] }
 #+END_src
 
-** COMMENT Wordpress application template                          :solution:
+** Wordpress application template                          :solution:
 #+BEGIN_src yaml :tangle output/rsc/heat-templates/wordpress/wp-app.yaml
 heat_template_version: 2017-09-01
 
@@ -2339,7 +2337,6 @@ while read line ; do login=$(echo $line |awk -F"," '{print $1}') ;  echo $login:
 is a bit annoying.
 
 * Variables                                                        :noexport:
-
 #+STARTUP: entitiespretty
 #+LANGUAGE: en
 #+OPTIONS: ^:{} ':t email:t toc:nil
