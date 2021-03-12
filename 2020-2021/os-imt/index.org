@@ -799,7 +799,16 @@ hints to check:
   # : sudo iptables -t nat -A POSTROUTING ! -d 10.20.20.0/24 -o <NIC-of-your-lab-machine> -j SNAT --to-source <ip-of-your-lab-machine>
   : sudo iptables -t nat -A POSTROUTING -s 10.20.20.0/24 ! -d 10.20.20.0/24 -j MASQUERADE
   #+END_solution
+
 #+END_do
+
+#+BEGIN_note
+If you are not familiar with the debugging of network issues but
+interested in learning more I recommend to read blog post of support
+teams.  Here are two that really are worth reading:
+- https://cloud.google.com/blog/topics/inside-google-cloud/google-cloud-support-engineer-solves-a-tough-dns-case
+- https://www.linkedin.com/pulse/name-resolution-issue-coredns-inside-mind-problem-solver-spitzer/
+#+END_note
 
 ** In encryption we trust
 :PROPERTIES:
