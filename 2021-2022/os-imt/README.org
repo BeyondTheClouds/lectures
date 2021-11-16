@@ -1,0 +1,51 @@
+#+TITLE: README
+#+DATE: [2020-11-02 Mon]
+#+AUTHOR: Ronan-Alexandre Cherrueau, Adrien Lebre, Didier Iscovery
+#+EMAIL: {firstname.lastname}@inria.fr
+
+* Subject
+The subject is available in the [[file:index.org]] file.
+Refer to Sec. [[file:index.org::*Lecture
+ Notes][Lecture Notes]] on how to export and publish it on the net.
+
+* Setup the lab
+On a g5k frontend.
+
+First, configure [[https://gitlab.inria.fr/msimonin/python-grid5000/blob/5dc56894435560d982b7446db2e9dd0186f0d33a/README.org#L78-86][python-grid5000]] correctly.
+: echo 'verify_ssl: /etc/ssl/certs/ca-certificates.crt' > ~/.python-grid5000.yaml
+
+Then, clone this repository.
+: git clone git@github.com:BeyondTheClouds/lectures.git && cd lectures/2019-2020/os-imt
+
+** Setup microstack
+For the first part of the lab (Sec. [[file:index.org::#sec:req]] to
+[[file:index.org::#sec:wp-devops]]).
+
+Go into ~setup-infra/microstack~ and edit the [[file:setup-infra/microstack/setup.py::def make_conf(testing=True):][~make_conf~]] function
+with the correct date of the lab.
+
+Then setup the lab with pipenv.
+: pipenv run setup
+
+The setup script books machine on G5k, deploys an Ubuntu 18.04 and
+configures machine such that any G5k user can ssh on it with:
+- login :: ~root~
+- password :: ~os-imt~
+
+** Setup heat
+For the second part of the lab (Sec. [[file:index.org::#sec:heat]] to
+[[file:index.org::#sec:wp-heat]]).
+
+Go into ~setup-infra/heat~ and edit the [[file:setup-infra/heat/setup.py::ENOS_CONF = {][~ENOS_CONF~]] dict with the
+correct date of the lab.
+
+Then setup the lab with pipenv.
+: pipenv run setup
+
+The setup script books machine on G5k, installs OpenStack using [[https://github.com/BeyondTheClouds/enos][enos]],
+and configures account for each team in the [[file:setup-infra/heat/setup.py::TEAMS = [][TEAMS]] list. The account
+configuration consists in a specific project, private net, and a
+router communications with the private net. For each team:
+- Project name :: ~project-<g5k-user-name1>-...-<g5k-user-nameN>~
+- login :: ~<g5k-user-name>~
+- password :: ~os-imt~

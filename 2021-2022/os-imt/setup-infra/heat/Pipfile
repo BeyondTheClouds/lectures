@@ -1,0 +1,20 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[requires]
+python_version = "3.8"
+
+[scripts]
+setup  = "python ./setup.py"
+
+[packages]
+# enos = "==6.0.2"
+# enos = {editable = true, file = "/home/rfish/prog/enos" }
+enos = {editable = true, git = "git@github.com:BeyondTheClouds/enos.git@b1163fb" }
+click = "==7.1.2"
+openstacksdk = "==0.51.0"
+python-openstackclient = "==5.4.0"
+python-heatclient = "==2.2.1"
+virtualenv = "*"
