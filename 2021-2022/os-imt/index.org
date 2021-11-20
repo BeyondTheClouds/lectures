@@ -224,10 +224,10 @@ The rest of this lab *proceeds on the Lab machine*.
 :PROPERTIES:
 :CUSTOM_ID: sec:rscs-lab
 :END:
-Get the resources of the lab at [[cdn-url:2020-2021/os-imt/tp.tar.gz]].
+Get the resources of the lab at [[https://raw.githubusercontent.com/Marie-Donnie/lectures/master/2021-2022/os-imt/tp.tar.gz]]:
 
 #+BEGIN_SRC bash
-curl https://github.com/BeyondTheClouds/lectures/blob/869b8f3/2020-2021/os-imt/tp.tar.gz?raw=true -o tp.tar.gz -L
+curl https://raw.githubusercontent.com/Marie-Donnie/lectures/master/2021-2022/os-imt/tp.tar.gz -o tp.tar.gz -L
 tar xzf tp.tar.gz
 cd lab-os
 #+END_SRC
@@ -402,7 +402,7 @@ There are *two options* to achieve this.  First, to give them as
 arguments of the command.
 
 #+BEGIN_SRC bash
-openstack server list --os-auth-url=http://<ip-of-your-lab-machine>:5000/v3/ \
+openstack server list --os-auth-url=https://<ip-of-your-lab-machine>:5000/v3/ \
                         --os-username=admin \
                         --os-password=lab-os \
                         --os-project-name=admin \

@@ -15,34 +15,9 @@ from enoslib.infra.enos_g5k.configuration import (Configuration)
 logging.basicConfig(level=logging.DEBUG)
 LOG = logging.getLogger(__name__)
 TEAMS = [
-    ("Ronan", "Adrien"),
-    # ("Thomas Herbelin", "Simon Le Bars"),
-    # ("Samy Le Galloudec", "Marc Lamy"),
-    # ("Maël Gaonach", "Antoine Omond"),
-    # ("Robin Carrez", "Evrard-Nil Daillet"),
-    # ("Paul Bavazzano", "Hoan My TRAN"),
-    # ("Florian Le Menn", "" ),
-    # ("Xavier Aleman", "Ismaïl El Khantache"),
-    # ("Barthélémy Tek", ""),
-    # ("Javed  Syed Khasim", "Emeric Chonigbaum"),
-    # ("Lucas Pelec", ""),
-    # ("Théo Coutant", ""),
-    # ("Raphael Hascoet", ""),
-    # ("", ""),
-    # ("", "")
-    # ("ronana",      "alebre"),
-    # ("alacour",     "mnoritop"),
-    # ("aqueiros",    "rlao"),
-    # ("blemee",      "launea"),
-    # ("bpeyresaube", "nguegan"),
-    # ("cg",          "mmainchai"),
-    # ("damarti",     "eguerin"),
-    # ("jfreta",      "vjorda"),
-    # ("kforest",     "maguyo"),
-    # ("lparis",      "sedahmani"),
-    # ("mmaheo",      "qeud"),
-    # ("nfrayssinhe", "thlailler"),
-    # ("rgrison",     "tandrieu"),
+    ("Marie", ""),
+    ("Bob", ""),
+    ("Alice", ""),
 ]
 
 
@@ -56,11 +31,11 @@ def get_ip_addr(h: Host) -> str:
 
 def make_conf(testing=True) -> Configuration:
     conf = {
-        "reservation": "2021-03-05 07:00:01",
-        "walltime": "11:59:58",
-        "job_name": "lab-2021-imta-fise-login-os",
+        "reservation": "2021-11-20 19:00:01",
+        "walltime": "09:30:58",
+        "job_name": "lab-2021-imta-fila3-os",
         "env_name": "ubuntu2004-x64-min",
-        "project": "lab-2021-imta-fise-login-os",
+        "project": "lab-2021-imta-fila3-os",
         "resources": {
             "networks": [
                 {
@@ -83,7 +58,7 @@ def make_conf(testing=True) -> Configuration:
                 {
                     "roles": ["OpenStack"],
                     "cluster": "paravance",
-                    "nodes": 13,
+                    "nodes": 3,
                     "primary_network": "net",
                     "secondary_networks": [ ],
                 }
@@ -93,8 +68,8 @@ def make_conf(testing=True) -> Configuration:
 
     if testing:
         del(conf["reservation"])
-        conf["walltime"] = "07:00:00"
-        conf["job_name"] = "test-lab-2021-imta-fise-login-os"
+        conf["walltime"] = "08:30:00"
+        conf["job_name"] = "lab-2021-imta-fila3-oss"
         conf["resources"]["machines"][0]["nodes"] = 1
 
     return Configuration.from_dictionnary(conf)
@@ -153,7 +128,7 @@ def main(test):
     # Assign machines
     print("Lab machine assignations:")
     addrs = map(get_ip_addr, roles["OpenStack"])
-    for (usr, addr) in zip_longest(TEAMS, addrs):
+    for (usr, addr) in itertools.zip_longest(TEAMS, addrs):
         print(f"- {addr} ({usr}): ")
 
 
