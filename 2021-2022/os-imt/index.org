@@ -246,7 +246,7 @@ Install snap.
 # : snap info microstack | fgrep -q installed && sudo snap remove --purge microstack
 
 Install the latest version of OpenStack from the snap store.
-: sudo snap install --channel=latest/beta microstack --devmode
+: sudo snap install microstack --beta --devmode
 
 Execute the ~setup.sh~ file with sudo to initialize OpenStack (setup
 networks, flavors, images, ...).
