@@ -15,9 +15,16 @@ from enoslib.infra.enos_g5k.configuration import (Configuration)
 logging.basicConfig(level=logging.DEBUG)
 LOG = logging.getLogger(__name__)
 TEAMS = [
-    ("Marie", ""),
-    ("Bob", ""),
-    ("Alice", ""),
+    ("alebre", "mdelavergne"),
+    ("mmerillon", ""),
+    ("cleclere", "afriou"),
+    ("cmoisan", "dclary"),
+    ("lnkvo", ""),
+    ("eleclerc", ""),
+    ("qgrosmangin", ""),
+    ("glouarn", ""),
+    ("asauvage", ""),
+    ("ihaupe", "")
 ]
 
 
@@ -31,8 +38,8 @@ def get_ip_addr(h: Host) -> str:
 
 def make_conf(testing=True) -> Configuration:
     conf = {
-        "reservation": "2021-11-20 20:25:01",
-        "walltime": "09:30:58",
+        "reservation": "2021-11-21 23:30:01",
+        "walltime": "23:30:00",
         "job_name": "lab-2021-imta-fila3-os",
         "env_name": "ubuntu2004-x64-min",
         "project": "lab-2021-imta-fila3-os",
@@ -58,7 +65,7 @@ def make_conf(testing=True) -> Configuration:
                 {
                     "roles": ["OpenStack"],
                     "cluster": "paravance",
-                    "nodes": 5,
+                    "nodes": 10,
                     "primary_network": "net",
                     "secondary_networks": [ ],
                 }

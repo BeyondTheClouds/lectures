@@ -13,7 +13,7 @@ import yaml
 import click
 
 import openstack
-import enos.task as enos
+#import enos
 from enoslib.task import get_or_create_env
 
 
@@ -171,7 +171,7 @@ def make_account(identity, user_name):
     return project
 
 
-def make_private_net(net, project, enos_env):
+def make_private_net(net, project, dns):
     # Make private net
     # https://docs.openstack.org/openstacksdk/latest/user/resources/network/v2/network.html#openstack.network.v2.network.Network
     private_net = net.find_network("private", project_id=project.id)
@@ -198,7 +198,7 @@ def make_private_net(net, project, enos_env):
             cidr="10.0.0.0/24",
             gateway_ip="10.0.0.1",
             allocation_pools=[{"start": "10.0.0.2", "end": "10.0.0.254"}],
-            dns_nameservers=[enos_env['networks'][0]['dns'], "8.8.8.8"])
+            dns_nameservers=[dns, "8.8.8.8"])
 
     LOG.info("Private subnet %s" % private_snet)
 
@@ -282,14 +282,14 @@ def make_sec_group_rule(net, project):
 @click.command()
 @click.option('--test/--no-test', default=False)
 def main(test):
-    enos_env = install_os(testing=test)
-    cloud = make_cloud(f"http://{enos_env['config']['vip']}:35357/v3")
+    # enos_env = install_os(testing=test)
+    cloud = make_cloud(f"http://10.24.61.255:35357/v3")
     upload_debian10(cloud.image)
     make_flavors(cloud.compute)
 
     for user in USERS:
         project = make_account(cloud.identity, user)
-        priv_snet = make_private_net(cloud.network, project, enos_env)
+        priv_snet = make_private_net(cloud.network, project, "172.16.111.118")
         priv_net = make_router(cloud.network, project, priv_snet)
         make_sec_group_rule(cloud.network, project)
 
