@@ -1,8 +1,8 @@
 #+TITLE: Operate Resources in Public and Private Clouds
 #+TITLE: Thanks to OpenStack
-#+AUTHOR: Ronan-Alexandre Cherrueau, Adrien Lebre, Didier Iscovery
+#+AUTHOR: Ronan-Alexandre Cherrueau, Adrien Lebre, Marie Delavergne, Didier Iscovery
 #+EMAIL: {firstname.lastname}@inria.fr
-#+DATE:[2020-12-16 Wed]
+#+DATE: [2021-11-21 dim.]
 
 #+BEGIN_abstract
 OpenStack has become the de-facto solution to operate compute, network
@@ -2346,8 +2346,7 @@ while read line ; do login=$(echo $line |awk -F"," '{print $1}') ;  echo $login:
 #+OPTIONS: html-link-use-abs-url:nil html-preamble:t html-scripts:t html-style:t html5-fancy:t tex:t
 #+HTML_DOCTYPE: html5
 #+HTML_CONTAINER: div
-#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="../../../rsc/org.css" />
-#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="../../rsc/org.css" />
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="../../../assets/css/org.css" />
 #+HTML_HEAD: <style>#table-of-contents .tag {display: none;}</style>
 
 # -- Programmed options
