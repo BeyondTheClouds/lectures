@@ -95,8 +95,8 @@ Do ~C-c C-c~ in the following.
 Put it on my personal website.
 #+NAME: lst:publish
 #+BEGIN_SRC elisp :results silent :noweb yes
-(let* ((base-dir "~/prog/rcherrueau.github.com/teaching/")
-       (export-dir (concat base-dir "2020-2021/os-polytech/")))
+(let* ((base-dir "~/Documents/site/teachings/2021-2022/")
+       (export-dir (concat base-dir "os-polytech/")))
   ;; Delete export if it exists. Always start from the ground base.
   (when (file-directory-p export-dir)
     (delete-directory export-dir t))
@@ -179,10 +179,10 @@ minutes for other options).
 First thing first, you have to connect to the Lab machine as ~invité~
 and create your account.
 
-Lab machines aren't available publicly unfortunately.  They are hide
+Lab machines aren't available publicly unfortunately.  They are hidden
 behind Polytech private network.  Fortunately, a frontend is available
 from the outside world at the address ~163.172.58.84~ that let us
-reaches Lab machines.  SSH on that frontend using the login and
+reach Lab machines.  SSH on that frontend using the login and
 password given in the pad of the collaborative editor and then, SSH on
 your Lab machine.  Password for ~invité~ on the lab machine is ~d012~.
 

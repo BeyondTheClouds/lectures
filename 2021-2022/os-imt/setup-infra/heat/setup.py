@@ -21,20 +21,7 @@ from enoslib.task import get_or_create_env
 logging.basicConfig(level=logging.INFO)
 LOG   = logging.getLogger(__name__)
 USERS = [
-    "ronana",
-    "adrien",
-    "klethuillier",
-    "bantoine",
-    "ldellinger",
-    "apichard",
-    "azorzano",
-    "vroullier",
-    "jtagnani",
-    "kthiebaut",
-    "cribes",
-    "kmahfoudh",
-    "pchebel",
-    "gsanyas",
+    "marie",
 ]
 
 # CLUSTER = "paravance"
@@ -42,16 +29,16 @@ CLUSTER = "paravance"
 ENOS_CONF = {
     'provider': {
         'type': 'g5k',
-        'project': 'lab-2021-imta-fise-login-os',
+        'project': 'lab-2021-imta-fila3-os',
         'job_name': 'enos',
         'walltime': '08:59:58',
-        'job_name': 'lab-2021-imta-fise-login-os',
-        "reservation": "2021-03-12 07:00:01",
+        'job_name': 'lab-2021-imta-fila3-os',
+        "reservation": "2021-11-21 11:42:01",
         #'env_name': 'debian9-x64-min',
     },
     'resources': {
         CLUSTER: {
-            'compute': 11,
+            'compute': 3,
             'network': 1,
             'control': 1
         }
@@ -72,7 +59,7 @@ ENOS_CONF = {
 def install_os(testing=True):
     if testing:
         del(ENOS_CONF["provider"]["reservation"])
-        ENOS_CONF["provider"]["walltime"] = "05:00:00"
+        ENOS_CONF["provider"]["walltime"] = "08:00:00"
         ENOS_CONF["provider"]["job_name"] = "test-lab-2021-imta-fise-login-os"
         ENOS_CONF["resources"][CLUSTER]["compute"] = 2
 
