@@ -1,5 +1,5 @@
--e git+https://github.com/BeyondTheClouds/enos.git@b1163fbc3206b0a87c507a9fb1677fed10448757#egg=enos
+enos==7.1.0
 click==7.1.2
-openstacksdk==0.51.0
-python-openstackclient==5.4.0
-python-heatclient==2.2.1
+openstacksdk==0.53.0
+python-openstackclient==5.5.0
+python-heatclient==2.3.0

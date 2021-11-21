@@ -972,7 +972,11 @@ extra argument to the regular ~openstack server create~ command.
 Start a new VM named ~art-vm~ based on the ~debian-10~ image and the
 ~m1.mini~ flavor. The VM should load and execute the script [[lst:art.sh]]
 -- available under ~rsc/art.sh~ -- that installs the [[https://github.com/cmatsuoka/figlet][~figlet~]] and
-[[https://github.com/busyloop/lolcat][~lolcat~]] softwares on the VM.
+[[https://github.com/busyloop/lolcat][~lolcat~]] softwares on the VM. To allow the VM to connect to the
+outside world, you will have to execute the script ~to-infinity.sh~,
+which you can find in ~rsc/to-infinity.sh~. Be careful, you have to
+fill in at the end of the file, after the TODO, the NIC on the lab
+machine and its IP.
 
 #+BEGIN_comment
 # solution
