@@ -75,6 +75,7 @@ Do ~C-c C-c~ in the following
        (outfile.txt (org-export-output-file-name ".txt" nil output-dir))
        (outfile.html (org-export-output-file-name ".html" nil output-dir)))
 
+  (face-spec-set 'yaml-tab-face '((t (:foreground unspecified :background unspecified))))
   ;; Clean everything
   (delete-directory output-dir t)
 
