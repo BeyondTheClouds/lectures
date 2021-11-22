@@ -187,7 +187,7 @@ UNIX systems. You can also do it on Windows, however expect to be on
 your own in case of troubles.
 
 1. Install the [[https://openvpn.net/][OpenVPN]] client
-   : sudo apt update -y && apt install -y openvpn
+   : sudo apt update -y && sudo apt install -y openvpn
 3. Go on [[https://api.grid5000.fr/stable/users/][UMS]] > "My Account" tab > "VPN certificates" item.
 4. "Create new certificate" > "Create with passphrase", and fill the
    form with a new password (remember it!).
@@ -197,7 +197,7 @@ your own in case of troubles.
    : unzip <g5k_login>_vpnclient.zip -d g5k_vpnclient
 6. Run OpenVPN client with sudo
    : cd g5k_vpnclient; sudo openvpn Grid5000_VPN.ovpn
-7. Fill in the password of Step 4 to the question ~Enter Private Key
+7. Fill in the password of Step 3 to the question ~Enter Private Key
    Password:~.
 
 You correctly setup the VPN and can access Grid'5000 private network
@@ -219,6 +219,8 @@ following SSH command. Use ~lab-os~ as password.
 : ssh -l root <ip-of-your-lab-machine>
 
 The rest of this lab *proceeds on the Lab machine*.
+
+Don't forget to use tmux! (see the pad)
 
 ** Resources of the Lab
 :PROPERTIES:
@@ -254,7 +256,7 @@ networks, flavors, images, ...).
 
 #+BEGIN_do
 Then, ensure OpenStack services are running on your machine. Find the
-snap command that lists microstack OpenStack services and there
+snap command that lists microstack OpenStack services and the
 status? What is the purpose of each service?
 
 #+BEGIN_comment
@@ -262,7 +264,7 @@ status? What is the purpose of each service?
 : snap services microstack|sort
 
 - glance-* :: Glance to manage VM images: ~openstack image --help~.
-- horizon-* :: OpenStack Web dashboard: [[http://<ip-of-your-lab-machine>]].
+- horizon-* :: OpenStack Web dashboard: [[https://<ip-of-your-lab-machine>]].
 - keystone-* :: Keystone to manage authentication and authorization
                 on OpenStack.
 - neutron-* :: Neutron to manage networks: ~openstack network --help~.
@@ -334,7 +336,7 @@ sudo snap remove --purge microstack
 ** OpenStack Horizon dashboard
 One service deployed is the OpenStack dashboard (Horizon). On your own
 machine, horizon is reachable from the web browser at
-[[http://<ip-of-your-lab-machine>]] with the following credentials:
+[[https://<ip-of-your-lab-machine>]] with the following credentials:
 - login: ~admin~
 - password: ~lab-os~
 
