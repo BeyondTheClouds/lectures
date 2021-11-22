@@ -278,51 +278,49 @@ status? What is the purpose of each service?
 
 *** Setup script                                                   :noexport:
 #+BEGIN_SRC bash :noweb tangle :tangle output/setup.sh :shebang #!/usr/bin/env bash
-set -o errexit
-set -o xtrace
+  set -o errexit
+  set -o xtrace
 
-# Install the bare necessities
-apt install --yes --quiet silversearcher-ag curl tcpdump kmod vim htop lynx crudini
-# On ubuntu 20.04 only
-apt install --yes --quiet bat
+  # Install the bare necessities
+  apt install --yes --quiet silversearcher-ag curl tcpdump kmod vim htop lynx crudini coreutils
+  # On ubuntu 20.04 only
+  apt install --yes --quiet bat
 
-# Set the admin password to keystone
-snap set microstack config.credentials.keystone-password=lab-os
-snap set microstack config.host.check-qemu=True
+  # Set the admin password to keystone
+  snap set microstack config.credentials.keystone-password=lab-os
+  snap set microstack config.host.check-qemu=True
 
-# Initialize  OpenStack
-microstack.init --auto --control
+  # Initialize  OpenStack
+  microstack.init --auto --control
 
-<<lst:undo-kvm>>
+  <<lst:undo-kvm>>
 
-# Install openstack client
-snap info openstackclients | fgrep -q installed && sudo snap remove --purge openstackclients
-snap install --channel=latest/stable openstackclients --classic
+  # Install openstack client
+  snap info openstackclients | fgrep -q installed && sudo snap remove --purge openstackclients
+  snap install openstackclients --channel=ussuri/stable
 
-# Put snap openstackclients into the path.
-export PATH=/snap/bin:$PATH
+  # Put snap openstackclients into the path.
+  export PATH=/snap/bin:$PATH
 
-set +o xtrace
+  set +o xtrace
 
-# Remove icmp and tcp security group rules of `microstack.init --auto`
-for rule in $(microstack.openstack security group rule list --protocol icmp -c ID -f value)
-do
-    microstack.openstack security group rule delete "${rule}"
-done
-for rule in $(microstack.openstack security group rule list --protocol tcp -c ID -f value)
-do
-    microstack.openstack security group rule delete "${rule}"
-done
+  # Remove icmp and tcp security group rules of `microstack.init --auto`
+  for rule in $(microstack.openstack security group rule list --protocol icmp -c ID -f value)
+  do
+      microstack.openstack security group rule delete "${rule}"
+  done
+  for rule in $(microstack.openstack security group rule list --protocol tcp -c ID -f value)
+  do
+      microstack.openstack security group rule delete "${rule}"
+  done
 
-<<lst:undo-extnet-setup>>
-set -o xtrace
+  set -o xtrace
 #+END_SRC
 
 *** Teardown script                                                :noexport:
 #+BEGIN_SRC bash :noweb tangle :tangle output/teardown.sh :shebang #!/usr/bin/env bash
 set -o xtrace
 
-<<lst:undo-extnet-setup>>
 <<lst:remove-heat>>
 
 sudo snap remove --purge openstackclients
