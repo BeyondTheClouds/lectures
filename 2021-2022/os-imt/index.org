@@ -389,7 +389,9 @@ most often used commands to operate your Cloud:
 #+BEGIN_do
 Try one of these commands.  Does it works?  What is the problem, how
 to fix it?  Hint: Look at the [[os-doc:python-openstackclient,cli/authentication.html][password authentication process]] for the
-CLI.
+CLI. Second hint: After you saw how cumbersome it is to add the
+credentials to each command, you can find how to source them thanks to
+the dashboard (see [[https://docs.openstack.org/liberty/install-guide-obs/keystone-openrc.html]]).
 
 #+BEGIN_comment
 # solution
