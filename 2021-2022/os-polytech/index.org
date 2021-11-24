@@ -16,8 +16,8 @@ are going to:
   your cloud from your sofa!).
 
 Find the slides of the lecture [[cdn-url:2018-2019/os-polytech/docs/CloudFogEdgeIntro.pdf][here]] and [[cdn-url:2018-2019/os-polytech/docs/openstack-slides.pdf][there]].  Find the collaborative
-editor to follow lab completion [[https://pad.inria.fr/p/np_KeAkcZTawSB7hPq3_os-poly-grp2][here]].
-# This document is an [[https://orgmode.org/][Org mode]] document, you can find its source [[cdn-url:index.org][here]].
+editor to follow lab completion [[https://notes.inria.fr/tFihp6A5TA-fOaUIvqNdyw][here]].
+# This document is an [[https://orgmode.org/][Org mode]] document.
 #+END_abstract
 
 #+TOC: headlines 3
@@ -37,21 +37,6 @@ editor to follow lab completion [[https://pad.inria.fr/p/np_KeAkcZTawSB7hPq3_os-
     - [[#debian-10-ftw][Debian 10 FTW]]
     - [[#cloud-init-in-action][~cloud-init~ in Action]]
 - [[#deploy-a-wordpress-as-a-service-as-a-devops][Deploy a WordPress as a Service (as a DevOps)]]
-- [[#automatize-the-deployment-with-heat][Automatize the Deployment with Heat]]
-  - [[#install-the-heat-orchestration-service-on-microstack][Install the Heat orchestration service on microstack]]
-  - [[#boot-a-vm][Boot a VM]]
-  - [[#need-more-flexibility-lets-add-parameters][Need more flexibility: let's add parameters]]
-  - [[#need-to-return-values-lets-use-outputs][Need to return values: let's use outputs]]
-  - [[#integrate-cloud-init][Integrate ~cloud-init~]]
-  - [[#dynamic-configuration-with-cloud-init-and-parameters][Dynamic configuration with ~cloud-init~ and parameters]]
-  - [[#data-dependency-between-resources][Data dependency between resources]]
-  - [[#nested-templates][Nested templates]]
-  - [[#nested-templates-with-data-dependency][Nested templates with data dependency]]
-  - [[#other-type-of-resources-floating-ip][Other type of resources: floating IP]]
-- [[#deploy-a-wordpress-as-a-service-as-a-heat-devops][Deploy a WordPress as a Service (as a Heat DevOps)]]
-  - [[#database-vm-template][Database VM template]]
-  - [[#web-vm-template][Web VM template]]
-  - [[#wordpress-application-template][Wordpress application template]]
 - [[#appendix][Appendix]]
   - [[#vagrantfile][Vagrantfile]]
   - [[#install-mariadb-on-debian-10][Install MariaDB on Debian 10]]
@@ -207,10 +192,10 @@ The rest of this lab *proceeds on the Lab machine*.
 :PROPERTIES:
 :CUSTOM_ID: sec:rscs-lab
 :END:
-Get the resources of the lab at [[cdn-url:2020-2021/os-polytech/tp.tar.gz]].
+Get the resources of the lab at [[https://github.com/Marie-Donnie/lectures/blob/master/2021-2022/os-polytech/tp.tar.gz]].
 
 #+BEGIN_SRC bash
-curl https://github.com/BeyondTheClouds/lectures/blob/34c031d/2020-2021/os-polytech/tp.tar.gz?raw=true -o tp.tar.gz -L
+curl https://github.com/Marie-Donnie/lectures/raw/master/2021-2022/os-polytech/tp.tar.gz -o tp.tar.gz -L
 tar xzf tp.tar.gz
 cd lab-os
 #+END_SRC
@@ -278,7 +263,7 @@ microstack.init --auto --control
 
 # Install openstack client
 snap info openstackclients | fgrep -q installed && sudo snap remove --purge openstackclients
-snap install --channel=latest/stable openstackclients --classic
+sudo snap install openstackclients --channel=ussuri/stable
 
 # Put snap openstackclients into the path.
 export PATH=/snap/bin:$PATH
@@ -295,7 +280,6 @@ do
     microstack.openstack security group rule delete "${rule}"
 done
 
-<<lst:undo-extnet-setup>>
 set -o xtrace
 #+END_SRC
 
@@ -370,6 +354,9 @@ most often used commands to operate your Cloud:
 #+BEGIN_do
 Try one of these commands. Does it works? What is the problem, how to
 fix it? Hint: Look at the [[os-doc:python-openstackclient,cli/authentication.html][password authentication process]] for the CLI.
+Second hint: After you saw how cumbersome it is to add the
+credentials to each command, you can find how to source them thanks to
+the dashboard (see the [[https://docs.openstack.org/liberty/install-guide-obs/keystone-openrc.html][client environment documentation]]).
 
 #+BEGIN_comment
 # solution
@@ -598,7 +585,7 @@ by Nova with ~openstack server --help~ and figure out how to:
 1. SSH on ~cli-vm~ using its name rather than its IP;
 2. Pause it, note the footprint on the ram of the hypervisor, and unpause it;
 3. +Suspend it, note the footprint on the ram of the hypervisor, and
-   resume it;+ Does not work right now 😒
+   resume it;+ Does not work right now, do not try it if you do not want to have to re-create it 😒
 4. Create a snapshot of ~cli-vm~;
 5. Boot a new machine ~cli-vm-clone~ from the snapshot;
 6. Delete ~cli-vm-clone~;
@@ -1233,7 +1220,7 @@ Then, reach WordPress on [[http://localhost:8080/wp]].
 # solution
 #+END_do
 
-* Automatize the Deployment with Heat
+* Automatize the Deployment with Heat :noexport:
 :PROPERTIES:
 :CUSTOM_ID: sec:heat
 :END:
@@ -1920,7 +1907,7 @@ python -c "print('floating ip is %s' % ${FIP_RSC_ATTRIBUTES}['floating_ip_addres
 Remember to delete your stack at the end to release resources.
 : openstack stack delete --wait --yes hw9
 
-* Deploy a WordPress as a Service (as a Heat DevOps)
+* Deploy a WordPress as a Service (as a Heat DevOps) :noexport:
 :PROPERTIES:
 :CUSTOM_ID: sec:wp-heat
 :END:
