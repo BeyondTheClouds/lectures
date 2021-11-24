@@ -21,7 +21,19 @@ from enoslib.task import get_or_create_env
 logging.basicConfig(level=logging.INFO)
 LOG   = logging.getLogger(__name__)
 USERS = [
-    "marie",
+    "alebre",
+    "mdelavergne",
+    "mmerillon",
+    "cleclere",
+    "afriou",
+    "cmoisan",
+    "dclary",
+    "lnkvo",
+    "eleclerc",
+    "qgrosmangin",
+    "glouarn",
+    "asauvage",
+    "ihaupe"
 ]
 
 # CLUSTER = "paravance"

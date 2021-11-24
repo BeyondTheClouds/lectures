@@ -232,6 +232,8 @@ Get the resources of the lab at [[https://raw.githubusercontent.com/Marie-Donnie
 curl https://raw.githubusercontent.com/Marie-Donnie/lectures/master/2021-2022/os-imt/tp.tar.gz -o tp.tar.gz -L
 tar xzf tp.tar.gz
 cd lab-os
+chmod -R u+x rsc
+chown -R root:root rsc
 #+END_SRC
 
 The archive contains:
@@ -259,8 +261,7 @@ Then, ensure OpenStack services are running on your machine. Find the
 snap command that lists microstack OpenStack services and the
 status? What is the purpose of each service?
 
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 : snap services microstack|sort
 
 - glance-* :: Glance to manage VM images: ~openstack image --help~.
@@ -272,8 +273,7 @@ status? What is the purpose of each service?
 - memcached :: Cache used by all OpenStack services
 - mysqld :: Database used by all OpenStack services
 - rabbitmq-server :: Communication bus used by all OpenStack services
-#+END_comment
-# solution
+#+END_solution
 #+END_do
 
 *** Setup script                                                   :noexport:
@@ -391,8 +391,7 @@ CLI. Second hint: After you saw how cumbersome it is to add the
 credentials to each command, you can find how to source them thanks to
 the dashboard (see [[https://docs.openstack.org/liberty/install-guide-obs/keystone-openrc.html]]).
 
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 #+BEGIN_SRC bash
 $ openstack endpoint list
 Missing value auth-url required for auth plugin password
@@ -439,15 +438,13 @@ OS_REGION_NAME=microstack
 OS_USER_DOMAIN_NAME=Default
 OS_USERNAME=admin
 #+END_SRC
-#+END_comment
-# solution
+#+END_solution
 #+END_do
 
 #+BEGIN_do
 Using all these commands, use the CLI to start a new tiny cirros VM
 called ~cli-vm~.
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 #+BEGIN_src bash
 openstack server create \
   --image cirros \
@@ -455,8 +452,7 @@ openstack server create \
   --network test \
   cli-vm
 #+END_src
-#+END_comment
-# solution
+#+END_solution
 #+END_do
 
 Then, display the information about your VM with the following
@@ -474,8 +470,7 @@ infrastructure.
 #+BEGIN_do
 What is the purpose of the ~-c~ and ~-f~ argument in the previous
 command.
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 #+BEGIN_example
 $ openstack server create --help | fgrep -A 6 "output formatters:"
 output formatters:
@@ -486,8 +481,7 @@ output formatters:
   -c COLUMN, --column COLUMN
                         specify the column(s) to include, can be repeated
 #+END_example
-#+END_comment
-# solution
+#+END_solution
 #+END_do
 
 A VM in ~ACTIVE~ state still has to go through the [[http://www.tldp.org/LDP/intro-linux/html/sect_04_02.html][boot process and
@@ -523,15 +517,13 @@ Find the IP address of the ~cli-vm~. Check that you can ping that
 address from the ~horizon-vm~ (using the ~Console~ tab in the Horizon
 dashboard).  Ensure that you *cannot* ping that VM from the Lab machine.
 
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 #+BEGIN_SRC bash
 PRIV_IP=$(openstack server show cli-vm -c addresses -f value | sed -E 's/test=(.+)/\1/g')
 echo "Private IP of cli-vm is ${PRIV_IP}"
 ping -c 3 "${PRIV_IP}" # From horizon-vm: 0% packet loss, From lab: 100% packet loss
 #+END_SRC
-#+END_comment
-# solution
+#+END_solution
 #+END_do
 
 To ping your VM from the Lab machine, you have to affect it an IP
@@ -567,8 +559,7 @@ reasons.  The mechanisms to control the traffic in OpenStack is called
 of the ~admin~ project.
 # (i.e., ~openstack project show admin~).
 
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 #+BEGIN_src bash
 $ SECGROUP_ID=$(openstack security group list --project admin -f value -c ID)
 $ openstack security group rule list --long -c "IP Protocol" -c "IP Range" -c Direction $SECGROUP_ID
@@ -615,14 +606,12 @@ $ openstack security group rule create $SECGROUP_ID --remote-group $SECGROUP_ID
 +-------------+------------------+-----------+
 #+END_src
 #+END_note
-#+END_comment
-# solution
+#+END_solution
 
 Then, make it works for ~10.20.20.0/24~ network.  See examples of
 security groups rules in the [[https://docs.openstack.org/neutron/latest/admin/deploy-lb-selfservice.html#verify-network-operation][neutron doc]].
 
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 To make it works, you have to setup new rules in the security group of
 the ~admin~ project. The following rules allow ICMP packets (for ping)
 and TCP on port 22 (for SSH connection) on the VM.
@@ -631,8 +620,7 @@ openstack security group rule create $SECGROUP_ID --proto icmp --remote-ip 10.20
 openstack security group rule create $SECGROUP_ID --proto tcp --remote-ip 10.20.20.0/24 \
   --dst-port 22
 #+END_src
-#+END_comment
-# solution
+#+END_solution
 #+END_do
 
 
@@ -650,8 +638,7 @@ by Nova with ~openstack server --help~ and figure out how to:
 5. Boot a new machine ~cli-vm-clone~ from the snapshot;
 6. Delete ~cli-vm-clone~;
 
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 #+BEGIN_SRC bash
 # 1.
 openstack server ssh cli-vm -l cirros
@@ -674,8 +661,7 @@ openstack server create --wait --flavor m1.tiny \
 # 6.
 openstack server delete cli-vm-clone
 #+END_SRC
-#+END_comment
-# solution
+#+END_solution
 #+END_do
 
 *** COMMENT Make the VM reaches the world
@@ -708,45 +694,38 @@ hints to check:
 - Ping the VM and Google *from the Lab machine*. The ping should work
   for both. What does it mean for the Lab machine regarding
   communications between VMs and the Internet?
-  #+BEGIN_comment
-# solution
+  #+BEGIN_solution
   : ping -c 2 $ALLOCATED_FIP; ping -c 2 8.8.8.8
   The ping from the Lab machine works for both the VM and Google.
   Thus, the Lab machine /could be a gateway/ between VMs and the
   Internet.
-  #+END_comment
-# solution
+  #+END_solution
 
 - Note the IP address of ~$ALLOCATED_FIP~. From which network this IP
   comes? Which NIC serves that network on the Lab machine?
-  #+BEGIN_comment
-# solution
+  #+BEGIN_solution
   : echo "$ALLOCATED_FIP"
   : openstack subnet show external-subnet -c cidr -c allocation_pools
   : ip address | fgrep -B 2 10.20.20
   The IP of the VM comes from the network 10.20.20.0/24, which is
   served on the Lab machine by ~br-ex~.
-  #+END_comment
-# solution
+  #+END_solution
 
 - Do a ~tcpdump~ on that NIC. Do you see the ICMP packets from
   ~$ALLOCATED_FIP~ that flow over that NIC?
-  #+BEGIN_comment
-# solution
+  #+BEGIN_solution
   : sudo tcpdump -nni br-ex icmp
   The ~tcpdump~ on ~br-ex~ shows ping ~echo request~ packets, but no
   ~echo reply~. So the packets are lost somewhere... Remember
   the Lab machine should play a role of gateway between VMs and
   the Internet.  Thus, packets should flow through the NIC of the
   default route: let's see what is happening there.
-  #+END_comment
-# solution
+  #+END_solution
 
 - Find the route that forward packets to the Internet on Lab machine.
   Do a ~tcpdump~ on the NIC that servers that route. Do you see the
   ICMP packets flow over that NIC?
-  #+BEGIN_comment
-# solution
+  #+BEGIN_solution
   To ensure that something is wrong on the Lab machine regarding its
   role of gateway between VMs and the Internet, let's find the route
   that forwards Google packets out of the Lab machine.
@@ -785,13 +764,11 @@ hints to check:
   new rule.
   : sudo iptables -A FORWARD -j ACCEPT
   #+END_note
-  #+END_comment
-# solution
+  #+END_solution
 
 - After making the packets flow on the second NIC, is everything OK
   with the IP address of the source in the ~tcpdump~ on ~eth0~?
-  #+BEGIN_comment
-# solution
+  #+BEGIN_solution
   From now, the ping of Google from the VM reaches Internet via ~eth0~
   (as seen by ~tcpdump -nni eth0 icmp~). Unfortunately, it still does
   not do the trick, because the packet goes out with the ~10.20.20.*~
@@ -816,8 +793,7 @@ hints to check:
   MASQUERADE~)."
   # : sudo iptables -t nat -A POSTROUTING ! -d 10.20.20.0/24 -o <NIC-of-your-lab-machine> -j SNAT --to-source <ip-of-your-lab-machine>
   : sudo iptables -t nat -A POSTROUTING -s 10.20.20.0/24 ! -d 10.20.20.0/24 -j MASQUERADE
-  #+END_comment
-# solution
+  #+END_solution
 
 #+END_do
 
@@ -937,29 +913,25 @@ curl -L -o ./debian-10.qcow2 \
 Import the image into Glance; name it ~debian-10~. Use ~openstack image
 create --help~ for creation arguments. Find values example with
 ~openstack image show cirros~.
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 #+BEGIN_SRC bash
 openstack image create --disk-format=qcow2 \
   --container-format=bare --property architecture=x86_64 \
   --public --file ./debian-10.qcow2 \
   debian-10
 #+END_SRC
-#+END_comment
-# solution
+#+END_solution
 
 And, create a new ~m1.mini~ flavor with 5 Go of Disk, 2 Go of RAM, 2
 VCPU and 1 Go of swap. Use ~openstack flavor create --help~ for
 creation arguments.
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 #+BEGIN_SRC bash
 openstack flavor create --ram 2048 \
   --disk 5 --vcpus 2 --swap 1024 \
   --public m1.mini
 #+END_SRC
-#+END_comment
-# solution
+#+END_solution
 #+END_do
 
 *** ~cloud-init~ in Action
@@ -976,8 +948,7 @@ Start a new VM named ~art-vm~ based on the ~debian-10~ image and the
 -- available under ~rsc/art.sh~ -- that installs the [[https://github.com/cmatsuoka/figlet][~figlet~]] and
 [[https://github.com/busyloop/lolcat][~lolcat~]] softwares on the VM.
 
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 #+BEGIN_SRC bash
 openstack server create --wait --image debian-10 \
   --flavor m1.mini --network test \
@@ -985,8 +956,7 @@ openstack server create --wait --image debian-10 \
   --user-data ./rsc/art.sh \
   art-vm
 #+END_SRC
-#+END_comment
-# solution
+#+END_solution
 #+END_do
 
 #+CAPTION: ~cloud-init~ script available under ~rsc/art.sh~
@@ -1010,8 +980,7 @@ Could you notice /when/ the VM has finished to boot based on the
 ~console log~ output?  Write a small bash script that waits until the
 boot has finished.
 
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 #+BEGIN_src bash :tangle output/rsc/wordpress-deploy.sh :shebang #!/usr/bin/env bash
 function wait_contextualization {
   # VM to get the log of
@@ -1058,8 +1027,7 @@ function wait_contextualization {
 
 Then use it as the following.
 : wait_contextualization art-vm
-#+END_comment
-# solution
+#+END_solution
 #+END_do
 
 Then, attach it a floating IP.
@@ -1127,8 +1095,7 @@ help.
 
 #+BEGIN_do
 - Check that the KVM kernel module is loaded, and load it otherwise.
-  #+BEGIN_comment
-# solution
+  #+BEGIN_solution
   /From the [[https://docs.openstack.org/nova/stein/admin/configuration/hypervisor-kvm.html#for-x86-based-systems][Nova documentation]]/
 
   Do the following command to list the loaded kernel modules and
@@ -1143,20 +1110,17 @@ help.
   : modprobe -a kvm
   : modprobe -a kvm-intel  # for Intel
   : modprobe -a kvm-amd    # for amd
-  #+END_comment
-# solution
+  #+END_solution
 
 - Change the configuration of ~nova-compute~ hypervisor (file
   ~/var/snap/microstack/common/etc/nova/nova.conf.d/hypervisor.conf~)
   to support KVM and restart it.
-  #+BEGIN_comment
-# solution
+  #+BEGIN_solution
   : NOVA_HYPERV_CONF=/var/snap/microstack/common/etc/nova/nova.conf.d/hypervisor.conf
   : sudo crudini --set $NOVA_HYPERV_CONF libvirt virt_type "kvm"
   : sudo crudini --set $NOVA_HYPERV_CONF libvirt cpu_mode  "host-passthrough"
   : sudo snap restart microstack.nova-compute
-  #+END_comment
-# solution
+  #+END_solution
 #+END_do
 
 Finally, create a new VM such as in the [[#sec:cloud-init][previous section]] and
@@ -1232,8 +1196,7 @@ order to be reached by the ~wordpress-app~ VM?
 
 Also, remind to [[lst:delete-rscs][clean your environment]].
 
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 Find the solution in the ~rsc/wordpress-deploy.sh~ script of the
 tarball.
 
@@ -1305,8 +1268,7 @@ from your own machine.
 
 And reach WordPress on [[http://localhost:8080/wp]].
 #+END_note
-#+END_comment
-# solution
+#+END_solution
 #+END_do
 
 * Automatize the Deployment with Heat
@@ -1803,7 +1765,7 @@ resources:
       the_vm_name: user
 #+end_src
 
-To compose template, a new resource can be defined by specifying its
+To compose a template, a new resource can be defined by specifying its
 type as the target of the desired template.  A set of properties can
 be provided to the nested template and will be interpreted as
 parameters.
@@ -1974,8 +1936,7 @@ Create three HOT files:
 Once it is deployed, you should be able to reach the WordPress service by
 going on [[http://<wp-vm-fip-address>/wp]].
 
-#+BEGIN_comment
-# solution
+#+BEGIN_solution
 Find the solution in the ~rsc/heat-templates/wordpress/~ directory of
 the tarball and in the following subsections.  Create the WordPress
 application and output its endpoint with the next commands.
@@ -1984,11 +1945,10 @@ application and output its endpoint with the next commands.
 openstack stack create -t ./rsc/heat-templates/wordpress/wp-app.yaml wp1
 echo "http://$(openstack stack output show wp1 public-ip -c output_value -f value)/wp"
 #+END_src
-#+END_comment
-# solution
+#+END_solution
 #+END_do
 
-** COMMENT Database VM template                                    :solution:
+** Database VM template                                    :solution:
 #+BEGIN_src yaml :tangle output/rsc/heat-templates/wordpress/db-vm.yaml
 heat_template_version: 2017-09-01
 
@@ -2039,7 +1999,7 @@ outputs:
     value: { get_attr: [db-vm, networks, private, 0] }
 #+END_src
 
-** COMMENT Web VM template                                         :solution:
+** Web VM template                                         :solution:
 #+BEGIN_src yaml :tangle output/rsc/heat-templates/wordpress/wp-vm.yaml
 heat_template_version: 2017-09-01
 
@@ -2103,7 +2063,7 @@ outputs:
     value: { get_attr: [floating-ip, floating_ip_address] }
 #+END_src
 
-** COMMENT Wordpress application template                          :solution:
+** Wordpress application template                          :solution:
 #+BEGIN_src yaml :tangle output/rsc/heat-templates/wordpress/wp-app.yaml
 heat_template_version: 2017-09-01
 
