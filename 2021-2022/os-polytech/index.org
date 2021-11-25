@@ -230,7 +230,7 @@ status? What is the purpose of each service?
 : snap services microstack|sort
 
 - glance-* :: Glance to manage VM images: ~openstack image --help~.
-- horizon-* :: OpenStack Web dashboard: [[http://<ip-of-your-lab-machine>]].
+- horizon-* :: OpenStack Web dashboard: [[https://<ip-of-your-lab-machine>]].
 - keystone-* :: Keystone to manage authentication and authorization
                 on OpenStack.
 - neutron-* :: Neutron to manage networks: ~openstack network --help~.
@@ -301,7 +301,7 @@ sudo snap remove --purge microstack
 ** OpenStack Horizon dashboard
 One service deployed is the OpenStack dashboard (Horizon). On your own
 machine, horizon is reachable from the web browser at
-[[http://<ip-of-your-lab-machine>]] with the following credentials:
+[[https://<ip-of-your-lab-machine>]] with the following credentials:
 - login: ~admin~
 - password: ~keystone~
 
