@@ -1,0 +1,5 @@
+enos==7.1.0
+click==7.1.2
+openstacksdk==0.53.0
+python-openstackclient==5.5.0
+python-heatclient==2.3.0
