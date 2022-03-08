@@ -36,8 +36,8 @@ def get_ip_addr(h: Host) -> str:
 
 def make_conf(testing=True) -> Configuration:
     conf = {
-        "reservation": "2022-03-08 23:30:01",
-        "walltime": "23:30:00",
+        "reservation": "2022-03-08 21:10:01",
+        "walltime": "19:30:00",
         "job_name": "lab-2022-imta-fisea3-os",
         "env_name": "ubuntu2004-x64-min",
         "project": "lab-2022-imta-fisea3-os",
@@ -63,7 +63,7 @@ def make_conf(testing=True) -> Configuration:
                 {
                     "roles": ["OpenStack"],
                     "cluster": "paravance",
-                    "nodes": 10,
+                    "nodes": 8,
                     "primary_network": "net",
                     "secondary_networks": [ ],
                 }

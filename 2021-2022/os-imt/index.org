@@ -163,9 +163,7 @@ minutes for other options).
 :CUSTOM_ID: sec:assign-lab
 :END:
 Find the assignation list of Lab machine per student on the
-collaborative editor
-https://notes.inria.fr/L5mGTNGORdewfkfINm81kA.
-
+collaborative editor [[https://notes.inria.fr/2DjGmcZ6TwiQ0q8sSQO2gw]].
 
 
 First thing first, you have to connect to the Lab machine.
