@@ -1,4 +1,4 @@
-es#+TITLE: Operate Resources in Public and Private Clouds
+#+TITLE: Operate Resources in Public and Private Clouds
 #+TITLE: Thanks to OpenStack
 #+AUTHOR: Ronan-Alexandre Cherrueau, Adrien Lebre, Marie Delavergne, Didier Iscovery
 #+EMAIL: {firstname.lastname}@inria.fr
@@ -44,23 +44,23 @@ editor to follow lab completion [[https://notes.inria.fr/L5mGTNGORdewfkfINm81kA]
 Do ~C-c C-c~ in the following
 #+NAME: lst:export
 #+BEGIN_SRC elisp :results silent :noweb yes
-  (let* ((output-dir "output-solution")
-	 (outfile.txt (org-export-output-file-name ".txt" nil output-dir))
-	 (outfile.html (org-export-output-file-name ".html" nil output-dir)))
+(let* ((output-dir "output")
+       (outfile.txt (org-export-output-file-name ".txt" nil output-dir))
+       (outfile.html (org-export-output-file-name ".html" nil output-dir)))
 
-    (face-spec-set 'yaml-tab-face '((t (:foreground unspecified :background unspecified))))
-    ;; Clean everything
-    (delete-directory output-dir t)
+  (face-spec-set 'yaml-tab-face '((t (:foreground unspecified :background unspecified))))
+  ;; Clean everything
+  (delete-directory output-dir t)
 
-    ;; Export subject and source code
-    (make-directory output-dir)
-    (org-export-to-file 'ascii outfile.txt)
-    (org-export-to-file 'html outfile.html)
-    (org-babel-tangle)
+  ;; Export subject and source code
+  (make-directory output-dir)
+  (org-export-to-file 'ascii outfile.txt)
+  (org-export-to-file 'html outfile.html)
+  (org-babel-tangle)
 
-    ;; Make the tp.tar.gz
-    (shell-command (format "tar czf tp.tar.gz --exclude=index-solution.html --transform 's|^%s|lab-os|' %s"
-			   output-dir output-dir)))
+  ;; Make the tp.tar.gz
+  (shell-command (format "tar czf tp.tar.gz --exclude=index.html --transform 's|^%s|lab-os|' %s"
+                         output-dir output-dir)))
 #+END_SRC
 
 ** Publish
@@ -69,16 +69,16 @@ Do ~C-c C-c~ in the following.
 Put it on my personal website.
 #+NAME: lst:publish
 #+BEGIN_SRC elisp :results silent :noweb yes
-  (let* ((base-dir "~/Documents/site/teachings/2021-2022/")
-	 (export-dir (concat base-dir "os-imt/")))
+(let* ((base-dir "~/Documents/site/teachings/2021-2022/")
+       (export-dir (concat base-dir "os-imt/")))
 
-    ;; ;; Delete export if it exists. Always start from the ground base.
-    ;; (when (file-directory-p export-dir)
-    ;;   (delete-directory export-dir t))
+  ;; Delete export if it exists. Always start from the ground base.
+  (when (file-directory-p export-dir)
+    (delete-directory export-dir t))
 
-    ;; Create directory and copy index files
-    ;; (make-directory export-dir)
-    (shell-command (format "cp -r output/index-solution.html %s" export-dir)))
+  ;; Create directory and copy index files
+  (make-directory export-dir)
+  (shell-command (format "cp -r output/index.html %s" export-dir)))
 #+END_SRC
 
 ** Hide/show solutions
@@ -163,9 +163,7 @@ minutes for other options).
 :CUSTOM_ID: sec:assign-lab
 :END:
 Find the assignation list of Lab machine per student on the
-collaborative editor
-https://notes.inria.fr/L5mGTNGORdewfkfINm81kA.
-
+collaborative editor [[https://notes.inria.fr/2DjGmcZ6TwiQ0q8sSQO2gw]].
 
 
 First thing first, you have to connect to the Lab machine.
@@ -232,6 +230,8 @@ Get the resources of the lab at [[https://raw.githubusercontent.com/Marie-Donnie
 curl https://raw.githubusercontent.com/Marie-Donnie/lectures/master/2021-2022/os-imt/tp.tar.gz -o tp.tar.gz -L
 tar xzf tp.tar.gz
 cd lab-os
+chmod -R u+x rsc
+chown -R root:root rsc
 #+END_SRC
 
 The archive contains:
@@ -276,51 +276,49 @@ status? What is the purpose of each service?
 
 *** Setup script                                                   :noexport:
 #+BEGIN_SRC bash :noweb tangle :tangle output/setup.sh :shebang #!/usr/bin/env bash
-set -o errexit
-set -o xtrace
+  set -o errexit
+  set -o xtrace
 
-# Install the bare necessities
-apt install --yes --quiet silversearcher-ag curl tcpdump kmod vim htop lynx crudini
-# On ubuntu 20.04 only
-apt install --yes --quiet bat
+  # Install the bare necessities
+  apt install --yes --quiet silversearcher-ag curl tcpdump kmod vim htop lynx crudini coreutils
+  # On ubuntu 20.04 only
+  apt install --yes --quiet bat
 
-# Set the admin password to keystone
-snap set microstack config.credentials.keystone-password=lab-os
-snap set microstack config.host.check-qemu=True
+  # Set the admin password to keystone
+  snap set microstack config.credentials.keystone-password=lab-os
+  snap set microstack config.host.check-qemu=True
 
-# Initialize  OpenStack
-microstack.init --auto --control
+  # Initialize  OpenStack
+  microstack.init --auto --control
 
-<<lst:undo-kvm>>
+  <<lst:undo-kvm>>
 
-# Install openstack client
-snap info openstackclients | fgrep -q installed && sudo snap remove --purge openstackclients
-snap install --channel=latest/stable openstackclients --classic
+  # Install openstack client
+  snap info openstackclients | fgrep -q installed && sudo snap remove --purge openstackclients
+  snap install openstackclients --channel=ussuri/stable
 
-# Put snap openstackclients into the path.
-export PATH=/snap/bin:$PATH
+  # Put snap openstackclients into the path.
+  export PATH=/snap/bin:$PATH
 
-set +o xtrace
+  set +o xtrace
 
-# Remove icmp and tcp security group rules of `microstack.init --auto`
-for rule in $(microstack.openstack security group rule list --protocol icmp -c ID -f value)
-do
-    microstack.openstack security group rule delete "${rule}"
-done
-for rule in $(microstack.openstack security group rule list --protocol tcp -c ID -f value)
-do
-    microstack.openstack security group rule delete "${rule}"
-done
+  # Remove icmp and tcp security group rules of `microstack.init --auto`
+  for rule in $(microstack.openstack security group rule list --protocol icmp -c ID -f value)
+  do
+      microstack.openstack security group rule delete "${rule}"
+  done
+  for rule in $(microstack.openstack security group rule list --protocol tcp -c ID -f value)
+  do
+      microstack.openstack security group rule delete "${rule}"
+  done
 
-<<lst:undo-extnet-setup>>
-set -o xtrace
+  set -o xtrace
 #+END_SRC
 
 *** Teardown script                                                :noexport:
 #+BEGIN_SRC bash :noweb tangle :tangle output/teardown.sh :shebang #!/usr/bin/env bash
 set -o xtrace
 
-<<lst:undo-extnet-setup>>
 <<lst:remove-heat>>
 
 sudo snap remove --purge openstackclients
@@ -664,7 +662,7 @@ openstack server delete cli-vm-clone
 #+END_solution
 #+END_do
 
-*** Make the VM reaches the world
+*** COMMENT Make the VM reaches the world
 # *Note for the teacher:* The [[lst:undo-extnet-setup]] code undoes the
 # [[https://opendev.org/x/microstack/src/commit/1a25e50a172db7331edf2f836f3c2005222bb4c5/snap-overlay/bin/setup-br-ex#L21-L22][microstack network setup]], so students have to resolve the next
 # challenge (i.e., the next ~begin_do~). This bash snippet is tangle
@@ -855,6 +853,1486 @@ floating IP of ~cli-vm-adminkey~. You may have to adapt it a bit
 according to your network cidr.
 : openstack server show cli-vm-adminkey -c addresses -f value | sed  -Er 's/test=.+ (10\.20\.20\.[0-9]+).*/\1/g'
 #+END_note
+
+** The art of contextualizing a VM
+Contextualizing is the process that automatically installs software,
+alters configurations, and does more on a machine as part of its boot
+process.  On OpenStack, contextualizing is achieved thanks to
+[[https://cloud-init.io/][~cloud-init~]].  It is a program that runs at the boot time to customize
+the VM.
+
+You have already used ~cloud-init~ without even knowing it!  The
+previous command ~openstack server create~ with the ~--identity~
+parameter tells OpenStack to make the public counterpart of the SSH
+key available to the VM.  When the VM boots for the first time,
+~cloud-init~ is (among other tasks) in charge of fetching this public
+SSH key from OpenStack, and copy it to =~/.ssh/authorized_keys=.
+Beyond that, ~cloud-init~ is in charge of many aspects of the VM
+customization like mounting volume, resizing file systems or setting
+an hostname (the list of ~cloud-init~ modules can be found [[http://cloudinit.readthedocs.io/en/latest/topics/modules.html][here]]).
+Furthermore, ~cloud-init~ is able to run a bash script that will be
+executed on the VM as ~root~ during the boot process.
+
+*** Debian 10 FTW
+:PROPERTIES:
+:CUSTOM_ID: sec:debian10-ftw
+:END:
+When it comes the time to deal with real applications, we cannot use
+cirros VMs anymore.  A Cirros VM is good for testing because it starts
+fast and has a small memory footprint.  However, do not expect to
+launch [[https://en.wikipedia.org/wiki/MariaDB][MariaDB]] on a cirros.
+
+We are going to run several Debian10 VMs in this section. But, a
+Debian10 takes a lot more of resources to run. For this reason, you may
+want to release all your resources before going further.
+
+#+NAME: lst:delete-rscs
+#+BEGIN_SRC bash
+# Delete VMs
+for vm in $(openstack server list -c ID -f value); do \
+  echo "Deleting ${vm}..."; \
+  openstack server delete "${vm}"; \
+done
+
+# Releasing floating IPs
+for ip in $(openstack floating ip list -c "Floating IP Address" -f value); do \
+  echo "Releasing ${ip}..."; \
+  openstack floating ip delete "${ip}"; \
+done
+#+END_SRC
+
+Then, download the Debian10 image with support of ~cloud-init~.
+#+BEGIN_SRC bash
+curl -L -o ./debian-10.qcow2 \
+  https://cloud.debian.org/images/cloud/OpenStack/current-10/debian-10-openstack-amd64.qcow2
+#+END_SRC
+
+#+BEGIN_do
+Import the image into Glance; name it ~debian-10~. Use ~openstack image
+create --help~ for creation arguments. Find values example with
+~openstack image show cirros~.
+#+BEGIN_solution
+#+BEGIN_SRC bash
+openstack image create --disk-format=qcow2 \
+  --container-format=bare --property architecture=x86_64 \
+  --public --file ./debian-10.qcow2 \
+  debian-10
+#+END_SRC
+#+END_solution
+
+And, create a new ~m1.mini~ flavor with 5 Go of Disk, 2 Go of RAM, 2
+VCPU and 1 Go of swap. Use ~openstack flavor create --help~ for
+creation arguments.
+#+BEGIN_solution
+#+BEGIN_SRC bash
+openstack flavor create --ram 2048 \
+  --disk 5 --vcpus 2 --swap 1024 \
+  --public m1.mini
+#+END_SRC
+#+END_solution
+#+END_do
+
+*** ~cloud-init~ in Action
+:PROPERTIES:
+:CUSTOM_ID: sec:cloud-init
+:END:
+To tell ~cloud-init~ to load and execute a specific script at boot
+time, you should append the ~--user-data <file/path/of/your/script>~
+extra argument to the regular ~openstack server create~ command.
+
+#+BEGIN_do
+Start a new VM named ~art-vm~ based on the ~debian-10~ image and the
+~m1.mini~ flavor. The VM should load and execute the script [[lst:art.sh]]
+-- available under ~rsc/art.sh~ -- that installs the [[https://github.com/cmatsuoka/figlet][~figlet~]] and
+[[https://github.com/busyloop/lolcat][~lolcat~]] softwares on the VM.
+
+#+BEGIN_solution
+#+BEGIN_SRC bash
+openstack server create --wait --image debian-10 \
+  --flavor m1.mini --network test \
+  --key-name admin \
+  --user-data ./rsc/art.sh \
+  art-vm
+#+END_SRC
+#+END_solution
+#+END_do
+
+#+CAPTION: ~cloud-init~ script available under ~rsc/art.sh~
+#+NAME: lst:art.sh
+#+BEGIN_SRC bash :tangle output/rsc/art.sh
+#!/usr/bin/env bash
+# Fix DNS resolution
+echo "" > /etc/resolv.conf
+echo "nameserver 8.8.8.8" >> /etc/resolv.conf
+
+# Install figlet and lolcat
+apt update
+apt install -y figlet lolcat
+#+END_SRC
+
+You can follow the correct installation of software with:
+: watch openstack console log show --lines=20 art-vm
+
+#+BEGIN_do
+Could you notice /when/ the VM has finished to boot based on the
+~console log~ output?  Write a small bash script that waits until the
+boot has finished.
+
+#+BEGIN_solution
+#+BEGIN_src bash :tangle output/rsc/wordpress-deploy.sh :shebang #!/usr/bin/env bash
+function wait_contextualization {
+  # VM to get the log of
+  local vm="$1"
+  # Number of rows displayed by the term
+  local term_lines=$(tput lines)
+  # Number of log lines to display is min(term_lines, 20)
+  local console_lines=$(($term_lines<22 ? $term_lines - 2 : 20))
+  # Get the log
+  local console_log=$(openstack console log show --lines=${console_lines} "${vm}")
+
+  # Do not wrap long lines
+  tput rmam
+
+  # Loop till cloud-init finished
+  local cloudinit_end_rx="Cloud-init v\. .\+ finished"
+  echo "Waiting for cloud-init to finish..."
+  echo "Current status is:"
+  while ! echo "${console_log}"|grep -q "${cloudinit_end_rx}"
+  do
+      echo "${console_log}"
+      sleep 5
+
+      # Compute the new console log before clearing
+      # the screen is it does not remain blank for two long.
+      local new_console_log=$(openstack console log show --lines=${console_lines} "${vm}")
+
+      # Clear the screen (`cuu1` move cursor up by one line, `el`
+      # clear the line)
+      while read -r line; do
+          tput cuu1; tput el
+      done <<< "${console_log}"
+
+      console_log="${new_console_log}"
+  done
+
+  # cloud-init finished
+  echo "${console_log}"|grep --color=always "${cloudinit_end_rx}"
+
+  # Re-enable wrap of long lines
+  tput smam
+}
+#+END_src
+
+Then use it as the following.
+: wait_contextualization art-vm
+#+END_solution
+#+END_do
+
+Then, attach it a floating IP.
+#+BEGIN_SRC bash
+openstack server add floating ip \
+  art-vm \
+  $(openstack floating ip create -c floating_ip_address -f value external)
+#+END_SRC
+
+Hence, you can jump on the VM and call the ~figlet~ and ~lolcat~
+software.
+#+BEGIN_example
+$ openstack server ssh art-vm \
+    --login debian \
+    --identity ./admin.pem
+
+The authenticity of host '10.20.20.13 (10.20.20.13)' can't be established.
+ECDSA key fingerprint is SHA256:WgAn+/gWYg9MkauihPyQGwC0LJ8sLWM/ySrUzN8cK9w.
+Are you sure you want to continue connecting (yes/no)? yes
+
+debian@art-vm:~$ figlet "The Art of Contextualizing a VM" | lolcat
+#+END_example
+
+** Run VMs at (near-)native speed
+# *Note for the teacher:* The [[lst:undo-kvm]] code undoes the setting of
+# kvm, so students first come with qemu and then set kvm to first feel
+# the difference of speed and second see how to configure nova.  This
+# bash snippet is tangle into [[file:setup.sh]] and could be disable to
+# manage time.  Simply comment that headline to disable it.
+#+NAME: lst:undo-kvm
+#+BEGIN_SRC bash :exports none
+# Make nova use qemu instead of qemu-kvm
+# i.e,:
+# > [libvirt]
+# > virt_type = kvm             # rewrite to qemu
+# > cpu_mode = host-passthrough # rewrite to host-model
+NOVA_HYPERV_CONF=/var/snap/microstack/common/etc/nova/nova.conf.d/hypervisor.conf
+crudini --set $NOVA_HYPERV_CONF libvirt virt_type "qemu"
+crudini --set $NOVA_HYPERV_CONF libvirt cpu_mode  "host-model"
+snap restart microstack.nova-compute
+#+END_SRC
+
+Every time you do an ~openstack server create ...~, your request hits,
+at some point, the ~nova~ services.  It starts by the ~nova-api~ that
+processes the REST request.  The API, in turn, calls the
+~nova-conductor~ that orchestrates the boot: performs some checks,
+finds eligible computes and chooses one to transmit the boot order to
+its ~nova-compute~.  Finally, the ~nova-compute~ asks to the
+underlying hypervisor to start the VM.
+
+In your current setup, the hypervisor of your ~nova-compute~ runs
+[[https://en.wikipedia.org/wiki/QEMU][QEMU]].  QEMU is a free emulator for hardware virtualization.  It
+supports a large variety of guest operating systems, but the emulation
+is a bit slow.  Fortunately, QEMU can be used with [[http://www.linux-kvm.org/][KVM]] to run virtual
+machines at near-native speed.  KVM (Kernel-based Virtual Machine) is
+a free full virtualization solution for Linux that takes advantage of
+x86 hardware extensions (Intel VT or AMD-V).
+
+To check if the x86 of your Lab machine provides hardware
+virtualization, execute the following command.
+: egrep -c '(vmx|svm)' /proc/cpuinfo
+If it outputs a number greater than 0, then proceed with the following
+to speed up the VMs execution. Seek the [[https://docs.openstack.org/nova/stein/admin/configuration/hypervisor-kvm.html][Nova documentation]] for some
+help.
+
+#+BEGIN_do
+- Check that the KVM kernel module is loaded, and load it otherwise.
+  #+BEGIN_solution
+  /From the [[https://docs.openstack.org/nova/stein/admin/configuration/hypervisor-kvm.html#for-x86-based-systems][Nova documentation]]/
+
+  Do the following command to list the loaded kernel modules and
+  verify that the KVM modules are loaded.
+  : lsmod|fgrep kvm
+  If the output includes ~kvm_intel~ or ~kvm_amd~, the KVM hardware
+  virtualization modules are loaded and your kernel meets the module
+  requirements for OpenStack Compute.
+
+  If the output does not show that the KVM module is loaded, run the
+  next command.
+  : modprobe -a kvm
+  : modprobe -a kvm-intel  # for Intel
+  : modprobe -a kvm-amd    # for amd
+  #+END_solution
+
+- Change the configuration of ~nova-compute~ hypervisor (file
+  ~/var/snap/microstack/common/etc/nova/nova.conf.d/hypervisor.conf~)
+  to support KVM and restart it.
+  #+BEGIN_solution
+  : NOVA_HYPERV_CONF=/var/snap/microstack/common/etc/nova/nova.conf.d/hypervisor.conf
+  : sudo crudini --set $NOVA_HYPERV_CONF libvirt virt_type "kvm"
+  : sudo crudini --set $NOVA_HYPERV_CONF libvirt cpu_mode  "host-passthrough"
+  : sudo snap restart microstack.nova-compute
+  #+END_solution
+#+END_do
+
+Finally, create a new VM such as in the [[#sec:cloud-init][previous section]] and
+appreciate how fast your VM displays the ~figlet "The Art of
+Contextualizing a VM with KVM" | lolcat~ command.
+
+
+#+BEGIN_note
+You can check that the new VM effectively uses KVM by looking at its
+configuration file in the hypervisor.
+
+#+BEGIN_src bash
+$ microstack.virsh list
+$ microstack.virsh edit instance-0000005
+<domain="kvm">
+...
+#+END_src
+
+If the domain is ~kvm~ instead of ~qemu~ then the reconfiguration of
+nova has been well taken into account.
+#+END_note
+
+* Deploy a WordPress as a Service (as a DevOps)
+:PROPERTIES:
+:CUSTOM_ID: sec:wp-devops
+:END:
+In the previous sessions, we saw how to boot a VM with OpenStack, and
+execute a post-installation script using the ~user-data~ mechanism.
+Such mechanism can help us to install software but it is not enough to
+deploy a real Cloud application.  Cloud applications are composed of
+multiple services that collaborate to deliver the application.  Each
+service is in charge of one aspect of the application.  This
+separation of concerns brings flexibility.  If a single service is
+overloaded, it is common to deploy new units of this service to
+balance the load.
+
+Let's take a simple example: [[https://wordpress.org/][WordPress]]! WordPress is a very popular
+content management system (CMS) in use on the Web.  People use it to
+create websites, blogs or applications.  It is open-source, written in
+PHP, and composed of two elements: a Web server (Apache) and database
+(MariaDB).  Apache serves the PHP code of WordPress and stores its
+information in the database.
+
+Automation is a very important concept for DevOps.  Imagine you have
+your own datacenter and want to exploit it by renting WordPress
+instances to your customers.  Each time a client rents an instance,
+you have to manually deploy it?!  No. It would be more convenient to
+automate all the operations. 😎
+
+#+BEGIN_do
+As the DevOps of OWPH -- Online WordPress Hosting -- your job is to
+automatize the deployment of WordPress on your OpenStack.  To do so,
+you have to make a bash script that:
+
+1. Start ~wordpress-db~: a VM that contains the MariaDB database for
+   WordPress.
+2. Wait until its final deployment (the database is running).
+3. Start ~wordpress-app~: a VM that contains a web server and serves
+   the Wordpress CMS.
+4. Expose ~wordpress-app~ to the world via your Lab machine on a
+   specific port (because our floating IPs are not real public IPs and
+   thus inaccessible from the world). Something like
+   [[http://<ip-of-your-lab>:8080]].
+5. Finally, connect with your browser to the WordPress website (i.e.,
+   [[http://<ip-of-your-lab>:8080/wp]]) and initializes a new WordPress
+   project named ~os-owph~.
+
+The ~rsc~ directory provides bash scripts to deploy the MariaDB
+database and web server of WordPress (also in [[*Appendix][Appendix]]). Review it
+before going any further (spot the *{{ TODO }}*).  And ask yourself
+questions such as: Does the ~wordpress-db~ VM needs a floating IP in
+order to be reached by the ~wordpress-app~ VM?
+
+Also, remind to [[lst:delete-rscs][clean your environment]].
+
+#+BEGIN_solution
+Find the solution in the ~rsc/wordpress-deploy.sh~ script of the
+tarball.
+
+First thing first, enable HTTP connections.
+#+BEGIN_SRC bash
+SECGROUP_ID=$(openstack security group list --project admin -f value -c ID)
+openstack security group rule create $SECGROUP_ID \
+  --proto tcp --remote-ip 0.0.0.0/0 \
+  --dst-port 80
+#+END_SRC
+
+Then start a VM with the ~wordpress-db~ name, ~debian-10~ image,
+~m1.mini~ flavor, ~test~ network and ~admin~ key-pair. Also,
+contextualize your VM with the ~rsc/install-mariadb.sh~ script thanks
+to the ~--user-data ./rsc/install-mariadb.sh~ option.
+
+#+BEGIN_SRC bash :tangle output/rsc/wordpress-deploy.sh
+openstack server create --wait --image debian-10 \
+  --flavor m1.mini --network test \
+  --key-name admin \
+  --user-data ./rsc/install-mariadb.sh \
+  wordpress-db
+
+wait_contextualization wordpress-db
+#+END_SRC
+
+Next, start a VM with ~wordpress-app~ name, ~debian-10~ image,
+~m1.mini~ flavor, ~test~ network and ~admin~ key-pair. Also,
+contextualize your VM with the ~rsc/install-wp.sh~ script thanks to
+the ~--user-data ./rsc/install-wp.sh~ option. Note that you need to
+provide the IP address of the ~wordpress-db~ to this script before
+running it.
+
+Set the script with IP address of ~wordpress-db~.
+#+BEGIN_SRC bash :tangle output/rsc/wordpress-deploy.sh
+sed -i '13s|.*|DB_HOST="'$(openstack server show wordpress-db -c addresses -f value | sed -Er "s/test=//g")'"|' ./rsc/install-wp.sh
+#+END_SRC
+
+Then, create ~wordpress-app~.
+#+BEGIN_SRC bash :tangle output/rsc/wordpress-deploy.sh :shebang #!/usr/bin/env bash
+openstack server create --wait --image debian-10 \
+  --flavor m1.mini --network test \
+  --key-name admin \
+  --user-data ./rsc/install-wp.sh \
+  wordpress-app
+
+wait_contextualization wordpress-app
+#+END_SRC
+
+Get a floating ip for the VM.
+#+BEGIN_SRC bash :tangle output/rsc/wordpress-deploy.sh
+WP_APP_FIP=$(openstack floating ip create -c floating_ip_address -f value external)
+#+END_SRC
+
+Attach the ~WP_APP_FIP~ floating ip to that VM.
+#+BEGIN_SRC bash :tangle output/rsc/wordpress-deploy.sh
+openstack server add floating ip wordpress-app "${WP_APP_FIP}"
+#+END_SRC
+
+Setup redirection to access your floating ip on port 80.
+: sudo iptables -t nat -A PREROUTING -p tcp --dport 8080 -j DNAT --to "${WP_APP_FIP}:80"
+
+Finally, you can reach WordPress on [[http://<ip-of-your-lab>:8080/wp]].
+
+#+BEGIN_note
+Optionally, you can do it with an SSH tunnel to access ~10.20.20.*~
+from your own machine.
+: ssh -NL 8080:<floating-ip>:80 -l root <ip-of-your-lab-machine>
+
+And reach WordPress on [[http://localhost:8080/wp]].
+#+END_note
+#+END_solution
+#+END_do
+
+* Automatize the Deployment with Heat
+:PROPERTIES:
+:CUSTOM_ID: sec:heat
+:END:
+[[os-doc:heat][Heat]] is the OpenStack orchestrator: it eats templates (called HOT for
+Heat Orchestration Template - which are files written in YAML)
+describing the OpenStack infrastructure you want to deploy (e.g. VMs,
+networks, storages) as well as software configurations.  Then the Heat
+engine is in charge of sending the appropriate requests to OpenStack
+to deploy the system described in your template (deployments are
+called ~stacks~ in Heat).  This section manipulates Heat to understand
+how to deploy applications on OpenStack.  Templates in the following
+are available under the ~rsc/heat-templates/~ directory.  You may also
+find interesting examples in the [[os-doc:heat,template_guide/basic_resources.html][Heat documentation]], or on the
+[[https://github.com/openstack/heat-templates][heat-templates repository]].
+
+** Preamble
+In this last part, the teacher has setup an OpenStack in a DataCenter
+(here, on top of Grid'5000) and created member account and project for
+each of you (not admin).  As a preamble, you should connect to the
+Grid'5000 VPN (Sec.\nbsp{}[[#sec:assign-lab]]) and then do the following.  You
+can do it on your own machine, or from the rennes frontend (~ssh
+<user>@access.grid5000.fr~ and ~ssh rennes~).
+
+- [[https://github.com/openstack/python-openstackclient/tree/stable/rocky#getting-started][Install the OpenStack CLI]] and [[https://github.com/openstack/python-heatclient/tree/stable/rocky][Heat CLI]].  Here is the process for
+  Grid'5000.  You may omit the 3 first lines if you do it on your own
+  machine.
+  # : alias openstack="pipenv run openstack"
+  #+BEGIN_src bash
+  $ pip3 install --upgrade --user pip
+  $ echo "export PATH=~/.local/bin:${PATH}" >> ~/.profile
+  $ source ~/.profile
+  $ pip install --user python-openstackclient python-heatclient
+  #+END_src
+- Import the source of this lab (Sec.\nbsp{}[[#sec:rscs-lab]]).
+- Go on the [[horizon-url][horizon dashbord]] of teacher's OpenStack and download the
+  "OpenStack RC File" (Sec.\nbsp{}[[#sec:os-cli]]) on your own machine.
+  + user name: your Grid'5000 login
+  + password: ~lab-os~
+- Source the "OpenStack RC File".
+- Create your admin SSH key (Sec.\nbsp{}[[#sec:enc-trust]]).
+
+Resource names change a bit from previously.  Do not hesitate to run
+some commands such as the following to know about new names.
+- ~openstack network list~
+- ~openstack image list~
+- ~openstack flavor list~
+- ...
+
+** Boot a VM
+The simplest HOT template you can declare describes how to boot a VM.
+#+BEGIN_SRC yaml :tangle output/rsc/heat-templates/1_boot_vm.yaml
+# The following heat template version tag is mandatory:
+heat_template_version: 2017-09-01
+
+# Here we define a simple decription of the template (optional):
+description: >
+  Simply boot a VM!
+
+# Here we declare the resources to deploy.
+# Resources are defined by a name and a type which described many properties:
+resources:
+  # Name of my resource:
+  heat-vm:
+    # Its type, here we want to define an OpenStack Nova server:
+    type: "OS::Nova::Server"
+    properties:
+      name: hello_world      # Name of the VM
+      image: debian-10       # Its image (must be available in Glance)
+      flavor: m1.mini        # Its flavor (must exist in Nova)
+      key_name: admin        # Name of its SSH Key (must exist in Nova)
+      networks:              # List of networks to connect to
+        - {network: private}
+#+END_SRC
+
+As depicted in this example, the different OpenStack resources can be
+declared using types.  OpenStack resource types are listed in the
+[[os-doc:heat,template_guide/openstack.html][documentation]], browsing this page, you can see that resources exist
+for most OpenStack services (e.g. Nova, Neutron, Glance, Cinder,
+Heat).  Here, we declare a new resource called ~heat-vm~ which is
+defined by the type ~OS::Nova::Server~ to declare a new virtual
+machine.  A type specifies different properties (some are mandatory,
+some are optional, [[os-doc:heat,template_guide/openstack.html][see the documentation]] for more details).  The
+~OS::Nova::Server~ properties should be familiar to you since it is
+the classical properties Nova requires to boot a VM (i.e. name, image,
+flavor, key name).  Once you have written this template in a file, you
+can now deploy the stack as following:
+
+#+BEGIN_SRC bash
+openstack stack create -t ./rsc/heat-templates/1_boot_vm.yaml hw1
+openstack stack list
+openstack stack show hw1
+watch openstack server list
+openstack stack delete --wait --yes hw1
+#+END_SRC
+
+This simple template is enough to run a virtual machine.  However, it
+is very static.  In the next subsection, we are going to manipulate
+parameters to add flexibility.
+
+** Need more flexibility: let's add parameters
+:PROPERTIES:
+:CUSTOM_ID: sec:heat-params
+:END:
+Templates can be more flexible with parameters.  To that end you can:
+- Declare a set of parameters to provide to your template.
+- Use the [[os-doc:heat,template_guide/hot_spec.html#hot-spec-intrinsic-functions][intrinsic function]] ~get_param~ to map those parameters in
+  your resource declarations.
+
+The next template is an example with four parameters.  The first one
+is related to the VM name and must be provided during the stack
+creation.  The second one is the name of the VM image with a
+~debian-10~ as default value.  The third argument corresponds to the
+flavor and defaults to ~m1.small~.  Finally, the last one defines the
+SSH key to use and defaults to ~admin~.
+
+#+begin_src yaml :tangle output/rsc/heat-templates/2_boot_vm_with_params.yaml
+heat_template_version: 2017-09-01
+
+description: >
+    Simply boot a VM with params!
+
+# Here we define parameters
+# Parameters have a name, and a list of properties:
+parameters:
+  the_vm_name:
+    type: string                     # The type of the parameter (required)
+    description: Name of the server  # An optional description
+  the_image:
+    type: string
+    description: Image to use for servers
+    default: debian-10               # An optional default value
+  the_flavor:
+    type: string
+    description: Flavor to use for servers
+    default: m1.small
+  the_key:
+    type: string
+    description: Key name to use for servers
+    default: admin
+
+# Here we use intrinsic functions to get the parameters:
+resources:
+  heat-vm:
+    type: "OS::Nova::Server"
+    properties:
+      name:     { get_param: the_vm_name }
+      image:    { get_param: the_image }
+      flavor:   { get_param: the_flavor }
+      key_name: { get_param: the_key }
+      networks:
+       - {network: private}
+#+end_src
+
+To deploy this stack, run the next command.  It deploys the VM by
+overriding the default flavor value ~m1.mini~ with ~m1.small~.  This
+can be checked in ~openstack server list~.
+#+BEGIN_src bash
+openstack stack create -t ./rsc/heat-templates/2_boot_vm_with_params.yaml \
+  --parameter the_vm_name=hello_params \
+  --parameter the_flavor=m1.small \
+  hw2
+openstack server list
+openstack stack delete --wait --yes hw2
+#+END_src
+
+The parameter ~the_vm_name~ is required since no default value is
+provided.  If you try to create a stack without providing this
+parameter, you end with an error.
+#+BEGIN_SRC bash
+openstack stack create -t ./rsc/heat-templates/2_boot_vm_with_params.yaml \
+    --parameter the_flavor=m1.medium \
+    hw2_error
+
+ERROR: The Parameter (the_vm_name) was not provided.
+#+END_SRC
+
+Parameters are the inputs of templates.  The next subsection, focuses
+on declaring outputs, so that a stack can return a set of attributes
+(e.g., the IP address of a deployed VM).
+
+** Need to return values: let's use outputs
+:PROPERTIES:
+:CUSTOM_ID: sec:heat-outputs
+:END:
+Templates can declare a set of attributes to return.  For instance,
+you might need to know the IP address of a resource at runtime.  To
+that end, you can declare attributes in a new section called
+~outputs~:
+
+#+begin_src yaml :tangle output/rsc/heat-templates/3_boot_vm_with_output.yaml
+heat_template_version: 2017-09-01
+
+description: >
+  Boot a VM and return its IP address!
+
+resources:
+  heat-vm:
+    type: "OS::Nova::Server"
+    properties:
+      name: hello_outputs
+      image: debian-10
+      flavor: m1.mini
+      key_name: admin
+      networks:
+        - { network: private }
+
+# We set here outputs (stack returned attributes).
+# Outputs are defined by a name, and a set of properties:
+outputs:
+  HOSTIP:
+    # The description is optional
+    description: IP address of the created instance
+    # Use `get_attr` to find the value of `HOSTIP`. The `get_attr`
+    # function references an attribute of a resouces, here the
+    # `addresses.private[0].addr` of `heat-vm`.
+    #
+    # The following should be read:
+    # - on `heat-vm` resource (which is an object ...)
+    # - select the `addresses` attribute (which is an object ...)
+    # - select the `private` attribute (which is a list ...)
+    # - pick the element at indices `0` (which is an object ...)
+    # - select the `addr` attribute (which is a string)
+    value: { get_attr: [heat-vm, addresses, private, 0, addr] }
+  HOSTNAME:
+    description: Hostname of the created instance
+    value: { get_attr: [heat-vm, name] }
+#+end_src
+
+The template declares an output attribute called ~HOSTIP~ which stores
+the IP address of the VM resource.  To find the IP address, it uses
+another [[os-doc:heat,template_guide/hot_spec.html#get-attr][intrinsic function]]: ~get_attr~.  Same with the ~HOSTNAME~
+output.  Output attributes can be exploited in two ways: they can be
+displayed from the CLI, or they can be fetched by other stack
+templates (we will see this last case latter):
+
+#+begin_src bash
+openstack stack create -t ./rsc/heat-templates/3_boot_vm_with_output.yaml hw3
+openstack stack output list hw3
+openstack stack output show hw3 HOSTIP
+#+end_src
+
+#+begin_note
+Once again, the Heat documentation is your friend to find out
+[[os-doc:heat,template_guide/openstack.html#OS::Nova::Server-attrs][attributes]].  As such, you can reference the IP address with the
+~network~ attribute.
+: get_attr: [heat-vm, networks, private, 0]
+
+The source code of Heat also list [[https://github.com/openstack/heat/blob/0703ca7bb19ca3bb06009c828a66bababf9970b8/heat/engine/resources/openstack/nova/server.py#L646-L736][extra attributes]] that let you find
+the IP address such as ~first_address~, but that one is deprecated
+though.
+: get_attr: [heat-vm, first_address]
+
+The [[horizon-url][horizon dashbord]] has an "Orchestration" tab with a good list of
+available functions and resources.
+
+Finally, you can introspect all attributes of a resource with the
+following command at runtime:
+: python -c "import pprint; pprint.pprint($(openstack stack resource show hw3 heat-vm -c attributes -f value))"
+
+#+begin_src python
+{u'OS-DCF:diskConfig': u'MANUAL',
+ # ...
+ u'addresses': {u'private': [{u'OS-EXT-IPS-MAC:mac_addr': u'fa:16:3e:73:10:fe',
+                           u'OS-EXT-IPS:type': u'fixed',
+                           u'addr': u'192.168.222.84',
+                           u'version': 4}]},
+ # ...
+ u'image': {u'id': u'3c91bbf5-5d1f-4e72-bf77-6dbc19c8351c',
+            u'links': [{u'href': u'http://10.20.20.1:8774/images/3c91bbf5-5d1f-4e72-bf77-6dbc19c8351c',
+                        u'rel': u'bookmark'}]},
+ # ...
+ u'name': u'hello_outputs'}
+#+end_src
+#+end_note
+
+Remember to delete your stack at the end to release resources.
+: openstack stack delete --wait --yes hw3
+
+** Integrate ~cloud-init~
+It is possible to declare a post-installation script in the template
+with the ~user_data~ property.
+
+#+begin_src yaml :tangle output/rsc/heat-templates/4_boot_vm_with_user-data.yaml
+  heat_template_version: 2017-09-01
+
+  description: >
+    Boot a VM with a post-installation script!
+
+  resources:
+    heat-vm:
+      type: "OS::Nova::Server"
+      properties:
+        name: hello_cloud_init
+        image: debian-10
+        flavor: m1.mini
+        key_name: admin
+        networks:
+          - { network: private }
+        # We set here the user-data:
+        user_data: |
+          #!/usr/bin/env bash
+
+          # Fix DNS resolution
+          echo "" > /etc/resolv.conf
+          echo "nameserver 8.8.8.8" >> /etc/resolv.conf
+
+          # Install stuff and configure the MOTD
+          apt-get update
+          apt-get install -y fortune fortunes cowsay lolcat
+          echo "#!/usr/bin/env bash" > /etc/profile.d/cowsay.sh
+          echo "fortune | cowsay -n | lolcat" >> /etc/profile.d/cowsay.sh
+#+end_src
+
+: openstack stack create -t ./rsc/heat-templates/4_boot_vm_with_user-data.yaml hw4
+
+Associating a floating IP is a bit tricky with Heat, so let's do it
+manually for now.  Then, wait for ~cloud-init~ to finish and finally,
+SSH on the VM (the ~wait_contextualization~ function comes from
+section [[#sec:cloud-init]]).
+
+#+begin_src bash
+openstack server add floating ip hello_cloud_init \
+  $(openstack floating ip create -c floating_ip_address -f value public)
+wait_contextualization hello_cloud_init
+openstack server ssh --login debian --identity ./admin.pem hello_cloud_init
+openstack stack delete --wait --yes hw4
+#+end_src
+
+#+BEGIN_note
+Find the ~user_data~ file executed on the VM by cloud-init at
+~/var/lib/heat-cfntools/cfn-userdata~.  This path comes from the log
+of the VM boot (using ~openstack console log show hello_cloud_init~)
+right after the log ~Cloud-init v. ... running~.
+#+END_note
+
+** Dynamic configuration with ~cloud-init~ and parameters
+Let's mix parameters and cloud-init to write a template with a
+flexible post-installation script.  With Heat, it is possible to
+provide a parameter to your user-data at run-time by using a new
+[[os-doc:heat,template_guide/hot_spec.html#str-replace][intrinsic function]]: ~str_replace~.
+
+#+begin_src yaml :tangle output/rsc/heat-templates/5_boot_vm_with_user-data2.yaml
+heat_template_version: 2017-09-01
+
+description: >
+  Boot a VM by installing a set of packages given as parameters!
+
+parameters:
+  package-names:
+    label: List of packages to install
+    type: string
+
+resources:
+  heat-vm:
+    type: "OS::Nova::Server"
+    properties:
+      name: hello_cloud_init_params
+      image: debian-10
+      flavor: m1.mini
+      key_name: admin
+      networks:
+        - { network: private }
+      user_data:
+        # This intrinsic function can replace strings in a template
+        str_replace:
+          # We define here the script
+          template: |
+              #!/usr/bin/env bash
+              apt-get update
+              apt-get install -y ${PKG-NAMES}
+          # We define here the parameters for our script
+          params:
+            ${PKG-NAMES}: { get_param: package-names }
+#+end_src
+
+The template uses ~str_replace~ to instantiate variables in the
+template.  In this example, the parameter should be a string
+containing a set of packages to install in the VM. You can deploy the
+stack as follow:
+#+BEGIN_SRC bash
+openstack stack create \
+    -t ./rsc/heat-templates/5_boot_vm_with_user-data2.yaml \
+    --parameter package-names="vim cowsay fortune fortunes lolcat" \
+   hw5
+openstack stack delete --wait --yes hw5
+#+END_SRC
+
+This mechanism is crucial to dynamically configure our services during
+the deployment.  For instance, ~service-A~ might require an IP address
+in its configuration file to access ~service-B~, which runs on another
+VM.  This IP address is only known at run-time, so it must be
+represented by a variable managed in Heat templates.  In the next
+subsections, we are going to study how to declare such variable, so
+that Heat resources can exchange information.
+
+** Data dependency between resources
+:PROPERTIES:
+:CUSTOM_ID: sec:data-deps-rscs
+:END:
+Let's declare a template with two VMs: ~user~ and ~provider~.  The
+idea is to configure ~user~'s static lookup table for hostnames (more
+information can be found by typing: ~man hosts~), so that user can
+target ~provider~ from its hostname rather than its IP address.  To
+that end, the template uses the ~user_data~ property together with the
+~get_attr~ function to edit the ~/etc/hosts~ file on ~user~, and map
+the IP address of ~provider~ with its hostname.
+
+#+begin_src yaml :tangle output/rsc/heat-templates/6_boot_vms_with_exchange.yaml
+heat_template_version: 2017-09-01
+
+description: >
+  Boot two VMs and ease the access from user to provider!
+
+resources:
+  user-vm:
+    type: "OS::Nova::Server"
+    properties:
+      name: user
+      image: debian-10
+      flavor: m1.mini
+      key_name: admin
+      networks:
+        - { network: private }
+      user_data:
+        str_replace:
+          template: |
+            #!/usr/bin/env bash
+            # With the following line, provider is reachable from its hostname
+            echo "${IP_ADDRESS} provider" >> /etc/hosts
+          params:
+            # `get_attr` references the following `provider-vm` resource.
+            ${IP_ADDRESS}: { get_attr: [provider-vm, addresses, private, 0, addr] }
+
+  provider-vm:
+    type: "OS::Nova::Server"
+    properties:
+      name: provider
+      image: debian-10
+      flavor: m1.mini
+      key_name: admin
+      networks:
+        - { network: private }
+#+end_src
+
+In this example, ~user~ requires the IP address of ~provider~ to boot.
+The Heat engine is in charge of managing dependencies between
+resources.  Take a look during the deployment, and check that
+~provider~ is deployed prior to ~user~.
+
+#+BEGIN_EXAMPLE
+openstack stack create -t ./rsc/heat-templates/6_boot_vms_with_exchange.yaml hw6 \
+  && watch openstack server list
+openstack server add floating ip user \
+  $(openstack floating ip create -c floating_ip_address -f value public)
+openstack server ssh --login debian --identity ./admin.pem --address-type public user
+debian@user:~$ ping provider -c 2
+PING provider (192.168.222.238) 56(84) bytes of data.
+64 bytes from provider (192.168.222.238): icmp_seq=1 ttl=64 time=1.27 ms
+64 bytes from provider (192.168.222.238): icmp_seq=2 ttl=64 time=3.07 ms
+
+debian@user:~$ exit
+openstack stack delete --wait --yes hw6
+#+END_EXAMPLE
+
+** Nested templates
+Heat is able to compose templates to keep human-readable files, using
+nested templates.  For instance, we can use a first template that
+describes a virtual machine, and a second template which deploys
+multiple VMs by referencing the first one.  Rather than creating the
+first template, we can re-use the one from section [[#sec:heat-params]].
+
+#+begin_src yaml :tangle output/rsc/heat-templates/7_nested_template.yaml
+heat_template_version: 2017-09-01
+
+description: >
+  Boot two different VMs by exploiting nested templates!
+
+resources:
+  provider-vm:
+    # Template can be provided as resource type (relatively to
+    # that template)
+    type: ./2_boot_vm_with_params.yaml
+    # The related properties are given as template's parameters:
+    properties:
+      the_vm_name: provider
+      the_flavor: m1.mini
+
+  user-vm:
+    type: ./2_boot_vm_with_params.yaml
+    properties:
+      the_vm_name: user
+#+end_src
+
+To compose a template, a new resource can be defined by specifying its
+type as the target of the desired template.  A set of properties can
+be provided to the nested template and will be interpreted as
+parameters.
+
+#+BEGIN_src bash
+openstack stack create -t ./rsc/heat-templates/7_nested_template.yaml hw7 \
+  && watch openstack server list
+openstack stack delete --wait --yes hw7
+#+END_SRC
+
+Nested templates are very convenient to keep your code clean and
+re-usable.  Next section extends nested templates with data
+dependency.
+
+** Nested templates with data dependency
+Let's describe the same deployment as in section [[#sec:data-deps-rscs]]
+by using nested templates. For that we need a new template:
+
+#+begin_src yaml :tangle output/rsc/heat-templates/8_nested_template_boot_vm.yaml
+heat_template_version: 2017-09-01
+
+description: >
+  Boot a VM, ease access to a remote host and return its IP address!
+
+parameters:
+  the_vm_name:
+    type: string
+    description: Name of the server
+  the_remote_hostname:
+    type: string
+    description: Host name of the remote host
+    default: provider
+  the_remote_ip:
+    type: string
+    description: IP address of the remote host
+
+resources:
+  hostname-vm:
+    type: "OS::Nova::Server"
+    properties:
+      name:     { get_param: the_vm_name }
+      image:    debian-10
+      flavor:   m1.mini
+      key_name: admin
+      networks:
+        - {network: private}
+      user_data:
+        str_replace:
+          params:
+            ${HOSTNAME}: { get_param: the_remote_hostname }
+            ${IP_ADDRESS}: { get_param: the_remote_ip }
+          template: |
+            #!/usr/bin/env bash
+            # With the following line, the remote host is reachable from its hostname
+            echo "${IP_ADDRESS} ${HOSTNAME}" >> /etc/hosts
+
+outputs:
+  HOSTIP:
+    description: IP address of the created instance
+    value: { get_attr: [hostname-vm, networks, private, 0] }
+#+end_src
+
+We can now declare the main template. While it defines three VMs, this
+template is easy to read since it points to the template created
+previously and template in section [[#sec:heat-outputs]].
+
+#+begin_src yaml :tangle output/rsc/heat-templates/8_nested_template_exchange.yaml
+heat_template_version: 2017-09-01
+
+description: >
+  Boot three VMs and ease the access to provider using nested
+  templates!
+
+resources:
+  provider-vm:
+    type: ./3_boot_vm_with_output.yaml
+
+  user-vm1:
+    type: ./8_nested_template_boot_vm.yaml
+    properties:
+      the_vm_name: user1
+      the_remote_ip: { get_attr: [provider-vm, HOSTIP] }
+      the_remote_hostname: { get_attr: [provider-vm, HOSTNAME] }
+
+  user-vm2:
+    type: ./8_nested_template_boot_vm.yaml
+    properties:
+      the_vm_name: user2
+      the_remote_ip: { get_attr: [provider-vm, HOSTIP] }
+      the_remote_hostname: { get_attr: [provider-vm, HOSTNAME] }
+#+end_src
+
+#+BEGIN_src bash
+openstack stack create -t ./rsc/heat-templates/8_nested_template_exchange.yaml hw8 \
+  && watch openstack server list
+openstack stack delete --wait --yes hw8
+#+END_SRC
+
+** Other type of resources: floating IP
+It's Floating IP time!
+
+#+BEGIN_SRC yaml :tangle output/rsc/heat-templates/9_floating_ip.yaml
+heat_template_version: 2017-09-01
+
+description: >
+  Boot a VM and associate a floating IP.
+
+resources:
+  server:
+    type: OS::Nova::Server
+    properties:
+      name: hello_fip
+      image: debian-10
+      flavor: m1.mini
+      key_name: admin
+      networks:
+        - { network: private }
+
+  floating-ip:
+    type: OS::Neutron::FloatingIP
+    properties:
+      floating_network: public
+
+  association:
+    type: OS::Neutron::FloatingIPAssociation
+    properties:
+      floatingip_id: { get_resource: floating-ip }
+      port_id: { get_attr: [server, addresses, private, 0, port]}
+#+END_SRC
+
+: openstack stack create -t ./rsc/heat-templates/9_floating_ip.yaml --wait hw9
+
+You may find the floating IP by listing servers.
+: openstack server list
+Or by asking Heat about attributes of the ~floating-ip~ resource.
+#+BEGIN_src bash
+FIP_RSC_ATTRIBUTES=$(openstack stack resource show -c attributes -f value hw9 floating-ip)
+python -c "print('floating ip is %s' % ${FIP_RSC_ATTRIBUTES}['floating_ip_address'])"
+#+END_src
+
+Remember to delete your stack at the end to release resources.
+: openstack stack delete --wait --yes hw9
+
+* Deploy a WordPress as a Service (as a Heat DevOps)
+:PROPERTIES:
+:CUSTOM_ID: sec:wp-heat
+:END:
+As a DevOps at OWPH -- Online WordPress Hosting -- you are now in
+charge of the automation process of deploying WordPress instances for
+clients: Congratulation! To that end, you have to use what you learned
+from the previous section to design a template that describes a
+WordPress application using Heat. We are going to deploy WordPress
+inside two VMs: the first one holds the web server, the second one
+runs the database:
+
+- VM1: Apache + PHP + WordPress code
+- VM2: MariaDB
+
+#+BEGIN_do
+Create three HOT files:
+
+- ~db-vm.yaml~  :: Contains the description of the VM running MariaDB.
+- ~wp-vm.yaml~  :: Contains the description of the VM running the Web
+  server and serving WordPress.
+- ~wp-app.yaml~ :: Contains the description of the WordPress
+  application (glues the ~db-vm.yaml~ and ~web-vm.yaml~ together).
+
+Once it is deployed, you should be able to reach the WordPress service by
+going on [[http://<wp-vm-fip-address>/wp]].
+
+#+BEGIN_solution
+Find the solution in the ~rsc/heat-templates/wordpress/~ directory of
+the tarball and in the following subsections.  Create the WordPress
+application and output its endpoint with the next commands.
+
+#+BEGIN_src bash
+openstack stack create -t ./rsc/heat-templates/wordpress/wp-app.yaml wp1
+echo "http://$(openstack stack output show wp1 public-ip -c output_value -f value)/wp"
+#+END_src
+#+END_solution
+#+END_do
+
+** Database VM template                                    :solution:
+#+BEGIN_src yaml :tangle output/rsc/heat-templates/wordpress/db-vm.yaml
+heat_template_version: 2017-09-01
+
+description: >
+  Deploy an MariaDB server, outputs its IP address.
+
+parameters:
+  ServerKeyName:
+    label: Name of the SSH key to provide to cloud-init
+    type: string
+    default: admin
+
+  # Parameters used in the cloud-init script to install & configure
+  # MariaDB.
+  DBRootPassword:
+    label: Value of the password to manage the database
+    type: string
+  DBName:
+    label: Name of the database to create
+    type: string
+  DBUser:
+    label: Name of the database user
+    type: string
+  DBPassword:
+    label: Password to access the database
+    type: string
+
+resources:
+  db-vm:
+    type: OS::Nova::Server
+    properties:
+      key_name: { get_param: ServerKeyName }
+      image: debian-10
+      flavor: m1.mini
+      networks:
+        - { network: private }
+      user_data:
+        str_replace:
+          template: { get_file: ../../install-mariadb.sh }
+          params:
+            ${DB_ROOTPASSWORD}: { get_param: DBRootPassword }
+            ${DB_NAME}: { get_param: DBName }
+            ${DB_USER}: { get_param: DBUser }
+            ${DB_PASSWORD}: { get_param: DBPassword }
+outputs:
+  DBHost:
+    description: IP address of the created instance running MariaDB
+    value: { get_attr: [db-vm, networks, private, 0] }
+#+END_src
+
+** Web VM template                                         :solution:
+#+BEGIN_src yaml :tangle output/rsc/heat-templates/wordpress/wp-vm.yaml
+heat_template_version: 2017-09-01
+
+description: >
+  Deploy an HTTP server that serves WordPress. Requires an SQL
+  database, whose IP address must be provided as a parameter.
+
+parameters:
+  ServerKeyName:
+    label: Name of the SSH key to provide to cloud-init
+    type: string
+    default: admin
+
+  # Parameters used in the cloud-init script to install & configure
+  # the WordPress app.
+  DBName:
+    label: Name of the database to use
+    type: string
+  DBUser:
+    label: Name of the database user
+    type: string
+  DBPassword:
+    label: Password to access the database
+    type: string
+  DBHost:
+    label: IP address of the SQL server
+    type: string
+
+resources:
+  wp-vm:
+    type: OS::Nova::Server
+    properties:
+      key_name: { get_param: ServerKeyName }
+      image: debian-10
+      flavor: m1.mini
+      networks:
+        - { network: private }
+      user_data:
+        str_replace:
+          template: { get_file: ../../install-wp.sh }
+          params:
+            ${DB_NAME}:     { get_param: DBName }
+            ${DB_USER}:     { get_param: DBUser }
+            ${DB_PASSWORD}: { get_param: DBPassword }
+            ${DB_HOST}:     { get_param: DBHost }
+
+  floating-ip:
+    type: OS::Neutron::FloatingIP
+    properties:
+      floating_network: public
+
+  association:
+    type: OS::Neutron::FloatingIPAssociation
+    properties:
+      floatingip_id: { get_resource: floating-ip }
+      port_id: { get_attr: [wp-vm, addresses, private, 0, port]}
+
+outputs:
+  public-ip:
+    description: IP address of the created instance running WordPress
+    value: { get_attr: [floating-ip, floating_ip_address] }
+#+END_src
+
+** Wordpress application template                          :solution:
+#+BEGIN_src yaml :tangle output/rsc/heat-templates/wordpress/wp-app.yaml
+heat_template_version: 2017-09-01
+
+description: >
+  Deploy a WordPress application, composed of an SQL
+  instance and an HTTP instance that serves WordPress.
+
+
+parameters:
+  ServerKeyName:
+    label: Name of the SSH key to provide to cloud-init
+    type: string
+    default: admin
+
+  # Parameters used in the cloud-init script to install & configure
+  # MariaDB
+  DBRootPassword:
+    label: Value of the password to manage the database
+    type: string
+    default: 0p3nSt4cK
+  DBName:
+    label: Name of the database to create
+    type: string
+    default: wordpress
+  DBUser:
+    label: Name of the database user
+    type: string
+    default: donatello
+  DBPassword:
+    label: Password to access the database
+    type: string
+    default: leonardo
+
+resources:
+  database:
+    type: ./db-vm.yaml
+    properties:
+      ServerKeyName: { get_param: ServerKeyName }
+      DBRootPassword: { get_param: DBRootPassword }
+      DBName: { get_param: DBName }
+      DBUser: { get_param: DBUser }
+      DBPassword: { get_param: DBPassword }
+  wordpress:
+    type: ./wp-vm.yaml
+    properties:
+      ServerKeyName: { get_param: ServerKeyName }
+      DBName: { get_param: DBName }
+      DBUser: { get_param: DBUser }
+      DBPassword: { get_param: DBPassword }
+      DBHost: { get_attr: [database, DBHost] }
+
+outputs:
+  public-ip:
+    description: IP address of the created instance running WordPress
+    value: { get_attr: [wordpress, public-ip] }
+#+END_src
+
+* Appendix
+** COMMENT Vagrantfile
+[[https://en.wikipedia.org/wiki/Vagrant_%28software%29][Vagrant]] is an open-source software to build development environment
+using a declarative approach.  In addition to Vagrant, we recommend to
+install the [[https://github.com/vagrant-libvirt/vagrant-libvirt#installation][Vagrant Libvirt Provider]] in order to take advantage of the
+hardware virtualization.
+
+Copy the following content into a file named "Vagrantfile".  Review
+the content, especially the number of CPU, memory size and the
+private/public network.
+#+include: "Vagrantfile" src ruby
+
+Then start and connect to the lab machine with the following commands.
+: vagrant up --provider=libvirt  # remove `--provider=libvirt` if you don't support vagrant-libvirt
+: vagrant ssh
+
+You can also synchronize the content of your current directory with
+the content of the ~/vagrant~ directory in the lab machine with the
+~vagrant rsync~ command.
+
+** Install MariaDB on Debian 10
+#+BEGIN_src bash :tangle output/rsc/install-mariadb.sh
+#!/usr/bin/env bash
+#
+# Install and configure MariaDB for Debian 10.
+
+# Fix DNS resolution
+echo "" > /etc/resolv.conf
+echo "nameserver 8.8.8.8" >> /etc/resolv.conf
+
+# Parameters
+DB_ROOTPASSWORD=root
+DB_NAME=wordpress    # Wordpress DB name
+DB_USER=lab-os       # Wordpress DB user
+DB_PASSWORD=lab-os   # Wordpress DB pass
+
+# Install MariaDB
+apt update -q
+apt install -q -y mariadb-server mariadb-client
+
+# Next line stops mysql install from popping up request for root password
+export DEBIAN_FRONTEND=noninteractive
+sed -i 's/127.0.0.1/0.0.0.0/' /etc/mysql/mariadb.conf.d/50-server.cnf
+systemctl restart mysql
+
+# Setup MySQL root password and create a user and add remote privs to app subnet
+mysqladmin -u root password ${DB_ROOTPASSWORD}
+
+# Create the wordpress database
+cat << EOSQL | mysql -u root --password=${DB_ROOTPASSWORD}
+FLUSH PRIVILEGES;
+CREATE USER '${DB_USER}'@'localhost';
+CREATE DATABASE ${DB_NAME};
+SET PASSWORD FOR '${DB_USER}'@'localhost'=PASSWORD("${DB_PASSWORD}");
+GRANT ALL PRIVILEGES ON ${DB_NAME}.* TO '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASSWORD}';
+CREATE USER '${DB_USER}'@'%';
+SET PASSWORD FOR '${DB_USER}'@'%'=PASSWORD("${DB_PASSWORD}");
+GRANT ALL PRIVILEGES ON ${DB_NAME}.* TO '${DB_USER}'@'%' IDENTIFIED BY '${DB_PASSWORD}';
+EOSQL
+#+END_src
+
+** Install Wordpress application on Debian 10
+#+BEGIN_src bash :tangle output/rsc/install-wp.sh
+#!/usr/bin/env bash
+#
+# Install and configure Apache to serve Wordpress for Debian 10.
+
+# Fix DNS resolution
+echo "" > /etc/resolv.conf
+echo "nameserver 8.8.8.8" >> /etc/resolv.conf
+
+# Parameters
+DB_NAME=wordpress
+DB_USER=lab-os
+DB_PASSWORD=lab-os
+DB_HOST="{{ TODO }}"
+
+apt-get update -y
+apt-get upgrade -y
+apt-get install -q -y --force-yes wordpress apache2 curl lynx
+
+cat << EOF > /etc/apache2/sites-available/wp.conf
+Alias /wp/wp-content /var/lib/wordpress/wp-content
+Alias /wp /usr/share/wordpress
+<Directory /usr/share/wordpress>
+    Options FollowSymLinks
+    AllowOverride Limit Options FileInfo
+    DirectoryIndex index.php
+    Require all granted
+</Directory>
+<Directory /var/lib/wordpress/wp-content>
+    Options FollowSymLinks
+    Require all granted
+</Directory>
+EOF
+
+a2ensite wp
+service apache2 reload
+
+cat << EOF > /etc/wordpress/config-default.php
+<?php
+define('DB_NAME', '${DB_NAME}');
+define('DB_USER', '${DB_USER}');
+define('DB_PASSWORD', '${DB_PASSWORD}');
+define('DB_HOST', '${DB_HOST}');
+define('WP_CONTENT_DIR', '/var/lib/wordpress/wp-content');
+?>
+EOF
+#+END_src
+# This is not needed anymore (at least, with SSH tunneling)
+# define('WP_SITEURL', 'http://' . $_SERVER['HTTP_HOST'] . '/wp');
+
+** COMMENT VM Live migration
+First start a VM with mpv and libcaca to output videos in the
+terminal.  Download a video from youtube, so you can then broadcast it
+on a loop with ~mpv --vo caca --no-audio --loop vid.mp4~ after SSH on it.
+#+begin_src bash
+openstack server create migrate-vm \
+          --wait --flavor m1.mini --network private \
+          --image debian-10 \
+          --key-name ronana \
+          --user-data ./rsc/live-migrate-do-it.sh
+ALLOCATED_FIP=$(openstack floating ip create -c floating_ip_address -f value external)
+openstack server add floating ip migrate-vm "${ALLOCATED_FIP}"
+echo "${ALLOCATED_FIP}"
+#+end_src
+
+Here is the script to setup the VM.
+#+begin_src bash :tangle output/rsc/live-migrate-do-it.sh
+#!/usr/bin/env bash
+apt update; apt install -y python3-pip mpv libcaca-dev
+pip3 install --upgrade youtube_dl
+# Pick a video under creative commons
+youtube-dl --recode-video mp4 --verbose \
+           --user-agent "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)" \
+           --output vid.mp4 \
+           "https://www.youtube.com/watch?v=ZXsQAXx_ao0"
+#+end_src
+
+Then while broadcasting, live migrate your VM and also take a look at
+its state.
+#+begin_src bash
+watch openstack server show migrate-vm -c 'OS-EXT-SRV-ATTR:host' -c 'OS-EXT-STS:task_state'
+openstack server migrate migrate-vm --live-migration --block-migration
+#+end_src
+
+** COMMENT Misc
+Pad pour la prise de note commune
+https://pad.inria.fr/p/np_HcC3U1VsFnNgT1af_Nuage-2020-2021
+
+#+begin_src bash
+sudo useradd -g 100 -G adm,sudo -m -s /bin/bash -c 'tp-os ronan-alexandre.cherrueau@inria.fr' tp-os
+sudo passwd tp-os
+
+
+#+end_src
+
+Tunneling from the outside world (my machine) to my lab machine
+throughout the frontend
+: ssh -NL 8080:<ip-lab-machine>:80 <frontend>
+
+Now I can access the service of ~http://ip-lab-machine:80~ on my
+machine from the URL https://localhost:8080
+
+: ssh -NL 8080:parapide-7.rennes:80 rennes.g5k
+
+: ssh -NL 8080:193.52.86.XXX:80 nom_connexion@172.19.64.240 -p 20XXX
+
+: ssh -NL 8080:193.52.86.102:80 ronan@ttyd.user-content.tk
+
+Share a terminal
+: tmux -S /tmp/ronan-alebre new
+: tmux -S /tmp/ronan-alebre attach
+
+IP of lab machines
+193.52.86.102
+193.52.86.115
+193.52.86.122
+193.52.86.126
+193.52.86.133
+193.52.86.147
+193.52.86.203
+
+# Undo the external network setup of `microstack.init --auto`
+sudo sysctl -w net.ipv4.ip_forward=0
+sudo extcidr=10.20.20.0/24  # find it with `sudo iptables -t nat -L`
+
+# Flush the nat table
+# iptables -w -t nat -D POSTROUTING -s $extcidr ! -d $extcidr -j MASQUERADE > /dev/null
+sudo iptables -Z
+sudo iptables -t nat -F
+sudo iptables -t nat -X
+
+sudo apt remove --yes --quiet --autoremove heat-api heat-api-cfn heat-engine
+
+sudo snap remove --purge openstackclients
+sudo snap remove --purge microstack
+
+# test mysql, mariadb, memcached
+apt list --installed | grep -E 'mariadb|memcached'
+sudo apt remove --yes --quiet --autoremove mariadb-common mariadb-server memcached
+
+# To create account on frontend
+echo "Enter password for students: "
+read PASSWD
+while read line ; do login=$(echo $line |awk -F"," '{print $1}') ;  mail=$(echo $line|awk -F"," '{print $2}') ;  sudo useradd -g 100 -m -s /bin/bash -c "$mail" $login ;  done </tmp/studentlist
+while read line ; do login=$(echo $line |awk -F"," '{print $1}') ;  echo $login:$PASSWD |sudo chpasswd ; done </tmp/studentlist
+# if needed
+while read line ; do login=$(echo $line |awk -F"," '{print $1}') ;  sudo deluser $login ; done </tmp/studentlist
+
+: sudo useradd -g 100 -m -s /bin/bash -c "xingshuo.cha@etd-univ-nantes.fr" xcha
+: echo "xcha:os-polytech" | sudo chpasswd
+
+while read line ; do login=$(echo $line |awk -F"," '{print $1}') ;  echo $login:$PASSWD |sudo chpasswd
 
 * Footnotes
 [fn:g5k-tunnel] For sure, you always can setup an SSH tunnel but this
