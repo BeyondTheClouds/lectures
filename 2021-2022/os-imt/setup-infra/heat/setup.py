@@ -23,17 +23,18 @@ LOG   = logging.getLogger(__name__)
 USERS = [
     "alebre",
     "mdelavergne",
-    "mmerillon",
-    "cleclere",
-    "afriou",
-    "cmoisan",
-    "dclary",
-    "lnkvo",
-    "eleclerc",
-    "qgrosmangin",
-    "glouarn",
-    "asauvage",
-    "ihaupe"
+    "antnguyen",
+    "npierre",
+    "bpaillette",
+    "pbeslin",
+    "fafilal",
+    "sbenalaya",
+    "jdumont",
+    "smoro",
+    "jklein",
+    "xsong",
+    "jkerleroderosbo",
+    "mmoussaoui"
 ]
 
 # CLUSTER = "paravance"
@@ -41,11 +42,10 @@ CLUSTER = "paravance"
 ENOS_CONF = {
     'provider': {
         'type': 'g5k',
-        'project': 'lab-2021-imta-fila3-os',
-        'job_name': 'enos',
-        'walltime': '08:59:58',
-        'job_name': 'lab-2021-imta-fila3-os',
-        "reservation": "2021-11-21 11:42:01",
+        'project': 'lab-2022-imta-fisea3-os',
+        'walltime': '19:59:58',
+        'job_name': 'lab-2022-imta-fisea3-os',
+        "reservation": "2022-03-15 19:20:01",
         #'env_name': 'debian9-x64-min',
     },
     'resources': {
@@ -294,7 +294,7 @@ def make_sec_group_rule(net, project):
 @click.command()
 @click.option('--test/--no-test', default=False)
 def main(test):
-    # enos_env = install_os(testing=test)
+    #enos_env = install_os(testing=test)
     cloud = make_cloud(f"http://10.24.61.255:35357/v3")
     upload_debian10(cloud.image)
     make_flavors(cloud.compute)
