@@ -1948,7 +1948,7 @@ echo "http://$(openstack stack output show wp1 public-ip -c output_value -f valu
 # solution
 #+END_do
 
-** COMMENT Database VM template                                    :solution:
+** Database VM template                                    :solution:
 #+BEGIN_src yaml :tangle output/rsc/heat-templates/wordpress/db-vm.yaml
 heat_template_version: 2017-09-01
 
@@ -1999,7 +1999,7 @@ outputs:
     value: { get_attr: [db-vm, networks, private, 0] }
 #+END_src
 
-** COMMENT Web VM template                                         :solution:
+** Web VM template                                         :solution:
 #+BEGIN_src yaml :tangle output/rsc/heat-templates/wordpress/wp-vm.yaml
 heat_template_version: 2017-09-01
 
@@ -2063,7 +2063,7 @@ outputs:
     value: { get_attr: [floating-ip, floating_ip_address] }
 #+END_src
 
-** COMMENT Wordpress application template                          :solution:
+** Wordpress application template                          :solution:
 #+BEGIN_src yaml :tangle output/rsc/heat-templates/wordpress/wp-app.yaml
 heat_template_version: 2017-09-01
 
