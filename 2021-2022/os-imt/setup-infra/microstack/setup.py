@@ -16,15 +16,13 @@ logging.basicConfig(level=logging.DEBUG)
 LOG = logging.getLogger(__name__)
 TEAMS = [
     ("alebre", "mdelavergne"),
-    ("mmerillon", ""),
-    ("cleclere", "afriou"),
-    ("cmoisan", "dclary"),
-    ("lnkvo", ""),
-    ("eleclerc", ""),
-    ("qgrosmangin", ""),
-    ("glouarn", ""),
-    ("asauvage", ""),
-    ("ihaupe", "")
+    ("antnguyen", "npierre"),
+    ("bpaillette", "pbeslin"),
+    ("fafilal", "sbenalaya"),
+    ("jdumont", "smoro"),
+    ("jklein", "xsong"),
+    ("jkerleroderosbo", ""),
+    ("mmoussaoui", ""),
 ]
 
 
@@ -38,11 +36,11 @@ def get_ip_addr(h: Host) -> str:
 
 def make_conf(testing=True) -> Configuration:
     conf = {
-        "reservation": "2021-11-21 23:30:01",
-        "walltime": "23:30:00",
-        "job_name": "lab-2021-imta-fila3-os",
+        "reservation": "2022-03-08 21:52:01",
+        "walltime": "19:30:00",
+        "job_name": "lab-2022-imta-fisea3-os",
         "env_name": "ubuntu2004-x64-min",
-        "project": "lab-2021-imta-fila3-os",
+        "project": "lab-2022-imta-fisea3-os",
         "resources": {
             "networks": [
                 {
@@ -65,7 +63,7 @@ def make_conf(testing=True) -> Configuration:
                 {
                     "roles": ["OpenStack"],
                     "cluster": "paravance",
-                    "nodes": 10,
+                    "nodes": 8,
                     "primary_network": "net",
                     "secondary_networks": [ ],
                 }
@@ -87,6 +85,7 @@ def provision(rs: Roles):
 
     with play_on(roles=rs, pattern_hosts="OpenStack") as p:
         # Install the bare necessities
+        p.raw('apt update')
         p.apt(pkg=['bat', 'curl', 'htop', 'tcpdump', 'lynx', 'vim', 'kmod'],
               update_cache=True)
         # Workaround ripgrep error

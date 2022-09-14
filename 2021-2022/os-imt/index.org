@@ -163,9 +163,7 @@ minutes for other options).
 :CUSTOM_ID: sec:assign-lab
 :END:
 Find the assignation list of Lab machine per student on the
-collaborative editor
-https://notes.inria.fr/L5mGTNGORdewfkfINm81kA.
-
+collaborative editor [[https://notes.inria.fr/2DjGmcZ6TwiQ0q8sSQO2gw]].
 
 
 First thing first, you have to connect to the Lab machine.
@@ -1936,7 +1934,8 @@ Create three HOT files:
 Once it is deployed, you should be able to reach the WordPress service by
 going on [[http://<wp-vm-fip-address>/wp]].
 
-#+BEGIN_solution
+#+BEGIN_comment
+# solution
 Find the solution in the ~rsc/heat-templates/wordpress/~ directory of
 the tarball and in the following subsections.  Create the WordPress
 application and output its endpoint with the next commands.
@@ -1945,7 +1944,8 @@ application and output its endpoint with the next commands.
 openstack stack create -t ./rsc/heat-templates/wordpress/wp-app.yaml wp1
 echo "http://$(openstack stack output show wp1 public-ip -c output_value -f value)/wp"
 #+END_src
-#+END_solution
+#+END_comment
+# solution
 #+END_do
 
 ** Database VM template                                    :solution:
